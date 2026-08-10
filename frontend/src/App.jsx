@@ -1,13 +1,14 @@
 import Navbar from "./components/layout/Navbar";
-import Members from "./pages/Members";
+import MembersPage from "./features/members/MembersPage";
 
-function App() {
+export default function App() {
   return (
-    <>
-      <Navbar />
-      <Members />
-    </>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar adminName="Pastor John Doe" adminRole="Church Admin" />
+
+      <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">
+        <MembersPage />
+      </main>
+    </div>
   );
 }
-
-export default App;

@@ -1,70 +1,61 @@
-import logo from "../../../public/logo.svg";
+import { Church } from "lucide-react";
+import Logo from "../../assets/logo.svg";
 
-const Navbar = () => {
+/**
+ * Navbar
+ *
+ * Global application header. Stays fixed across every page so
+ * admins always have their bearings.
+ *
+ * Props:
+ * - adminName  (string) - name of the signed-in admin, e.g. "Pastor John Doe"
+ * - adminRole  (string) - role label shown under the name, e.g. "Church Admin"
+ */
+export default function Navbar({
+  adminName = "Administrator",
+  adminRole = "Church Admin",
+}) {
+  const initials = adminName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-        {/* Left */}
-
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl">
-            <img src={logo} alt="Logo" className="h-10 w-10" />
+    <header className="sticky top-0 z-40 w-full bg-[#154d78] shadow-sm">
+      <div className="flex h-16 items-center justify-between px-4 md:px-8">
+        {/* Left: identity */}
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+            <img src={Logo} alt="FGC Olugoke Logo" className="h-8 w-8" />
           </div>
-
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              FGC Olugoke Database
-            </h1>
-
-            <p className="text-sm text-slate-500">
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-[15px] font-semibold text-white">
+              FGC Olugoke
+            </p>
+            <p className="hidden truncate text-xs text-white/60 sm:block">
               Member Management System
             </p>
           </div>
         </div>
 
-        {/* Right */}
-
-        <div className="flex items-center gap-6 hidden lg:flex">
-          {/* Notifications */}
-
-          <button className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white transition hover:border-[#154d78]/30 hover:bg-slate-50">
-            🔔
-
-            <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#9e263b]" />
-          </button>
-
-          {/* Admin */}
-
-          <button className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2 pr-5 transition hover:shadow-md">
-            <img
-              src="https://i.pravatar.cc/150?img=12"
-              alt="Administrator"
-              className="h-12 w-12 rounded-xl object-cover"
-            />
-
-            <div className="text-left">
-              <p className="font-semibold text-slate-900">
-                Administrator
-              </p>
-
-              <p className="text-sm text-slate-500">
-                Church Admin
-              </p>
-            </div>
-          </button>
+        {/* Right: signed-in admin */}
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="hidden text-right leading-tight sm:block">
+            <p className="truncate text-sm font-medium text-white">
+              {adminName}
+            </p>
+            <p className="truncate text-xs text-white/60">{adminRole}</p>
+          </div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white ring-1 ring-white/15">
+            {initials || "A"}
+          </div>
         </div>
       </div>
 
-      {/* Brand Line */}
-
-      <div className="flex h-1 w-full">
-        <div className="flex-1 bg-[#FE0000]" />
-        <div className="flex-1 bg-[#363A93]" />
-        <div className="flex-1 bg-[#FEB914]" />
-        <div className="flex-1 bg-[#B92B8F]" />
-      </div>
+      {/* Signature accent — reserved gold, used sparingly per brand rules */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-[#d6b447]/0 via-[#d6b447] to-[#d6b447]/0" />
     </header>
   );
-};
-
-export default Navbar;
+}

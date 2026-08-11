@@ -72,7 +72,7 @@ export default function MemberCard({ member, onView, onEdit, onDelete }) {
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Badge tone="info">{member.department}</Badge>
         <Badge tone="neutral">{member.category}</Badge>
-        <Badge tone={member.status === "Active" ? "success" : "neutral"}>
+        <Badge tone={member.status === "Active" ? "active" : "inactive"}>
           {member.status}
         </Badge>
       </div>

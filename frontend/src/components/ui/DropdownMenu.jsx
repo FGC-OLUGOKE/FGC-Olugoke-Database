@@ -1,10 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import useClickOutside from "../../hooks/useClickOutside";
 import useEscapeKey from "../../hooks/useEscapeKey";
 
 const OPEN_EVENT = "dropdown-menu:open";
 const MENU_WIDTH = 192; // px — matches the w-48 the menu renders at
+const VIEWPORT_MARGIN = 12; // keep a small gap from the screen edge
 
 /**
  * DropdownMenu
@@ -19,7 +20,11 @@ const MENU_WIDTH = 192; // px — matches the w-48 the menu renders at
  * - Closes on Escape
  * - Only one DropdownMenu can be open at a time, globally
  * - Right-aligns its menu to the trigger's right edge
- * - Repositions on scroll/resize while open
+ * - Opens downward by default, but flips to open UPWARD when there
+ *   isn't enough room below the trigger (e.g. the last row in a
+ *   table) — so opening it never forces the page to scroll just to
+ *   see the rest of the menu.
+ * - Repositions (and re-checks the flip) on scroll/resize while open
  *
  * Usage:
  *   <DropdownMenu trigger={<button>Manage ▾</button>}>
@@ -43,15 +48,26 @@ export default function DropdownMenu({ trigger, children }) {
   function updatePosition() {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPosition({
-      top: rect.bottom + window.scrollY + 6,
-      left: rect.right + window.scrollX - MENU_WIDTH,
-    });
+    // Height is only known once the menu has actually mounted; before
+    // that we fall back to opening downward (the common case).
+    const menuHeight = menuRef.current?.offsetHeight ?? 0;
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const fitsBelow = spaceBelow >= menuHeight + VIEWPORT_MARGIN;
+    const shouldOpenUpward = !fitsBelow && spaceAbove > spaceBelow;
+
+    const top = shouldOpenUpward
+      ? rect.top + window.scrollY - menuHeight - 6
+      : rect.bottom + window.scrollY + 6;
+
+    const left = Math.max(8, rect.right + window.scrollX - MENU_WIDTH);
+
+    setPosition({ top, left });
   }
 
   function openMenu() {
     window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: id }));
-    updatePosition();
     setIsOpen(true);
   }
 
@@ -72,13 +88,23 @@ export default function DropdownMenu({ trigger, children }) {
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
-      const raf = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(raf);
+      return;
     }
     setVisible(false);
     const timeout = setTimeout(() => setShouldRender(false), 150);
     return () => clearTimeout(timeout);
   }, [isOpen]);
+
+  // Once the menu is actually in the DOM, measure it and pick the
+  // final (possibly flipped) position BEFORE it becomes visible —
+  // this runs before paint, so there's no visible jump.
+  useLayoutEffect(() => {
+    if (shouldRender && isOpen) {
+      updatePosition();
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [shouldRender, isOpen]);
 
   // Only one dropdown open at a time, app-wide.
   useEffect(() => {
@@ -89,7 +115,7 @@ export default function DropdownMenu({ trigger, children }) {
     return () => window.removeEventListener(OPEN_EVENT, onOtherMenuOpen);
   }, [id]);
 
-  // Keep the menu anchored to its trigger while scrolling/resizing.
+  // Keep the menu anchored (and correctly flipped) while scrolling/resizing.
   useEffect(() => {
     if (!isOpen) return;
     window.addEventListener("scroll", updatePosition, true);

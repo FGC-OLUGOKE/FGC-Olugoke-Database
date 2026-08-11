@@ -4,6 +4,9 @@ import StatsCards from "./components/StatsCards";
 import MemberList from "./components/MemberList";
 import MemberDetailsDrawer from "./components/MemberDetailsDrawer";
 import MemberForm from "./components/MemberForm";
+import Button from "../../components/ui/Button";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import { useToast } from "../../components/ui/ToastProvider";
 import mockMembers from "./mockData";
 
 /**
@@ -18,6 +21,7 @@ import mockMembers from "./mockData";
  * exists — nothing below needs to change to support that.
  */
 export default function MembersPage() {
+  const toast = useToast();
   const [members] = useState(mockMembers);
 
   const [search, setSearch] = useState("");
@@ -31,6 +35,8 @@ export default function MembersPage() {
 
   const [formMember, setFormMember] = useState(null); // null = "Add" mode
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const [memberPendingDelete, setMemberPendingDelete] = useState(null);
 
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -110,11 +116,31 @@ export default function MembersPage() {
       formMember ? "Update member:" : "Create member:",
       formData
     );
+    toast.success(
+      formMember
+        ? `${formData.firstName} ${formData.lastName} was updated`
+        : `${formData.firstName} ${formData.lastName} was added`
+    );
     setIsFormOpen(false);
   }
 
   function handleDelete(member) {
-    console.log("Delete member:", member);
+    setMemberPendingDelete(member); // opens the confirm dialog
+  }
+
+  function handleCancelDelete() {
+    setMemberPendingDelete(null);
+  }
+
+  // Placeholder — this is the seam where your DELETE API call goes.
+  // No fake persistence: the member isn't actually removed from
+  // `members` here, on purpose, per the API boundary agreement.
+  function handleConfirmDelete() {
+    console.log("Delete member:", memberPendingDelete);
+    toast.success(
+      `${memberPendingDelete.firstName} ${memberPendingDelete.lastName} was deleted`
+    );
+    setMemberPendingDelete(null);
   }
 
   return (
@@ -126,13 +152,9 @@ export default function MembersPage() {
             Manage all church members from one place.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleAddNew}
-          className="inline-flex items-center justify-center rounded-lg bg-[#154d78] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#123f61] sm:w-auto"
-        >
+        <Button variant="primary" onClick={handleAddNew} className="sm:w-auto">
           + New Member
-        </button>
+        </Button>
       </div>
 
       {/* Stats reflect the full member base, not the active filters */}
@@ -170,6 +192,19 @@ export default function MembersPage() {
         isOpen={isFormOpen}
         onClose={handleCloseForm}
         onSave={handleSaveMember}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(memberPendingDelete)}
+        title="Delete this member?"
+        description={
+          memberPendingDelete
+            ? `This will permanently remove ${memberPendingDelete.firstName} ${memberPendingDelete.lastName} from the church database. This action can't be undone.`
+            : ""
+        }
+        confirmLabel="Delete Member"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
       />
     </div>
   );

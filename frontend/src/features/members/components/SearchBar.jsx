@@ -1,4 +1,6 @@
 import { Search } from "lucide-react";
+import Input from "../../../components/ui/Input";
+import Select from "../../../components/ui/Select";
 import { CATEGORIES, DEPARTMENTS, STATUSES, SORT_OPTIONS } from "../constants";
 
 /**
@@ -8,6 +10,9 @@ import { CATEGORIES, DEPARTMENTS, STATUSES, SORT_OPTIONS } from "../constants";
  * Members page. Fully controlled — this component holds no state of
  * its own. The parent (MembersPage) owns the actual filtering logic,
  * so this stays pure UI with no assumptions about how data is fetched.
+ *
+ * Built entirely on the shared Input/Select primitives (not hand-
+ * rolled inputs) so it can't drift from their styling over time.
  *
  * Props:
  * - search           (string)   current search text
@@ -35,22 +40,16 @@ export default function SearchBar({
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      {/* Search input */}
-      <div className="relative">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-          strokeWidth={2}
-        />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search by name, email, phone, or title..."
-          className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#154d78] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
-        />
-      </div>
+      <Input
+        icon={Search}
+        type="text"
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder="Search by name, email, phone, or title..."
+      />
 
-      {/* Category tabs */}
+      {/* Category tabs — intentionally distinct from Select; these
+          are primary browse controls, not a settings-style dropdown */}
       <div className="mt-4 flex flex-wrap gap-2">
         {CATEGORIES.map((cat) => {
           const active = cat === category;
@@ -73,35 +72,28 @@ export default function SearchBar({
 
       {/* Filter + sort row */}
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <FilterSelect
+        <Select
+          aria-label="Filter by department"
           value={department}
-          onChange={onDepartmentChange}
+          onChange={(e) => onDepartmentChange(e.target.value)}
           options={DEPARTMENTS}
+          className="sm:w-auto"
         />
-        <FilterSelect value={status} onChange={onStatusChange} options={STATUSES} />
-        <FilterSelect
+        <Select
+          aria-label="Filter by status"
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value)}
+          options={STATUSES}
+          className="sm:w-auto"
+        />
+        <Select
+          aria-label="Sort members"
           value={sort}
-          onChange={onSortChange}
-          options={SORT_OPTIONS.map((o) => o.value)}
-          labels={Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label]))}
+          onChange={(e) => onSortChange(e.target.value)}
+          options={SORT_OPTIONS}
+          className="sm:w-auto"
         />
       </div>
     </div>
-  );
-}
-
-function FilterSelect({ value, onChange, options, labels }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 focus:border-[#154d78] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#154d78]/20 sm:w-auto"
-    >
-      {options.map((opt) => (
-        <option key={opt} value={opt}>
-          {labels ? labels[opt] : opt}
-        </option>
-      ))}
-    </select>
   );
 }

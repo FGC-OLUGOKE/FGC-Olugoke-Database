@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Eye, Pencil, Trash2, Inbox } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
+import EmptyState from "../../../components/ui/EmptyState";
 import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownMenu";
 import MemberCard from "./MemberCard";
 
@@ -34,15 +35,11 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
 
   if (members.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-16 text-center shadow-sm">
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-          <Inbox className="h-5 w-5 text-gray-400" />
-        </div>
-        <p className="text-sm font-medium text-gray-700">No members found</p>
-        <p className="mt-1 text-sm text-gray-500">
-          Try adjusting your search or filters.
-        </p>
-      </div>
+      <EmptyState
+        icon={Inbox}
+        title="No members found"
+        description="Try adjusting your search or filters."
+      />
     );
   }
 
@@ -87,7 +84,7 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
                   <td className="px-5 py-3 text-gray-700">{member.department}</td>
                   <td className="px-5 py-3 text-gray-700">{member.category}</td>
                   <td className="px-5 py-3">
-                    <Badge tone={member.status === "Active" ? "active" : "inactive"}>
+                    <Badge tone={member.status === "Active" ? "success" : "neutral"}>
                       {member.status}
                     </Badge>
                   </td>

@@ -1,14 +1,18 @@
 import Navbar from "./components/layout/Navbar";
+import PageContainer from "./components/layout/PageContainer";
 import MembersPage from "./features/members/MembersPage";
+import { ToastProvider } from "./components/ui/ToastProvider";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar adminName="Pastor John Doe" adminRole="Church Admin" />
+    <ToastProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Navbar adminName="Pastor John Doe" adminRole="Church Admin" />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">
-        <MembersPage />
-      </main>
-    </div>
+        <PageContainer>
+          <MembersPage />
+        </PageContainer>
+      </div>
+    </ToastProvider>
   );
 }

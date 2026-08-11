@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Drawer from "../../../components/ui/Drawer";
 import Input from "../../../components/ui/Input";
 import Select from "../../../components/ui/Select";
+import SegmentedControl from "../../../components/ui/SegmentedControl";
 import Toggle from "../../../components/ui/Toggle";
 import Button from "../../../components/ui/Button";
 import {
@@ -13,19 +14,22 @@ import {
   FORM_STATUSES,
 } from "../constants";
 
+// Select-based fields default to "" (unanswered) rather than the
+// first option, so the placeholder shows and validation can catch
+// an admin who never actually made a choice.
 const EMPTY_FORM = {
-  title: TITLES[0],
+  title: "",
   firstName: "",
   lastName: "",
-  gender: GENDERS[0],
+  gender: "",
   dateOfBirth: "",
-  maritalStatus: MARITAL_STATUSES[0],
+  maritalStatus: "",
   phone: "",
   email: "",
   address: "",
-  category: FORM_CATEGORIES[0],
-  department: FORM_DEPARTMENTS[0],
-  status: FORM_STATUSES[0],
+  category: "",
+  department: "",
+  status: "",
   dateJoined: "",
   baptized: false,
   worker: false,
@@ -33,11 +37,55 @@ const EMPTY_FORM = {
   serviceUnit: "",
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^[0-9+()\-\s]{7,}$/;
+
+/**
+ * Validates the fields required to identify, reach, and correctly
+ * categorize a member. Returns an object keyed by field name — an
+ * empty object means the form is valid.
+ */
+function validate(data) {
+  const errors = {};
+
+  if (!data.title) errors.title = "Please select a title";
+  if (!data.firstName.trim()) errors.firstName = "First name is required";
+  if (!data.lastName.trim()) errors.lastName = "Last name is required";
+  if (!data.gender) errors.gender = "Please select a gender";
+  if (!data.maritalStatus) errors.maritalStatus = "Please select a marital status";
+
+  if (!data.phone.trim()) {
+    errors.phone = "Phone number is required";
+  } else if (!PHONE_PATTERN.test(data.phone.trim())) {
+    errors.phone = "Enter a valid phone number";
+  }
+
+  if (!data.email.trim()) {
+    errors.email = "Email is required";
+  } else if (!EMAIL_PATTERN.test(data.email.trim())) {
+    errors.email = "Enter a valid email address";
+  }
+
+  if (!data.category) errors.category = "Please select a category";
+  if (!data.department) errors.department = "Please select a department";
+  if (!data.status) errors.status = "Please select a status";
+
+  return errors;
+}
+
 /**
  * MemberForm
  *
  * Add/Edit member drawer, built on the shared Drawer shell so it
  * matches MemberDetailsDrawer's animation and layout exactly.
+ *
+ * Every Select in this form uses a disabled placeholder option
+ * ("Select Title", "Select Department", etc.) so admins can't
+ * accidentally submit a form where they never actually chose a
+ * value — the placeholder shows by default but can't be re-selected
+ * once a real option is picked, and validation treats "" as unset.
+ * Gender uses a two-option SegmentedControl instead of a dropdown,
+ * since a Select is overkill for exactly two choices.
  *
  * This is UI + client-side form state only — `onSave` just hands the
  * finished form data back to the caller. It does NOT call an API or
@@ -53,21 +101,38 @@ const EMPTY_FORM = {
 export default function MemberForm({ isOpen, member, onClose, onSave }) {
   const isEditing = Boolean(member);
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
 
-  // Reset the form whenever the drawer opens — either to the member
-  // being edited, or back to a blank form for "Add New Member".
+  // Reset the form (and any leftover errors) whenever the drawer
+  // opens — either to the member being edited, or a blank form.
   useEffect(() => {
     if (isOpen) {
       setFormData(member ? { ...EMPTY_FORM, ...member } : EMPTY_FORM);
+      setErrors({});
     }
   }, [isOpen, member]);
 
   function update(field, value) {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear that field's error as soon as the user starts fixing it,
+    // rather than making them resubmit to see it disappear.
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }
 
   function handleSubmit(event) {
     event.preventDefault();
+    const validationErrors = validate(formData);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     onSave?.(formData);
   }
 
@@ -78,33 +143,36 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
       title={isEditing ? "Edit Member" : "Add New Member"}
       widthClass="md:max-w-lg"
     >
-      <form onSubmit={handleSubmit} className="flex h-full flex-col">
+      <form onSubmit={handleSubmit} noValidate className="flex h-full flex-col">
         <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
           <Section title="Personal Information">
             <div className="grid grid-cols-2 gap-3">
               <Select
                 label="Title"
+                placeholder="Select Title"
                 options={TITLES}
                 value={formData.title}
+                error={errors.title}
                 onChange={(e) => update("title", e.target.value)}
               />
-              <Select
+              <SegmentedControl
                 label="Gender"
                 options={GENDERS}
                 value={formData.gender}
-                onChange={(e) => update("gender", e.target.value)}
+                error={errors.gender}
+                onChange={(value) => update("gender", value)}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input
                 label="First Name"
-                required
+                error={errors.firstName}
                 value={formData.firstName}
                 onChange={(e) => update("firstName", e.target.value)}
               />
               <Input
                 label="Last Name"
-                required
+                error={errors.lastName}
                 value={formData.lastName}
                 onChange={(e) => update("lastName", e.target.value)}
               />
@@ -118,8 +186,10 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               />
               <Select
                 label="Marital Status"
+                placeholder="Select Marital Status"
                 options={MARITAL_STATUSES}
                 value={formData.maritalStatus}
+                error={errors.maritalStatus}
                 onChange={(e) => update("maritalStatus", e.target.value)}
               />
             </div>
@@ -129,14 +199,14 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
             <Input
               label="Phone"
               type="tel"
-              required
+              error={errors.phone}
               value={formData.phone}
               onChange={(e) => update("phone", e.target.value)}
             />
             <Input
               label="Email"
               type="email"
-              required
+              error={errors.email}
               value={formData.email}
               onChange={(e) => update("email", e.target.value)}
             />
@@ -151,22 +221,28 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
             <div className="grid grid-cols-2 gap-3">
               <Select
                 label="Category"
+                placeholder="Select Category"
                 options={FORM_CATEGORIES}
                 value={formData.category}
+                error={errors.category}
                 onChange={(e) => update("category", e.target.value)}
               />
               <Select
                 label="Department"
+                placeholder="Select Department"
                 options={FORM_DEPARTMENTS}
                 value={formData.department}
+                error={errors.department}
                 onChange={(e) => update("department", e.target.value)}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Select
                 label="Status"
+                placeholder="Select Status"
                 options={FORM_STATUSES}
                 value={formData.status}
+                error={errors.status}
                 onChange={(e) => update("status", e.target.value)}
               />
               <Input
@@ -189,7 +265,16 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               checked={formData.worker}
               onChange={(v) => update("worker", v)}
             />
-          
+            <Input
+              label="Cell Group"
+              value={formData.cellGroup}
+              onChange={(e) => update("cellGroup", e.target.value)}
+            />
+            <Input
+              label="Service Unit"
+              value={formData.serviceUnit}
+              onChange={(e) => update("serviceUnit", e.target.value)}
+            />
           </Section>
         </div>
 

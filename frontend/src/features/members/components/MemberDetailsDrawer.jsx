@@ -1,6 +1,7 @@
 import { Pencil } from "lucide-react";
 import Drawer from "../../../components/ui/Drawer";
 import Badge from "../../../components/ui/Badge";
+import Button from "../../../components/ui/Button";
 
 /**
  * MemberDetailsDrawer
@@ -44,17 +45,17 @@ export default function MemberDetailsDrawer({ member, isOpen, onClose, onEdit })
           </p>
           <p className="text-sm text-gray-500">{member.department}</p>
         </div>
-        <Badge tone={member.status === "Active" ? "active" : "inactive"}>
+        <Badge tone={member.status === "Active" ? "success" : "neutral"}>
           {member.status}
         </Badge>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => onEdit?.(member)}
-          className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="mt-1"
         >
           <Pencil className="h-3.5 w-3.5" />
           Edit Member
-        </button>
+        </Button>
       </div>
 
       <Section title="Personal Information">
@@ -74,11 +75,17 @@ export default function MemberDetailsDrawer({ member, isOpen, onClose, onEdit })
         <Field label="Department" value={member.department} />
         <Field label="Status" value={member.status} />
         <Field label="Date Joined" value={formattedDate} />
+        <Field
+          label="Membership ID"
+          value={member.membershipId ?? `FSC-${String(member.id).padStart(4, "0")}`}
+        />
       </Section>
 
       <Section title="Spiritual Information">
         <Field label="Baptized" value={member.baptized ? "Yes" : "No"} />
         <Field label="Worker" value={member.worker ? "Yes" : "No"} />
+        <Field label="Cell Group" value={member.cellGroup} />
+        <Field label="Service Unit" value={member.serviceUnit} />
       </Section>
     </Drawer>
   );

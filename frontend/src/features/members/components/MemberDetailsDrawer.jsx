@@ -45,7 +45,7 @@ export default function MemberDetailsDrawer({ member, isOpen, onClose, onEdit })
           </p>
           <p className="text-sm text-gray-500">{member.department}</p>
         </div>
-        <Badge tone={member.status === "Active" ? "success" : "neutral"}>
+        <Badge tone={member.status === "Active" ? "active" : "inactive"}>
           {member.status}
         </Badge>
         <Button

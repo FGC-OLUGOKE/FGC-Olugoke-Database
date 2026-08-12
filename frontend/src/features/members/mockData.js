@@ -62,6 +62,7 @@ const mockMembers = [
     category: "Teenager",
     status: "Active",
     dateJoined: "2025-05-22",
+    address: "266, Opebi Road, Ikeja, Lagos",
   },
   {
     id: 6,

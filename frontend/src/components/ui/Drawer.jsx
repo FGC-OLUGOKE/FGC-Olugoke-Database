@@ -30,6 +30,7 @@ export default function Drawer({
   onClose,
   title,
   widthClass = "md:max-w-md",
+  side = "right",
   children,
 }) {
   const [shouldRender, setShouldRender] = useState(false);
@@ -67,8 +68,14 @@ export default function Drawer({
       <div
         role="dialog"
         aria-modal="true"
-        className={`absolute right-0 top-0 flex h-full w-full flex-col bg-white shadow-xl transition-transform duration-200 ease-out ${widthClass} ${
-          visible ? "translate-x-0" : "translate-x-full"
+        className={`absolute top-0 flex h-full w-full flex-col bg-white shadow-xl transition-transform duration-200 ease-out ${
+          side === "left" ? "left-0" : "right-0"
+        } ${widthClass} ${
+          visible
+            ? "translate-x-0"
+            : side === "left"
+            ? "-translate-x-full"
+            : "translate-x-full"
         }`}
       >
         {title && (

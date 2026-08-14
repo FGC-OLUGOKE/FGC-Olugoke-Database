@@ -17,7 +17,7 @@ import { NAV_ITEMS } from "./navigation";
 export default function Sidebar({ isOpen }) {
   return (
     <aside
-      className={`hidden shrink-0 overflow-hidden bg-white transition-all duration-200 ease-out md:block ${
+      className={` hidden shrink-0 overflow-hidden bg-white transition-all duration-200 ease-out md:block ${
         isOpen ? "w-60 border-r border-gray-200" : "w-0 border-r-0"
       }`}
     >

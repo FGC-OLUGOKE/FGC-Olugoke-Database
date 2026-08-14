@@ -49,7 +49,7 @@ export default function Layout() {
               ? `${SIDEBAR_WIDTH_PX - TOGGLE_SIZE_PX / 2}px`
               : "8px",
           }}
-          className="fixed top-20 z-30 hidden h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition-[left] duration-200 ease-out hover:text-[#154d78] hover:shadow md:flex"
+          className="fixed top-20 z-50 hidden cursor-pointer h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition-[left] duration-200 ease-out hover:text-[#154d78] hover:shadow md:flex"
         >
           {isSidebarOpen ? (
             <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />

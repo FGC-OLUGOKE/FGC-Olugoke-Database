@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchBar from "./components/SearchBar";
 import StatsCards from "./components/StatsCards";
 import MemberList from "./components/MemberList";
@@ -6,23 +6,25 @@ import MemberDetailsDrawer from "./components/MemberDetailsDrawer";
 import MemberForm from "./components/MemberForm";
 import Button from "../../components/ui/Button";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import LoadingState from "../../components/ui/LoadingState";
 import { useToast } from "../../components/ui/ToastProvider";
-import mockMembers from "./mockData";
+import { getMembers, createMember, updateMember, deleteMember } from "./api";
 
 /**
  * MembersPage
  *
  * Owns all filter/search/sort state, the selected member, and which
- * drawer (if any) is open. SearchBar, StatsCards, MemberList,
- * MemberDetailsDrawer, and MemberForm all stay pure/controlled —
- * this file is the only place that knows how they connect.
- *
- * `mockMembers` is temporary. Swap it for real data once the API
- * exists — nothing below needs to change to support that.
+ * drawer (if any) is open. Data comes from features/members/api.js —
+ * NOT from mockData directly — so swapping to a real backend later
+ * only requires editing api.js. This page just calls getMembers(),
+ * createMember(), updateMember(), deleteMember() and doesn't know or
+ * care whether those are backed by mock data or a real request.
  */
 export default function MembersPage() {
   const toast = useToast();
-  const [members] = useState(mockMembers);
+
+  const [members, setMembers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -37,6 +39,27 @@ export default function MembersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   const [memberPendingDelete, setMemberPendingDelete] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    getMembers()
+      .then((data) => {
+        if (isMounted) setMembers(data);
+      })
+      .catch(() => {
+        if (isMounted) toast.error("Couldn't load members. Try refreshing.");
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -92,55 +115,62 @@ export default function MembersPage() {
   }
 
   function handleAddNew() {
-    setFormMember(null); // Add mode
+    setFormMember(null);
     setIsFormOpen(true);
   }
 
   function handleEdit(member) {
-    setFormMember(member); // Edit mode
+    setFormMember(member);
     setIsFormOpen(true);
-    setIsDrawerOpen(false); // close the profile drawer if it was open
+    setIsDrawerOpen(false);
   }
 
   function handleCloseForm() {
     setIsFormOpen(false);
   }
 
-  // Placeholder — this is the seam where your API call goes.
-  // No fake persistence happens here on purpose (per the API boundary
-  // agreement): the form data is simply logged so you can see it's
-  // wired correctly, then handed off wherever your POST/PUT call
-  // should live.
-  function handleSaveMember(formData) {
-    console.log(
-      formMember ? "Update member:" : "Create member:",
-      formData
-    );
-    toast.success(
-      formMember
-        ? `${formData.firstName} ${formData.lastName} was updated`
-        : `${formData.firstName} ${formData.lastName} was added`
-    );
-    setIsFormOpen(false);
+  // Calls the api.js seam directly. Once that file's functions hit a
+  // real backend instead of the simulated mock delay, this code
+  // doesn't change at all.
+  async function handleSaveMember(formData) {
+    try {
+      if (formMember) {
+        await updateMember(formMember.id, formData);
+        setMembers((prev) =>
+          prev.map((m) => (m.id === formMember.id ? { ...m, ...formData } : m))
+        );
+        toast.success(`${formData.firstName} ${formData.lastName} was updated`);
+      } else {
+        const created = await createMember(formData);
+        setMembers((prev) => [...prev, created]);
+        toast.success(`${formData.firstName} ${formData.lastName} was added`);
+      }
+      setIsFormOpen(false);
+    } catch {
+      toast.error("Something went wrong saving this member.");
+    }
   }
 
   function handleDelete(member) {
-    setMemberPendingDelete(member); // opens the confirm dialog
+    setMemberPendingDelete(member);
   }
 
   function handleCancelDelete() {
     setMemberPendingDelete(null);
   }
 
-  // Placeholder — this is the seam where your DELETE API call goes.
-  // No fake persistence: the member isn't actually removed from
-  // `members` here, on purpose, per the API boundary agreement.
-  function handleConfirmDelete() {
-    console.log("Delete member:", memberPendingDelete);
-    toast.success(
-      `${memberPendingDelete.firstName} ${memberPendingDelete.lastName} was deleted`
-    );
-    setMemberPendingDelete(null);
+  async function handleConfirmDelete() {
+    try {
+      await deleteMember(memberPendingDelete.id);
+      setMembers((prev) => prev.filter((m) => m.id !== memberPendingDelete.id));
+      toast.success(
+        `${memberPendingDelete.firstName} ${memberPendingDelete.lastName} was deleted`
+      );
+    } catch {
+      toast.error("Something went wrong deleting this member.");
+    } finally {
+      setMemberPendingDelete(null);
+    }
   }
 
   return (
@@ -157,28 +187,34 @@ export default function MembersPage() {
         </Button>
       </div>
 
-      {/* Stats reflect the full member base, not the active filters */}
-      <StatsCards members={members} />
+      {isLoading ? (
+        <LoadingState label="Loading members..." />
+      ) : (
+        <>
+          {/* Stats reflect the full member base, not the active filters */}
+          <StatsCards members={members} />
 
-      <SearchBar
-        search={search}
-        onSearchChange={setSearch}
-        category={category}
-        onCategoryChange={setCategory}
-        department={department}
-        onDepartmentChange={setDepartment}
-        status={status}
-        onStatusChange={setStatus}
-        sort={sort}
-        onSortChange={setSort}
-      />
+          <SearchBar
+            search={search}
+            onSearchChange={setSearch}
+            category={category}
+            onCategoryChange={setCategory}
+            department={department}
+            onDepartmentChange={setDepartment}
+            status={status}
+            onStatusChange={setStatus}
+            sort={sort}
+            onSortChange={setSort}
+          />
 
-      <MemberList
-        members={filteredMembers}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
+          <MemberList
+            members={filteredMembers}
+            onView={handleView}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        </>
+      )}
 
       <MemberDetailsDrawer
         member={selectedMember}

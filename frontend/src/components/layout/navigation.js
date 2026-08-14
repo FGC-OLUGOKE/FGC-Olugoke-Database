@@ -11,16 +11,10 @@ import {
   Settings,
 } from "lucide-react";
 
-/**
- * Single source of truth for app navigation — used by both the
- * desktop Sidebar and the mobile nav drawer, and by App.jsx to
- * generate a placeholder route for every module that isn't built
- * yet. Flip `implemented` to true once a module actually exists.
- */
 export const NAV_ITEMS = [
-  { label: "Dashboard", path: "dashboard", icon: LayoutDashboard, implemented: false },
+  { label: "Dashboard", path: "dashboard", icon: LayoutDashboard, implemented: true },
   { label: "Members", path: "members", icon: Users, implemented: true },
-  { label: "Departments", path: "departments", icon: Building2, implemented: false },
+  { label: "Departments", path: "departments", icon: Building2, implemented: true },
   { label: "Attendance", path: "attendance", icon: ClipboardCheck, implemented: false },
   { label: "Birthdays", path: "birthdays", icon: Cake, implemented: false },
   { label: "Events", path: "events", icon: CalendarDays, implemented: false },

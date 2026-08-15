@@ -1,9 +1,7 @@
-// Placeholder member data — enriched with the full field set
-// MemberForm/MemberDetailsDrawer already expect (gender, dateOfBirth,
-// maritalStatus, occupation, address, baptized, worker, cellGroup,
-// serviceUnit) so the Dashboard's demographic/worker breakdowns and
-// the profile drawer both have real data to show. Delete this once
-// real data is flowing in from the backend.
+// Placeholder member data. Delete this once real data is flowing in
+// from the backend. Members 11-12 exist specifically to demonstrate
+// the Birthdays page's "only show Call/Email when that info exists"
+// requirement — one has no phone, the other no email.
 
 const mockMembers = [
   {
@@ -214,6 +212,48 @@ const mockMembers = [
     baptized: true,
     worker: false,
     cellGroup: "Youth Cell A",
+    serviceUnit: "",
+  },
+  {
+    id: 11,
+    title: "Sister",
+    firstName: "Deborah",
+    lastName: "Umoh",
+    gender: "Female",
+    dateOfBirth: "2000-08-17",
+    maritalStatus: "Single",
+    occupation: "Pharmacist",
+    email: "deborah.umoh@example.com",
+    phone: "", // deliberately missing — for Birthdays page contact-action tests
+    address: "11 Mercy Lane, Lagos",
+    department: "Prayer",
+    category: "Youth",
+    status: "Active",
+    dateJoined: "2025-03-01",
+    baptized: true,
+    worker: false,
+    cellGroup: "Youth Cell B",
+    serviceUnit: "",
+  },
+  {
+    id: 12,
+    title: "Brother",
+    firstName: "Michael",
+    lastName: "Okoro",
+    gender: "Male",
+    dateOfBirth: "1992-08-25",
+    maritalStatus: "Married",
+    occupation: "Civil Engineer",
+    email: "", // deliberately missing — for Birthdays page contact-action tests
+    phone: "08011122233",
+    address: "17 Comfort Road, Lagos",
+    department: "Ushering",
+    category: "Adults",
+    status: "Active",
+    dateJoined: "2024-07-01",
+    baptized: true,
+    worker: false,
+    cellGroup: "Central Cell",
     serviceUnit: "",
   },
 ];

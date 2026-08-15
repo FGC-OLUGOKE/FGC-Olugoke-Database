@@ -5,6 +5,7 @@ import { NAV_ITEMS } from "./components/layout/navigation";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import MembersPage from "./features/members/MembersPage";
 import DepartmentsPage from "./features/departments/DepartmentsPage";
+import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import { ToastProvider } from "./components/ui/ToastProvider";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="members" element={<MembersPage />} />
             <Route path="departments" element={<DepartmentsPage />} />
+            <Route path="birthdays" element={<BirthdaysPage />} />
 
             {NAV_ITEMS.filter((item) => !item.implemented).map((item) => (
               <Route

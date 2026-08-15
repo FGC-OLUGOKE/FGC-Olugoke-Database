@@ -1,45 +1,44 @@
+// Placeholder department data — deliberately uses the same names as
+// FORM_DEPARTMENTS in the Members feature, so member counts below
+// line up with real (mock) members. Delete this once real data is
+// flowing in from the backend.
+
 const mockDepartments = [
   {
     id: 1,
     name: "Choir",
-    description: "Church choir department",
-    memberCount: 48,
+    description: "Leads worship through music during services.",
+    leader: "Grace Okafor",
   },
   {
     id: 2,
-    name: "Ushering",
-    description: "Ushering department",
-    memberCount: 62,
+    name: "Media",
+    description: "Handles sound, live streaming, and photography.",
+    leader: "David Eze",
   },
   {
     id: 3,
-    name: "Media",
-    description: "Media and technical department",
-    memberCount: 40,
+    name: "Ushering",
+    description: "Welcomes and guides members and visitors.",
+    leader: "Samuel Adeyemi",
   },
   {
     id: 4,
-    name: "Sanctuary Keepers",
-    description: "Sanctuary maintenance department",
-    memberCount: 35,
+    name: "Children Church",
+    description: "Runs programs and teaching for children during service.",
+    leader: "Mary Johnson",
   },
   {
     id: 5,
-    name: "Children Workers",
-    description: "Children ministry department",
-    memberCount: 75,
+    name: "Prayer",
+    description: "Coordinates the church's prayer ministry.",
+    leader: "Ruth Bello",
   },
   {
     id: 6,
     name: "Evangelism",
-    description: "Evangelism department",
-    memberCount: 55,
-  },
-  {
-    id: 7,
-    name: "Prayer",
-    description: "Prayer department",
-    memberCount: 38,
+    description: "Leads outreach and evangelism efforts.",
+    leader: "Emmanuel Nwosu",
   },
 ];
 

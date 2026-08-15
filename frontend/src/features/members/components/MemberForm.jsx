@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { User, Phone, Church, Sparkles } from "lucide-react";
 import Drawer from "../../../components/ui/Drawer";
 import Input from "../../../components/ui/Input";
 import Select from "../../../components/ui/Select";
@@ -44,6 +45,8 @@ const PHONE_PATTERN = /^[0-9+()\-\s]{7,}$/;
  * Validates the fields required to identify, reach, and correctly
  * categorize a member. Returns an object keyed by field name — an
  * empty object means the form is valid.
+ *
+ * UNCHANGED from the previous version — this redesign is visual only.
  */
 function validate(data) {
   const errors = {};
@@ -76,21 +79,20 @@ function validate(data) {
 /**
  * MemberForm
  *
- * Add/Edit member drawer, built on the shared Drawer shell so it
- * matches MemberDetailsDrawer's animation and layout exactly.
+ * Add/Edit member dialog.
+ * - Mobile (≤768px): full-width side drawer, unchanged.
+ * - Desktop (md: and up): centered modal with backdrop blur, rounded
+ *   corners, capped height with internal scroll — via Drawer's
+ *   `desktopModal` prop. Pure CSS breakpoint switch, no JS involved.
  *
- * Every Select in this form uses a disabled placeholder option
- * ("Select Title", "Select Department", etc.) so admins can't
- * accidentally submit a form where they never actually chose a
- * value — the placeholder shows by default but can't be re-selected
- * once a real option is picked, and validation treats "" as unset.
- * Gender uses a two-option SegmentedControl instead of a dropdown,
- * since a Select is overkill for exactly two choices.
+ * Every required field (matching `validate()` above exactly) shows a
+ * red asterisk beside its label via the `required` prop on
+ * Input/Select/SegmentedControl. Section headers now carry a small
+ * tinted icon badge for stronger visual hierarchy/scannability.
  *
- * This is UI + client-side form state only — `onSave` just hands the
- * finished form data back to the caller. It does NOT call an API or
- * persist anything; wiring `onSave` to a real request is the
- * caller's job once the backend exists.
+ * Functionality/validation logic is UNCHANGED from before — this is
+ * a visual/layout redesign only. `onSave` still just hands the
+ * finished form data back to the caller; no API call happens here.
  *
  * Props:
  * - isOpen  (bool)
@@ -103,8 +105,6 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
 
-  // Reset the form (and any leftover errors) whenever the drawer
-  // opens — either to the member being edited, or a blank form.
   useEffect(() => {
     if (isOpen) {
       setFormData(member ? { ...EMPTY_FORM, ...member } : EMPTY_FORM);
@@ -114,8 +114,6 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
 
   function update(field, value) {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear that field's error as soon as the user starts fixing it,
-    // rather than making them resubmit to see it disappear.
     setErrors((prev) => {
       if (!prev[field]) return prev;
       const next = { ...prev };
@@ -141,14 +139,16 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
       isOpen={isOpen}
       onClose={onClose}
       title={isEditing ? "Edit Member" : "Add New Member"}
-      widthClass="md:max-w-lg"
+      widthClass="md:max-w-2xl"
+      desktopModal
     >
       <form onSubmit={handleSubmit} noValidate className="flex h-full flex-col">
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
-          <Section title="Personal Information">
-            <div className="grid grid-cols-2 gap-3">
+        <div className="flex-1 space-y-8 overflow-y-auto px-5 py-6 md:px-8 md:py-7">
+          <FormSection icon={User} iconTone="blue" title="Personal Information">
+            <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Title"
+                required
                 placeholder="Select Title"
                 options={TITLES}
                 value={formData.title}
@@ -157,27 +157,30 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               />
               <SegmentedControl
                 label="Gender"
+                required
                 options={GENDERS}
                 value={formData.gender}
                 error={errors.gender}
                 onChange={(value) => update("gender", value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <Input
                 label="First Name"
+                required
                 error={errors.firstName}
                 value={formData.firstName}
                 onChange={(e) => update("firstName", e.target.value)}
               />
               <Input
                 label="Last Name"
+                required
                 error={errors.lastName}
                 value={formData.lastName}
                 onChange={(e) => update("lastName", e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <Input
                 label="Date of Birth"
                 type="date"
@@ -186,6 +189,7 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               />
               <Select
                 label="Marital Status"
+                required
                 placeholder="Select Marital Status"
                 options={MARITAL_STATUSES}
                 value={formData.maritalStatus}
@@ -193,12 +197,13 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
                 onChange={(e) => update("maritalStatus", e.target.value)}
               />
             </div>
-          </Section>
+          </FormSection>
 
-          <Section title="Contact Information">
+          <FormSection icon={Phone} iconTone="purple" title="Contact Information">
             <Input
               label="Phone"
               type="tel"
+              required
               error={errors.phone}
               value={formData.phone}
               onChange={(e) => update("phone", e.target.value)}
@@ -206,6 +211,7 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
             <Input
               label="Email"
               type="email"
+              required
               error={errors.email}
               value={formData.email}
               onChange={(e) => update("email", e.target.value)}
@@ -215,12 +221,13 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               value={formData.address}
               onChange={(e) => update("address", e.target.value)}
             />
-          </Section>
+          </FormSection>
 
-          <Section title="Church Information">
-            <div className="grid grid-cols-2 gap-3">
+          <FormSection icon={Church} iconTone="gold" title="Church Information">
+            <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Category"
+                required
                 placeholder="Select Category"
                 options={FORM_CATEGORIES}
                 value={formData.category}
@@ -229,6 +236,7 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               />
               <Select
                 label="Department"
+                required
                 placeholder="Select Department"
                 options={FORM_DEPARTMENTS}
                 value={formData.department}
@@ -236,9 +244,10 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
                 onChange={(e) => update("department", e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Status"
+                required
                 placeholder="Select Status"
                 options={FORM_STATUSES}
                 value={formData.status}
@@ -252,34 +261,44 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
                 onChange={(e) => update("dateJoined", e.target.value)}
               />
             </div>
-          </Section>
+          </FormSection>
 
-          <Section title="Spiritual Information">
-            <Toggle
-              label="Baptized"
-              checked={formData.baptized}
-              onChange={(v) => update("baptized", v)}
-            />
-            <Toggle
-              label="Worker"
-              checked={formData.worker}
-              onChange={(v) => update("worker", v)}
-            />
-            <Input
-              label="Cell Group"
-              value={formData.cellGroup}
-              onChange={(e) => update("cellGroup", e.target.value)}
-            />
-            <Input
-              label="Service Unit"
-              value={formData.serviceUnit}
-              onChange={(e) => update("serviceUnit", e.target.value)}
-            />
-          </Section>
+          <FormSection icon={Sparkles} iconTone="blue" title="Spiritual Information">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Toggle
+                label="Baptized"
+                checked={formData.baptized}
+                onChange={(v) => update("baptized", v)}
+              />
+              <Toggle
+                label="Worker"
+                checked={formData.worker}
+                onChange={(v) => update("worker", v)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Cell Group"
+                value={formData.cellGroup}
+                onChange={(e) => update("cellGroup", e.target.value)}
+              />
+              <Input
+                label="Service Unit"
+                value={formData.serviceUnit}
+                onChange={(e) => update("serviceUnit", e.target.value)}
+              />
+            </div>
+          </FormSection>
+
+          <p className="text-xs text-gray-400">
+            <span className="text-[#9e263b]">*</span> Required field
+          </p>
         </div>
 
-        {/* Sticky footer — stays pinned while the fields above scroll */}
-        <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
+        {/* Sticky footer with a subtle top shadow so it reads as
+            "above" the scrollable content rather than just stacked
+            beneath it. */}
+        <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.06)] md:px-8">
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
@@ -292,13 +311,23 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
   );
 }
 
-function Section({ title, children }) {
+const ICON_TONES = {
+  blue: { bg: "bg-[#154d78]/10", text: "text-[#154d78]" },
+  purple: { bg: "bg-[#4a2969]/10", text: "text-[#4a2969]" },
+  gold: { bg: "bg-[#d6b447]/15", text: "text-[#7a5f24]" },
+};
+
+function FormSection({ icon: Icon, iconTone = "blue", title, children }) {
+  const tone = ICON_TONES[iconTone];
   return (
     <div>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-        {title}
-      </h3>
-      <div className="space-y-3">{children}</div>
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone.bg}`}>
+          <Icon className={`h-3.5 w-3.5 ${tone.text}`} strokeWidth={2} />
+        </span>
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+      </div>
+      <div className="space-y-4">{children}</div>
     </div>
   );
 }

@@ -2,23 +2,30 @@
  * SegmentedControl
  *
  * For a small, fixed set of named options where only one applies at
- * a time (e.g. Gender: Male/Female) — a dropdown is overkill for two
- * choices, and it's not a yes/no state like `Toggle`, so it gets its
- * own control rather than being forced into either of those.
+ * a time (e.g. Gender: Male/Female).
+ *
+ * `required` shows a red asterisk beside the label (visual only,
+ * matching Input/Select).
  *
  * Props:
- * - label   (string)
- * - options (string[])
- * - value   (string)
+ * - label    (string)
+ * - options  (string[])
+ * - value    (string)
  * - onChange (fn)  (value) => void
- * - error   (string, optional)
+ * - required (bool, optional)
+ * - error    (string, optional)
  */
-export default function SegmentedControl({ label, options, value, onChange, error }) {
+export default function SegmentedControl({ label, options, value, onChange, required, error }) {
   return (
     <div>
       {label && (
-        <span className="mb-1.5 block text-sm font-medium text-gray-700">
+        <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700">
           {label}
+          {required && (
+            <span className="text-[#9e263b]" aria-hidden="true">
+              *
+            </span>
+          )}
         </span>
       )}
       <div

@@ -4,7 +4,7 @@ import useClickOutside from "../../hooks/useClickOutside";
 import useEscapeKey from "../../hooks/useEscapeKey";
 
 const OPEN_EVENT = "dropdown-menu:open";
-const MENU_WIDTH = 192; // px — matches the w-48 the menu renders at
+const DEFAULT_WIDTH = 192; // px — used unless a `width` prop overrides it
 const VIEWPORT_MARGIN = 12; // keep a small gap from the screen edge
 
 /**
@@ -35,7 +35,7 @@ const VIEWPORT_MARGIN = 12; // keep a small gap from the screen edge
  *     )}
  *   </DropdownMenu>
  */
-export default function DropdownMenu({ trigger, children }) {
+export default function DropdownMenu({ trigger, children, width = DEFAULT_WIDTH }) {
   const id = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -61,7 +61,7 @@ export default function DropdownMenu({ trigger, children }) {
       ? rect.top + window.scrollY - menuHeight - 6
       : rect.bottom + window.scrollY + 6;
 
-    const left = Math.max(8, rect.right + window.scrollX - MENU_WIDTH);
+    const left = Math.max(8, rect.right + window.scrollX - width);
 
     setPosition({ top, left });
   }
@@ -151,7 +151,7 @@ export default function DropdownMenu({ trigger, children }) {
               position: "absolute",
               top: position.top,
               left: position.left,
-              width: MENU_WIDTH,
+              width,
             }}
             className={`z-50 rounded-lg border border-gray-200 bg-white py-1 shadow-lg transition-all duration-150 ease-out ${
               visible ? "scale-100 opacity-100" : "scale-95 opacity-0"

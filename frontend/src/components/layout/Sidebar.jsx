@@ -4,24 +4,29 @@ import { NAV_ITEMS } from "./navigation";
 /**
  * Sidebar
  *
- * Persistent left navigation, visible on desktop (md: and above).
- * Collapses/expands via the `isOpen` prop, animating its width shut
- * with the nav content clipped by `overflow-hidden` — reads as a
- * smooth slide rather than an abrupt cut. The inner <nav> keeps a
- * fixed width (w-60) regardless of the collapsed state, so its
- * content never squishes or wraps mid-animation.
+ * Fixed to the viewport (stays in place while the page scrolls),
+ * spanning from just below the Navbar down to the bottom of the
+ * screen. Visible on desktop (md: and above) only — mobile uses
+ * MobileNav instead.
  *
- * On mobile, this is hidden entirely in favor of MobileNav (a
- * drawer triggered from the Navbar's hamburger button).
+ * Collapses/expands via the `isOpen` prop, animating its width shut
+ * with the nav content clipped by `overflow-hidden`. The inner <nav>
+ * keeps a fixed width (w-60) regardless of collapsed state, so its
+ * content never squishes or wraps mid-animation — it's just revealed
+ * or hidden as the outer width transitions.
+ *
+ * Because this is `fixed`, it no longer takes up space in normal
+ * document flow — Layout.jsx compensates by applying a matching
+ * `margin-left` to the main content area (see Layout.jsx).
  */
 export default function Sidebar({ isOpen }) {
   return (
     <aside
-      className={` hidden shrink-0 overflow-hidden bg-white transition-all duration-200 ease-out md:block ${
+      className={`fixed bottom-0 left-0 top-16 z-30 hidden overflow-hidden bg-white transition-all duration-200 ease-out md:block ${
         isOpen ? "w-60 border-r border-gray-200" : "w-0 border-r-0"
       }`}
     >
-      <nav className="flex w-60 flex-col gap-1 p-3">
+      <nav className="flex h-full w-60 flex-col gap-1 overflow-y-auto p-3">
         {NAV_ITEMS.map((item) => (
           <NavItem key={item.path} item={item} />
         ))}

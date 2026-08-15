@@ -1,144 +1,119 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import Drawer from "../../../components/ui/Drawer";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
+import MemberPicker from "../../../components/ui/MemberPicker";
 
-const DepartmentForm = ({
-  department,
-  isOpen,
-  onClose,
-  onSave,
-}) => {
-  const [formData, setFormData] = useState({
-    name: "",
-    leader: "",
-    description: "",
-  });
+const EMPTY_FORM = { name: "", leader: "", description: "" };
+
+function validate(data) {
+  const errors = {};
+  if (!data.name.trim()) errors.name = "Department name is required";
+  return errors;
+}
+
+/**
+ * DepartmentForm
+ *
+ * Add/Edit department drawer. Leader is picked via MemberPicker
+ * (searchable, from members already assigned to this department)
+ * instead of free-typed — avoids typos and picking someone who
+ * isn't actually in the department. If this is a brand-new
+ * department with no members assigned yet, the picker shows a
+ * helpful empty state rather than an empty list with no explanation.
+ *
+ * UI + client-side state only — `onSave` hands the finished data
+ * back to the caller. No API call, no persistence.
+ *
+ * Props:
+ * - isOpen     (bool)
+ * - department (object|null)  pass to edit; null/undefined to add
+ * - members    (array)        full member list, used to filter
+ *                              leader candidates by department
+ * - onClose    (fn)
+ * - onSave     (fn)  (formData) => void
+ */
+export default function DepartmentForm({ isOpen, department, members = [], onClose, onSave }) {
+  const isEditing = Boolean(department);
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (department) {
-      setFormData({
-        name: department.name || "",
-        leader: department.leader || "",
-        description: department.description || "",
-      });
-    } else {
-      setFormData({
-        name: "",
-        leader: "",
-        description: "",
-      });
+    if (isOpen) {
+      setFormData(department ? { ...EMPTY_FORM, ...department } : EMPTY_FORM);
+      setErrors({});
     }
-  }, [department, isOpen]);
+  }, [isOpen, department]);
 
-  if (!isOpen) return null;
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    onSave({
-      name: formData.name.trim(),
-      leader: formData.leader.trim(),
-      description: formData.description.trim(),
+  function update(field, value) {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
     });
-  };
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    const validationErrors = validate(formData);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    onSave?.(formData);
+  }
+
+  const departmentMembers = members.filter((m) => m.department === formData.name);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
-
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              {department ? "Edit Department" : "New Department"}
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              {department
-                ? "Update the department information."
-                : "Create a new church department."}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5 p-6">
-
+    <Drawer
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEditing ? "Edit Department" : "Add New Department"}
+      widthClass="md:max-w-md"
+    >
+      <form onSubmit={handleSubmit} noValidate className="flex h-full flex-col">
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
           <Input
             label="Department Name"
-            name="name"
-            placeholder="e.g. Choir"
+            error={errors.name}
             value={formData.name}
-            onChange={handleChange}
-            required
+            onChange={(e) => update("name", e.target.value)}
+          />
+
+          <MemberPicker
+            label="Leader"
+            members={departmentMembers}
+            value={formData.leader}
+            onChange={(name) => update("leader", name)}
+            placeholder="Select a leader"
+            emptyMessage={
+              formData.name.trim()
+                ? `No members are assigned to ${formData.name} yet.`
+                : "Enter a department name first."
+            }
           />
 
           <Input
-            label="Department Leader"
-            name="leader"
-            placeholder="e.g. John Doe"
-            value={formData.leader}
-            onChange={handleChange}
-            required
+            label="Description"
+            value={formData.description}
+            onChange={(e) => update("description", e.target.value)}
           />
+        </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Description
-            </label>
-
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Brief description of the department..."
-              rows={4}
-              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#154d78] focus:ring-4 focus:ring-[#154d78]/10"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              className="sm:w-auto"
-            >
-              Cancel
-            </Button>
-
-            <Button
-              type="submit"
-              variant="primary"
-              className="sm:w-auto"
-            >
-              {department ? "Save Changes" : "Create Department"}
-            </Button>
-          </div>
-
-        </form>
-      </div>
-    </div>
+        <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" type="submit">
+            Save Department
+          </Button>
+        </div>
+      </form>
+    </Drawer>
   );
-};
-
-export default DepartmentForm;
+}

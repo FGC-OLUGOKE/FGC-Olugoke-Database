@@ -2,19 +2,27 @@
  * Input
  *
  * Optionally takes a leading `icon` (a lucide-react icon component)
- * so the same primitive covers both plain fields (MemberForm) and
- * icon-prefixed fields (SearchBar's search box).
+ * so the same primitive covers both plain fields and icon-prefixed
+ * fields (SearchBar's search box).
  *
- * Optionally takes an `error` string — when present, the border and
- * focus ring switch to brand red and the message renders below the
- * field, replacing the browser's native validation tooltip.
+ * `required` shows a red asterisk beside the label — purely visual,
+ * doesn't add HTML `required` (validation logic stays wherever the
+ * form already defines it; this just tells the admin what's mandatory).
+ *
+ * `error` gives a red border + message, replacing the browser's
+ * native validation tooltip.
  */
-export default function Input({ label, icon: Icon, error, className = "", ...props }) {
+export default function Input({ label, icon: Icon, required, error, className = "", ...props }) {
   return (
     <label className="block">
       {label && (
-        <span className="mb-1.5 block text-sm font-medium text-gray-700">
+        <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700">
           {label}
+          {required && (
+            <span className="text-[#9e263b]" aria-hidden="true">
+              *
+            </span>
+          )}
         </span>
       )}
       <div className="relative">
@@ -27,6 +35,7 @@ export default function Input({ label, icon: Icon, error, className = "", ...pro
         <input
           {...props}
           aria-invalid={Boolean(error)}
+          aria-required={required || undefined}
           className={`w-full rounded-lg border bg-gray-50 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 ${
             error
               ? "border-[#9e263b] focus:border-[#9e263b] focus:ring-[#9e263b]/20"

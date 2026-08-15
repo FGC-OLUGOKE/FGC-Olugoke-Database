@@ -153,6 +153,7 @@ export default function DepartmentsPage() {
 
       <DepartmentForm
         department={formDepartment}
+        members={members}
         isOpen={isFormOpen}
         onClose={handleCloseForm}
         onSave={handleSaveDepartment}

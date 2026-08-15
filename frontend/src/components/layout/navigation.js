@@ -16,7 +16,7 @@ export const NAV_ITEMS = [
   { label: "Members", path: "members", icon: Users, implemented: true },
   { label: "Departments", path: "departments", icon: Building2, implemented: true },
   { label: "Attendance", path: "attendance", icon: ClipboardCheck, implemented: false },
-  { label: "Birthdays", path: "birthdays", icon: Cake, implemented: false },
+  { label: "Birthdays", path: "birthdays", icon: Cake, implemented: true },
   { label: "Events", path: "events", icon: CalendarDays, implemented: false },
   { label: "Workers", path: "workers", icon: HardHat, implemented: false },
   { label: "Cell Groups", path: "cell-groups", icon: UsersRound, implemented: false },

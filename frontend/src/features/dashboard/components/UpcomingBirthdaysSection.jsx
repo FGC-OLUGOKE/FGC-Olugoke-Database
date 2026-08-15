@@ -8,7 +8,10 @@ export default function UpcomingBirthdaysSection({ members }) {
   const navigate = useNavigate();
 
   const upcoming = members
-    .map((m) => ({ member: m, birthday: getNextBirthday(m.dateOfBirth) }))
+    .map((m) => ({
+      member: m,
+      birthday: getNextBirthday(m.dateOfBirth),
+    }))
     .filter((entry) => entry.birthday)
     .sort((a, b) => a.birthday.daysAway - b.birthday.daysAway)
     .slice(0, 5);
@@ -20,54 +23,44 @@ export default function UpcomingBirthdaysSection({ members }) {
       onAction={() => navigate("/birthdays")}
     >
       {upcoming.length === 0 ? (
-        <EmptyState icon={Cake} title="No upcoming birthdays" description="Check back later." />
+        <EmptyState
+          icon={Cake}
+          title="No upcoming birthdays"
+          description="Check back later."
+        />
       ) : (
         <ul className="divide-y divide-gray-100">
           {upcoming.map(({ member, birthday }) => {
-            const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
+            const initials =
+              `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
+
             return (
-              <li key={member.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <li
+                key={member.id}
+                className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#d6b447]/15 text-xs font-semibold text-[#7a5f24]">
                   {initials}
                 </div>
+
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-900">
                     {member.firstName} {member.lastName}
                   </p>
+
                   <p className="truncate text-xs text-gray-500">
-                    {birthday.next.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · Turning{" "}
-                    {birthday.turningAge}
+                    {birthday.next.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    · Turning {birthday.turningAge}
                   </p>
                 </div>
+
                 <span className="shrink-0 text-xs font-medium text-gray-400">
-                  {birthday.daysAway === 0 ? "Today" : `${birthday.daysAway}d`}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </SectionCard>
-  );
-}
-          {upcoming.map(({ member, birthday }) => {
-            const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
-            return (
-              <li key={member.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#d6b447]/15 text-xs font-semibold text-[#7a5f24]">
-                  {initials}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">
-                    {member.firstName} {member.lastName}
-                  </p>
-                  <p className="truncate text-xs text-gray-500">
-                    {birthday.next.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ·
-                    Turning {birthday.turningAge}
-                  </p>
-                </div>
-                <span className="shrink-0 text-xs font-medium text-gray-400">
-                  {birthday.daysAway === 0 ? "Today" : `${birthday.daysAway}d`}
+                  {birthday.daysAway === 0
+                    ? "Today"
+                    : `${birthday.daysAway}d`}
                 </span>
               </li>
             );

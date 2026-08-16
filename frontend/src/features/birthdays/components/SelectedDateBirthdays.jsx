@@ -2,6 +2,7 @@ import { CalendarDays } from "lucide-react";
 import SectionCard from "../../../components/ui/SectionCard";
 import EmptyState from "../../../components/ui/EmptyState";
 import Badge from "../../../components/ui/Badge";
+import Avatar from "../../../components/ui/Avatar";
 
 export default function SelectedDateBirthdays({ date, members, onSelect, onClear }) {
   if (!date) return null;
@@ -18,7 +19,6 @@ export default function SelectedDateBirthdays({ date, members, onSelect, onClear
       ) : (
         <ul className="divide-y divide-gray-100">
           {members.map((m) => {
-            const initials = `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase();
             return (
               <li key={m.id}>
                 <button
@@ -26,9 +26,12 @@ export default function SelectedDateBirthdays({ date, members, onSelect, onClear
                   onClick={() => onSelect(m)}
                   className="flex w-full items-center gap-3 py-3 text-left first:pt-0 last:pb-0 hover:bg-gray-50"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#154d78]/10 text-xs font-semibold text-[#154d78]">
-                    {initials}
-                  </div>
+                  <Avatar
+                    firstName={m.firstName}
+                    lastName={m.lastName}
+                    photoUrl={m.photoUrl}
+                    className="h-9 w-9 text-xs"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-gray-900">
                       {m.firstName} {m.lastName}

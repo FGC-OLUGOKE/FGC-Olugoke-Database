@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Eye, Pencil, Trash2, Inbox } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
+import Avatar from "../../../components/ui/Avatar";
 import EmptyState from "../../../components/ui/EmptyState";
 import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownMenu";
 import MemberCard from "./MemberCard";
@@ -60,17 +61,16 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {pageMembers.map((member) => {
-              const initials = `${member.firstName[0] ?? ""}${
-                member.lastName[0] ?? ""
-              }`.toUpperCase();
-
               return (
                 <tr key={member.id} className="hover:bg-gray-50/60">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#154d78]/10 text-xs font-semibold text-[#154d78]">
-                        {initials}
-                      </div>
+                      <Avatar
+                        firstName={member.firstName}
+                        lastName={member.lastName}
+                        photoUrl={member.photoUrl}
+                        className="h-9 w-9 text-xs"
+                      />
                       <div className="min-w-0">
                         <p className="truncate font-medium text-gray-900">
                           {member.title} {member.firstName} {member.lastName}
@@ -84,7 +84,7 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
                   <td className="px-5 py-3 text-gray-700">{member.department}</td>
                   <td className="px-5 py-3 text-gray-700">{member.category}</td>
                   <td className="px-5 py-3">
-                    <Badge tone={member.status === "Active" ? "active" : "inactive"}>
+                    <Badge tone={member.status === "Active" ? "success" : "neutral"}>
                       {member.status}
                     </Badge>
                   </td>
@@ -186,4 +186,5 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
       )}
     </div>
   );
-}
+                          }
+                          

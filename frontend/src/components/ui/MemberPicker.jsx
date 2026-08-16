@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Search, Check, X } from "lucide-react";
 import DropdownMenu from "./DropdownMenu";
+import Avatar from "./Avatar";
 
 /**
  * MemberPicker
@@ -96,7 +97,6 @@ export default function MemberPicker({
                 filtered.map((m) => {
                   const fullName = `${m.firstName} ${m.lastName}`;
                   const isSelected = fullName === value;
-                  const initials = `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase();
                   return (
                     <button
                       key={m.id}
@@ -107,9 +107,12 @@ export default function MemberPicker({
                       }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#154d78]/10 text-[10px] font-semibold text-[#154d78]">
-                        {initials}
-                      </span>
+                      <Avatar
+                        firstName={m.firstName}
+                        lastName={m.lastName}
+                        photoUrl={m.photoUrl}
+                        className="h-6 w-6 text-[10px]"
+                      />
                       <span className="flex-1 truncate">{fullName}</span>
                       {isSelected && (
                         <Check className="h-3.5 w-3.5 shrink-0 text-[#154d78]" strokeWidth={2} />

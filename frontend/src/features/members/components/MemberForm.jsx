@@ -6,6 +6,7 @@ import Select from "../../../components/ui/Select";
 import SegmentedControl from "../../../components/ui/SegmentedControl";
 import Toggle from "../../../components/ui/Toggle";
 import Button from "../../../components/ui/Button";
+import PhotoUpload from "../../../components/ui/PhotoUpload";
 import {
   TITLES,
   GENDERS,
@@ -19,6 +20,7 @@ import {
 // first option, so the placeholder shows and validation can catch
 // an admin who never actually made a choice.
 const EMPTY_FORM = {
+  photoUrl: "",
   title: "",
   firstName: "",
   lastName: "",
@@ -145,6 +147,12 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
       <form onSubmit={handleSubmit} noValidate className="flex h-full flex-col">
         <div className="flex-1 space-y-8 overflow-y-auto px-5 py-6 md:px-8 md:py-7">
           <FormSection icon={User} iconTone="blue" title="Personal Information">
+            <PhotoUpload
+              firstName={formData.firstName}
+              lastName={formData.lastName}
+              value={formData.photoUrl}
+              onChange={(dataUrl) => update("photoUrl", dataUrl)}
+            />
             <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Title"
@@ -330,4 +338,4 @@ function FormSection({ icon: Icon, iconTone = "blue", title, children }) {
       <div className="space-y-4">{children}</div>
     </div>
   );
-}
+    }

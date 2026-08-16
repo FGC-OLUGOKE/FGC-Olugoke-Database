@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import SectionCard from "../../../components/ui/SectionCard";
 import Badge from "../../../components/ui/Badge";
+import Avatar from "../../../components/ui/Avatar";
 
 export default function RecentMembersSection({ members }) {
   const navigate = useNavigate();
@@ -16,12 +17,14 @@ export default function RecentMembersSection({ members }) {
     >
       <ul className="divide-y divide-gray-100">
         {recent.map((m) => {
-          const initials = `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase();
           return (
             <li key={m.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#154d78]/10 text-xs font-semibold text-[#154d78]">
-                {initials}
-              </div>
+              <Avatar
+                firstName={m.firstName}
+                lastName={m.lastName}
+                photoUrl={m.photoUrl}
+                className="h-10 w-10 text-xs"
+              />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-gray-900">
                   {m.title} {m.firstName} {m.lastName}
@@ -31,7 +34,7 @@ export default function RecentMembersSection({ members }) {
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
-                <Badge tone={m.status === "Active" ? "active" : "inactive"}>{m.status}</Badge>
+                <Badge tone={m.status === "Active" ? "success" : "neutral"}>{m.status}</Badge>
                 <span className="text-[11px] text-gray-400">
                   {new Date(m.dateJoined).toLocaleDateString("en-US", {
                     month: "short",

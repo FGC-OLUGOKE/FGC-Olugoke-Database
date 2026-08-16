@@ -1,5 +1,6 @@
 import { Eye, Pencil, Phone, Mail, MoreHorizontal } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
+import Avatar from "../../../components/ui/Avatar";
 import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownMenu";
 import { useToast } from "../../../components/ui/ToastProvider";
 
@@ -10,7 +11,6 @@ import { useToast } from "../../../components/ui/ToastProvider";
  */
 export default function BirthdayCard({ member, birthday, onView, onEdit }) {
   const toast = useToast();
-  const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -20,9 +20,12 @@ export default function BirthdayCard({ member, birthday, onView, onEdit }) {
           onClick={() => onView(member)}
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#154d78]/10 text-sm font-semibold text-[#154d78]">
-            {initials}
-          </div>
+          <Avatar
+            firstName={member.firstName}
+            lastName={member.lastName}
+            photoUrl={member.photoUrl}
+            className="h-11 w-11 text-sm"
+          />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-gray-900">
               {member.firstName} {member.lastName}

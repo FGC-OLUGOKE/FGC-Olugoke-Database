@@ -1,5 +1,6 @@
 import { Phone, Calendar, MoreHorizontal, Eye, Pencil, Trash2 } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
+import Avatar from "../../../components/ui/Avatar";
 import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownMenu";
 
 /**
@@ -9,15 +10,16 @@ import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownM
  * MemberList's <table> below the md breakpoint.
  */
 export default function MemberCard({ member, onView, onEdit, onDelete }) {
-  const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
-
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#154d78]/10 text-sm font-semibold text-[#154d78]">
-            {initials}
-          </div>
+          <Avatar
+            firstName={member.firstName}
+            lastName={member.lastName}
+            photoUrl={member.photoUrl}
+            className="h-11 w-11 text-sm"
+          />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-gray-900">
               {member.title} {member.firstName} {member.lastName}
@@ -72,7 +74,7 @@ export default function MemberCard({ member, onView, onEdit, onDelete }) {
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Badge tone="info">{member.department}</Badge>
         <Badge tone="neutral">{member.category}</Badge>
-        <Badge tone={member.status === "Active" ? "active" : "inactive"}>
+        <Badge tone={member.status === "Active" ? "success" : "neutral"}>
           {member.status}
         </Badge>
       </div>

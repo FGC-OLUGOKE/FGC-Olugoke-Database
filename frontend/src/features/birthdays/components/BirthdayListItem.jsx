@@ -1,5 +1,6 @@
 import { Eye, Pencil, Phone, Mail, MoreHorizontal } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
+import Avatar from "../../../components/ui/Avatar";
 import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownMenu";
 import { useToast } from "../../../components/ui/ToastProvider";
 
@@ -13,13 +14,15 @@ import { useToast } from "../../../components/ui/ToastProvider";
  */
 export default function BirthdayListItem({ member, birthday, onView, onEdit }) {
   const toast = useToast();
-  const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
 
   return (
     <div className="flex items-center gap-4 rounded-lg border border-gray-100 p-3 hover:bg-gray-50/60">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#154d78]/10 text-sm font-semibold text-[#154d78]">
-        {initials}
-      </div>
+      <Avatar
+        firstName={member.firstName}
+        lastName={member.lastName}
+        photoUrl={member.photoUrl}
+        className="h-11 w-11 text-sm"
+      />
 
       <button type="button" onClick={() => onView(member)} className="min-w-0 flex-1 text-left">
         <p className="truncate text-sm font-medium text-gray-900">

@@ -130,15 +130,27 @@ export default function BirthdaysPage() {
     return birthdayEntries.filter((e) => e.birthday.next <= end).length;
   }, [birthdayEntries]);
 
+  const nextWeekCount = useMemo(() => {
+    const today = new Date();
+    const [start, end] = getTimePeriodRange("Next Week", today);
+    return birthdayEntries.filter((e) => e.birthday.next >= start && e.birthday.next <= end).length;
+  }, [birthdayEntries]);
+
   const monthCount = useMemo(() => {
     const today = new Date();
     const [, end] = getTimePeriodRange("This Month", today);
     return birthdayEntries.filter((e) => e.birthday.next <= end).length;
   }, [birthdayEntries]);
 
+  // "Next Birthday" means the closest UPCOMING one — someone whose
+  // birthday is today belongs to Today's Birthdays instead, not here.
+  // Without excluding daysAway === 0, a birthday happening today would
+  // always win (since 0 is the smallest possible value), duplicating
+  // that member into both sections.
   const nextEntry = useMemo(() => {
-    if (birthdayEntries.length === 0) return null;
-    return [...birthdayEntries].sort((a, b) => a.birthday.daysAway - b.birthday.daysAway)[0];
+    const upcoming = birthdayEntries.filter((e) => e.birthday.daysAway > 0);
+    if (upcoming.length === 0) return null;
+    return [...upcoming].sort((a, b) => a.birthday.daysAway - b.birthday.daysAway)[0];
   }, [birthdayEntries]);
 
   const filteredEntries = useMemo(() => {
@@ -257,8 +269,8 @@ export default function BirthdaysPage() {
       <BirthdayStats
         todayCount={todayEntries.length}
         weekCount={weekCount}
+        nextWeekCount={nextWeekCount}
         monthCount={monthCount}
-        nextEntry={nextEntry}
       />
 
       <NextBirthdayCard entry={nextEntry} onSelect={handleViewBirthday} />

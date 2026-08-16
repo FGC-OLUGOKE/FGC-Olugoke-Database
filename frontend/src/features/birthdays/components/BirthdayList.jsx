@@ -4,54 +4,114 @@ import EmptyState from "../../../components/ui/EmptyState";
 import BirthdayListItem from "./BirthdayListItem";
 import BirthdayCard from "./BirthdayCard";
 
-const GROUP_ORDER = ["Today", "Tomorrow", "This Week", "Next Week", "Later This Month", "Upcoming"];
+const GROUP_ORDER = [
+  "Later This Week",
+  "Next Week",
+  "Later This Month",
+];
+
+function isSameMonth(date1, date2) {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth()
+  );
+}
 
 function getGroup(nextDate, today) {
   const startOfToday = new Date(today);
   startOfToday.setHours(0, 0, 0, 0);
-  const daysAway = Math.round((nextDate - startOfToday) / 86400000);
 
-  if (daysAway === 0) return "Today";
-  if (daysAway === 1) return "Tomorrow";
+  const birthdayDate = new Date(nextDate);
+  birthdayDate.setHours(0, 0, 0, 0);
 
-  const dow = startOfToday.getDay();
+  // Don't include birthdays that have already happened today.
+  if (birthdayDate <= startOfToday) {
+    return null;
+  }
+
+  const dayOfWeek = startOfToday.getDay();
+
+  // Sunday = 0, Monday = 1 ... Saturday = 6
   const endOfThisWeek = new Date(startOfToday);
-  endOfThisWeek.setDate(startOfToday.getDate() + (6 - dow));
+  endOfThisWeek.setDate(
+    startOfToday.getDate() + (6 - dayOfWeek)
+  );
+  endOfThisWeek.setHours(23, 59, 59, 999);
 
+  // Start of next week
   const startOfNextWeek = new Date(endOfThisWeek);
-  startOfNextWeek.setDate(endOfThisWeek.getDate() + 1);
+  startOfNextWeek.setDate(
+    endOfThisWeek.getDate() + 1
+  );
+  startOfNextWeek.setHours(0, 0, 0, 0);
+
+  // End of next week
   const endOfNextWeek = new Date(startOfNextWeek);
-  endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
+  endOfNextWeek.setDate(
+    startOfNextWeek.getDate() + 6
+  );
+  endOfNextWeek.setHours(23, 59, 59, 999);
 
-  const endOfThisMonth = new Date(startOfToday.getFullYear(), startOfToday.getMonth() + 1, 0);
+  // -------------------------------
+  // LATER THIS WEEK
+  // -------------------------------
 
-  if (nextDate <= endOfThisWeek) return "This Week";
-  if (nextDate <= endOfNextWeek) return "Next Week";
-  if (nextDate <= endOfThisMonth) return "Later This Month";
-  return "Upcoming";
+  if (birthdayDate <= endOfThisWeek) {
+    return "Later This Week";
+  }
+
+  // -------------------------------
+  // NEXT WEEK
+  // -------------------------------
+
+  if (birthdayDate <= endOfNextWeek) {
+    return "Next Week";
+  }
+
+  // -------------------------------
+  // LATER THIS MONTH
+  // -------------------------------
+
+  if (isSameMonth(birthdayDate, startOfToday)) {
+    return "Later This Month";
+  }
+
+  // Birthdays belonging to another month
+  // don't belong in these three sections.
+  return null;
 }
 
-/**
- * BirthdayList
- *
- * Main chronological list. Grouping (Today/Tomorrow/This Week/...)
- * only makes sense when sorted chronologically, so it's only applied
- * when `groupByTime` is true (i.e. sort === "nearest" or "furthest"
- * in BirthdaysPage) — other sorts (Name A-Z, Youngest First, etc.)
- * render as a flat list instead, since group headers wouldn't be
- * meaningful there.
- */
-export default function BirthdayList({ entries, groupByTime, onView, onEdit }) {
+export default function BirthdayList({
+  entries,
+  groupByTime,
+  onView,
+  onEdit,
+}) {
   const groups = useMemo(() => {
     if (!groupByTime) return null;
+
     const today = new Date();
     const map = new Map();
+
     entries.forEach((entry) => {
       const group = getGroup(entry.birthday.next, today);
-      if (!map.has(group)) map.set(group, []);
+
+      // Ignore birthdays outside the three requested groups.
+      if (!group) return;
+
+      if (!map.has(group)) {
+        map.set(group, []);
+      }
+
       map.get(group).push(entry);
     });
-    return GROUP_ORDER.filter((g) => map.has(g)).map((g) => ({ label: g, items: map.get(g) }));
+
+    return GROUP_ORDER
+      .filter((group) => map.has(group))
+      .map((group) => ({
+        label: group,
+        items: map.get(group),
+      }));
   }, [entries, groupByTime]);
 
   if (entries.length === 0) {
@@ -64,7 +124,8 @@ export default function BirthdayList({ entries, groupByTime, onView, onEdit }) {
     );
   }
 
-  const sections = groups ?? [{ label: null, items: entries }];
+  const sections =
+    groups ?? [{ label: null, items: entries }];
 
   return (
     <div className="space-y-6">
@@ -75,14 +136,30 @@ export default function BirthdayList({ entries, groupByTime, onView, onEdit }) {
               {section.label}
             </h3>
           )}
+
+          {/* Desktop */}
           <div className="hidden flex-col gap-2 md:flex">
             {section.items.map(({ member, birthday }) => (
-              <BirthdayListItem key={member.id} member={member} birthday={birthday} onView={onView} onEdit={onEdit} />
+              <BirthdayListItem
+                key={member.id}
+                member={member}
+                birthday={birthday}
+                onView={onView}
+                onEdit={onEdit}
+              />
             ))}
           </div>
+
+          {/* Mobile */}
           <div className="flex flex-col gap-3 md:hidden">
             {section.items.map(({ member, birthday }) => (
-              <BirthdayCard key={member.id} member={member} birthday={birthday} onView={onView} onEdit={onEdit} />
+              <BirthdayCard
+                key={member.id}
+                member={member}
+                birthday={birthday}
+                onView={onView}
+                onEdit={onEdit}
+              />
             ))}
           </div>
         </div>

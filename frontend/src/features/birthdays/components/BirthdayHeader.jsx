@@ -13,23 +13,6 @@ export default function BirthdayHeader({ todayCount, weekCount, monthCount }) {
             Track members' upcoming birthdays and celebrate with them on time.
           </p>
         </div>
-        <Button variant="primary" onClick={() => navigate("/members")} className="sm:w-auto">
-          View Members
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-        <span>
-          <span className="font-semibold text-gray-900">{todayCount}</span> today
-        </span>
-        <span className="text-gray-300">·</span>
-        <span>
-          <span className="font-semibold text-gray-900">{weekCount}</span> this week
-        </span>
-        <span className="text-gray-300">·</span>
-        <span>
-          <span className="font-semibold text-gray-900">{monthCount}</span> this month
-        </span>
       </div>
     </div>
   );

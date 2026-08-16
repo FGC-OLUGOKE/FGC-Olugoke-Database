@@ -2,6 +2,7 @@ import { Pencil } from "lucide-react";
 import Drawer from "../../../components/ui/Drawer";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
+import Avatar from "../../../components/ui/Avatar";
 
 /**
  * MemberDetailsDrawer
@@ -20,10 +21,6 @@ import Button from "../../../components/ui/Button";
 export default function MemberDetailsDrawer({ member, isOpen, onClose, onEdit }) {
   if (!member) return null;
 
-  const initials = `${member.firstName?.[0] ?? ""}${
-    member.lastName?.[0] ?? ""
-  }`.toUpperCase();
-
   const formattedDate = member.dateJoined
     ? new Date(member.dateJoined).toLocaleDateString("en-US", {
         month: "short",
@@ -36,16 +33,19 @@ export default function MemberDetailsDrawer({ member, isOpen, onClose, onEdit })
     <Drawer isOpen={isOpen} onClose={onClose}>
       {/* Profile header */}
       <div className="flex flex-col items-center gap-3 border-b border-gray-100 px-5 py-6 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#154d78]/10 text-2xl font-semibold text-[#154d78]">
-          {initials}
-        </div>
+        <Avatar
+          firstName={member.firstName}
+          lastName={member.lastName}
+          photoUrl={member.photoUrl}
+          className="h-20 w-20 text-2xl"
+        />
         <div>
           <p className="text-lg font-semibold text-gray-900">
             {member.title} {member.firstName} {member.lastName}
           </p>
           <p className="text-sm text-gray-500">{member.department}</p>
         </div>
-        <Badge tone={member.status === "Active" ? "active" : "inactive"}>
+        <Badge tone={member.status === "Active" ? "success" : "neutral"}>
           {member.status}
         </Badge>
         <Button

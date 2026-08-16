@@ -34,7 +34,7 @@ export default function RecentMembersSection({ members }) {
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
-                <Badge tone={m.status === "Active" ? "success" : "neutral"}>{m.status}</Badge>
+                <Badge tone={m.status === "Active" ? "active" : "inactive"}>{m.status}</Badge>
                 <span className="text-[11px] text-gray-400">
                   {new Date(m.dateJoined).toLocaleDateString("en-US", {
                     month: "short",

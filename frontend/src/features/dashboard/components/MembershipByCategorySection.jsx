@@ -3,14 +3,14 @@ import DonutChart from "../../../components/ui/DonutChart";
 
 const CATEGORY_COLORS = {
   Children: "#d6b447",
-  Teenagers: "#4a2969",
+  Teenager: "#4a2969",
   Youth: "#154d78",
-  Adults: "#9e263b",
+  Adult: "#9e263b",
 };
 
 export default function MembershipByCategorySection({ members }) {
   const total = members.length;
-  const categories = ["Children", "Teenagers", "Youth", "Adults"];
+  const categories = ["Children", "Teenager", "Youth", "Adult"];
   const data = categories.map((name) => ({
     name,
     value: members.filter((m) => m.category === name).length,

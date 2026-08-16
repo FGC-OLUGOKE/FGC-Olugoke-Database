@@ -4,6 +4,7 @@ import { X, Cake, Pencil, Eye } from "lucide-react";
 import useEscapeKey from "../../../hooks/useEscapeKey";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
+import Avatar from "../../../components/ui/Avatar";
 
 /**
  * BirthdayDetailModal
@@ -36,8 +37,6 @@ export default function BirthdayDetailModal({ member, birthday, isOpen, onClose,
 
   if (!shouldRender || !member) return null;
 
-  const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
-
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
@@ -66,9 +65,12 @@ export default function BirthdayDetailModal({ member, birthday, isOpen, onClose,
 
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col items-center gap-3 bg-gradient-to-b from-[#d6b447]/10 to-transparent px-6 pb-6 pt-8 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#154d78]/10 text-2xl font-semibold text-[#154d78]">
-              {initials}
-            </div>
+            <Avatar
+              firstName={member.firstName}
+              lastName={member.lastName}
+              photoUrl={member.photoUrl}
+              className="h-20 w-20 text-2xl"
+            />
             <div>
               <p className="text-lg font-semibold text-gray-900">
                 {member.title} {member.firstName} {member.lastName}

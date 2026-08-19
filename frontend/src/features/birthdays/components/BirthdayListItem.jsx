@@ -29,7 +29,7 @@ export default function BirthdayListItem({ member, birthday, onView, onEdit }) {
           {member.title} {member.firstName} {member.lastName}
         </p>
         <p className="truncate text-xs text-gray-500">
-          {member.category} · {member.department}
+          {member.category} · {member.departments.join(", ")}
         </p>
       </button>
 

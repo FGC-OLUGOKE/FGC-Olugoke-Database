@@ -7,8 +7,9 @@ import SegmentedControl from "../../../components/ui/SegmentedControl";
 import Toggle from "../../../components/ui/Toggle";
 import Button from "../../../components/ui/Button";
 import PhotoUpload from "../../../components/ui/PhotoUpload";
+import MultiSelect from "../../../components/ui/MultiSelect";
+import { getCurrentAge } from "../../../lib/birthdayUtils";
 import {
-  TITLES,
   GENDERS,
   MARITAL_STATUSES,
   FORM_CATEGORIES,
@@ -19,9 +20,11 @@ import {
 // Select-based fields default to "" (unanswered) rather than the
 // first option, so the placeholder shows and validation can catch
 // an admin who never actually made a choice.
+//
+// NOTE: `title` was removed entirely per the registration-rules
+// update — it's not part of this schema anymore, not just hidden.
 const EMPTY_FORM = {
   photoUrl: "",
-  title: "",
   firstName: "",
   lastName: "",
   gender: "",
@@ -31,7 +34,7 @@ const EMPTY_FORM = {
   email: "",
   address: "",
   category: "",
-  department: "",
+  departments: [],
   status: "",
   dateJoined: "",
   baptized: false,
@@ -44,36 +47,29 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^[0-9+()\-\s]{7,}$/;
 
 /**
- * Validates the fields required to identify, reach, and correctly
- * categorize a member. Returns an object keyed by field name — an
- * empty object means the form is valid.
- *
- * UNCHANGED from the previous version — this redesign is visual only.
+ * Only First Name, Last Name, Gender, and Date of Birth block
+ * submission — per the updated registration rules, everything else
+ * (phone, email, address, department, category, marital status,
+ * status, etc.) is optional so an admin can register someone with
+ * just their basic identity and complete the rest of the profile
+ * later. Phone/email still get FORMAT validation, but only if the
+ * admin actually typed something in — an empty value is valid.
  */
 function validate(data) {
   const errors = {};
 
-  if (!data.title) errors.title = "Please select a title";
   if (!data.firstName.trim()) errors.firstName = "First name is required";
   if (!data.lastName.trim()) errors.lastName = "Last name is required";
   if (!data.gender) errors.gender = "Please select a gender";
-  if (!data.maritalStatus) errors.maritalStatus = "Please select a marital status";
+  if (!data.dateOfBirth) errors.dateOfBirth = "Date of birth is required";
 
-  if (!data.phone.trim()) {
-    errors.phone = "Phone number is required";
-  } else if (!PHONE_PATTERN.test(data.phone.trim())) {
+  if (data.phone.trim() && !PHONE_PATTERN.test(data.phone.trim())) {
     errors.phone = "Enter a valid phone number";
   }
 
-  if (!data.email.trim()) {
-    errors.email = "Email is required";
-  } else if (!EMAIL_PATTERN.test(data.email.trim())) {
+  if (data.email.trim() && !EMAIL_PATTERN.test(data.email.trim())) {
     errors.email = "Enter a valid email address";
   }
-
-  if (!data.category) errors.category = "Please select a category";
-  if (!data.department) errors.department = "Please select a department";
-  if (!data.status) errors.status = "Please select a status";
 
   return errors;
 }
@@ -82,19 +78,15 @@ function validate(data) {
  * MemberForm
  *
  * Add/Edit member dialog.
- * - Mobile (≤768px): full-width side drawer, unchanged.
- * - Desktop (md: and up): centered modal with backdrop blur, rounded
- *   corners, capped height with internal scroll — via Drawer's
- *   `desktopModal` prop. Pure CSS breakpoint switch, no JS involved.
+ * - Mobile (≤768px): full-width side drawer.
+ * - Desktop (md: and up): centered modal (Drawer's `desktopModal` prop).
  *
- * Every required field (matching `validate()` above exactly) shows a
- * red asterisk beside its label via the `required` prop on
- * Input/Select/SegmentedControl. Section headers now carry a small
- * tinted icon badge for stronger visual hierarchy/scannability.
- *
- * Functionality/validation logic is UNCHANGED from before — this is
- * a visual/layout redesign only. `onSave` still just hands the
- * finished form data back to the caller; no API call happens here.
+ * Registration philosophy: "register the member first, complete the
+ * profile later." Only First Name, Last Name, Gender, and Date of
+ * Birth are required (marked with a red *) — everything else is
+ * optional and won't block saving. Date of Birth shows a live
+ * "Age: X" hint underneath since age is always derived, never a
+ * separate editable field.
  *
  * Props:
  * - isOpen  (bool)
@@ -102,7 +94,7 @@ function validate(data) {
  * - onClose (fn)
  * - onSave  (fn)  (formData) => void
  */
-export default function MemberForm({ isOpen, member, onClose, onSave }) {
+export default function MemberForm({ isOpen, member, onClose, onSave, submitLabel = "Save Member", titleOverride }) {
   const isEditing = Boolean(member);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -136,11 +128,13 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
     onSave?.(formData);
   }
 
+  const age = formData.dateOfBirth ? getCurrentAge(formData.dateOfBirth) : null;
+
   return (
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Edit Member" : "Add New Member"}
+      title={titleOverride ?? (isEditing ? "Edit Member" : "Add New Member")}
       widthClass="md:max-w-2xl"
       desktopModal
     >
@@ -153,25 +147,6 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               value={formData.photoUrl}
               onChange={(dataUrl) => update("photoUrl", dataUrl)}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <Select
-                label="Title"
-                required
-                placeholder="Select Title"
-                options={TITLES}
-                value={formData.title}
-                error={errors.title}
-                onChange={(e) => update("title", e.target.value)}
-              />
-              <SegmentedControl
-                label="Gender"
-                required
-                options={GENDERS}
-                value={formData.gender}
-                error={errors.gender}
-                onChange={(value) => update("gender", value)}
-              />
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="First Name"
@@ -189,29 +164,43 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Date of Birth"
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={(e) => update("dateOfBirth", e.target.value)}
-              />
-              <Select
-                label="Marital Status"
+              <SegmentedControl
+                label="Gender"
                 required
-                placeholder="Select Marital Status"
-                options={MARITAL_STATUSES}
-                value={formData.maritalStatus}
-                error={errors.maritalStatus}
-                onChange={(e) => update("maritalStatus", e.target.value)}
+                options={GENDERS}
+                value={formData.gender}
+                error={errors.gender}
+                onChange={(value) => update("gender", value)}
               />
+              <div>
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  required
+                  error={errors.dateOfBirth}
+                  value={formData.dateOfBirth}
+                  onChange={(e) => update("dateOfBirth", e.target.value)}
+                />
+                {/* Age is always derived from Date of Birth — never a
+                    separate editable field. */}
+                {age !== null && (
+                  <p className="mt-1 text-xs text-gray-400">Age: {age}</p>
+                )}
+              </div>
             </div>
+            <Select
+              label="Marital Status"
+              placeholder="Select Marital Status"
+              options={MARITAL_STATUSES}
+              value={formData.maritalStatus}
+              onChange={(e) => update("maritalStatus", e.target.value)}
+            />
           </FormSection>
 
           <FormSection icon={Phone} iconTone="purple" title="Contact Information">
             <Input
               label="Phone"
               type="tel"
-              required
               error={errors.phone}
               value={formData.phone}
               onChange={(e) => update("phone", e.target.value)}
@@ -219,7 +208,6 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
             <Input
               label="Email"
               type="email"
-              required
               error={errors.email}
               value={formData.email}
               onChange={(e) => update("email", e.target.value)}
@@ -232,34 +220,25 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
           </FormSection>
 
           <FormSection icon={Church} iconTone="gold" title="Church Information">
-            <div className="grid grid-cols-2 gap-4">
-              <Select
-                label="Category"
-                required
-                placeholder="Select Category"
-                options={FORM_CATEGORIES}
-                value={formData.category}
-                error={errors.category}
-                onChange={(e) => update("category", e.target.value)}
-              />
-              <Select
-                label="Department"
-                required
-                placeholder="Select Department"
-                options={FORM_DEPARTMENTS}
-                value={formData.department}
-                error={errors.department}
-                onChange={(e) => update("department", e.target.value)}
-              />
-            </div>
+            <Select
+              label="Category"
+              placeholder="Select Category"
+              options={FORM_CATEGORIES}
+              value={formData.category}
+              onChange={(e) => update("category", e.target.value)}
+            />
+            <MultiSelect
+              label="Departments"
+              options={FORM_DEPARTMENTS}
+              values={formData.departments}
+              onChange={(next) => update("departments", next)}
+            />
             <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Status"
-                required
                 placeholder="Select Status"
                 options={FORM_STATUSES}
                 value={formData.status}
-                error={errors.status}
                 onChange={(e) => update("status", e.target.value)}
               />
               <Input
@@ -299,19 +278,17 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
           </FormSection>
 
           <p className="text-xs text-gray-400">
-            <span className="text-[#9e263b]">*</span> Required field
+            <span className="text-[#9e263b]">*</span> Required field — everything else can be
+            completed later
           </p>
         </div>
 
-        {/* Sticky footer with a subtle top shadow so it reads as
-            "above" the scrollable content rather than just stacked
-            beneath it. */}
         <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.06)] md:px-8">
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="primary" type="submit">
-            Save Member
+            {submitLabel}
           </Button>
         </div>
       </form>
@@ -338,4 +315,4 @@ function FormSection({ icon: Icon, iconTone = "blue", title, children }) {
       <div className="space-y-4">{children}</div>
     </div>
   );
-    }
+}

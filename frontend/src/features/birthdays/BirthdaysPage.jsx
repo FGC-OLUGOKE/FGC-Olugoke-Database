@@ -161,11 +161,12 @@ export default function BirthdaysPage() {
       const matchesSearch =
         !query ||
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(query) ||
-        member.department.toLowerCase().includes(query) ||
+        member.departments.some((d) => d.toLowerCase().includes(query)) ||
         member.category.toLowerCase().includes(query);
 
       const matchesCategory = category === "All" || member.category === category;
-      const matchesDepartment = department === "All Departments" || member.department === department;
+      const matchesDepartment =
+        department === "All Departments" || member.departments.includes(department);
       const matchesStatus = status === "All Status" || member.status === status;
       const matchesPeriod = matchesTimePeriod(birthday.next, timePeriod, today);
 

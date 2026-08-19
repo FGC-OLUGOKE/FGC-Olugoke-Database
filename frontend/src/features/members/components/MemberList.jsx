@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Eye, Pencil, Trash2, Inbox } from "lucide-react";
+import { Eye, Pencil, Trash2, UserMinus, Inbox } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Avatar from "../../../components/ui/Avatar";
 import EmptyState from "../../../components/ui/EmptyState";
@@ -23,7 +23,7 @@ const PAGE_SIZE = 5;
  * - onEdit   (fn)      (member) => void
  * - onDelete (fn)      (member) => void
  */
-export default function MemberList({ members = [], onView, onEdit, onDelete }) {
+export default function MemberList({ members = [], onView, onEdit, onDelete, onRemoveFromDepartment }) {
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
@@ -81,7 +81,7 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-gray-700">{member.department}</td>
+                  <td className="px-5 py-3 text-gray-700">{member.departments.join(", ") || "Not Assigned"}</td>
                   <td className="px-5 py-3 text-gray-700">{member.category}</td>
                   <td className="px-5 py-3">
                     <Badge tone={member.status === "Active" ? "success" : "neutral"}>
@@ -117,23 +117,38 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
                               close();
                             }}
                           />
-                          <DropdownMenuItem
-                            icon={Pencil}
-                            label="Edit Member"
-                            onClick={() => {
-                              onEdit?.(member);
-                              close();
-                            }}
-                          />
-                          <DropdownMenuItem
-                            icon={Trash2}
-                            label="Delete Member"
-                            variant="danger"
-                            onClick={() => {
-                              onDelete?.(member);
-                              close();
-                            }}
-                          />
+                          {onEdit && (
+                            <DropdownMenuItem
+                              icon={Pencil}
+                              label="Edit Member"
+                              onClick={() => {
+                                onEdit(member);
+                                close();
+                              }}
+                            />
+                          )}
+                          {onDelete && (
+                            <DropdownMenuItem
+                              icon={Trash2}
+                              label="Delete Member"
+                              variant="danger"
+                              onClick={() => {
+                                onDelete(member);
+                                close();
+                              }}
+                            />
+                          )}
+                          {onRemoveFromDepartment && (
+                            <DropdownMenuItem
+                              icon={UserMinus}
+                              label="Remove from Department"
+                              variant="danger"
+                              onClick={() => {
+                                onRemoveFromDepartment(member);
+                                close();
+                              }}
+                            />
+                          )}
                         </>
                       )}
                     </DropdownMenu>
@@ -154,6 +169,7 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
             onView={onView}
             onEdit={onEdit}
             onDelete={onDelete}
+            onRemoveFromDepartment={onRemoveFromDepartment}
           />
         ))}
       </div>
@@ -186,5 +202,4 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
       )}
     </div>
   );
-                          }
-                          
+}

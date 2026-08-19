@@ -47,7 +47,7 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
   return (
     <div>
       {/* Desktop table */}
-      <div className="hidden overflow-visible rounded-xl border border-gray-200 bg-white shadow-sm md:block">
+      <div className="hidden overflow-x-scroll scrollbar-hide rounded-xl border border-gray-200 bg-white shadow-sm md:block">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -84,7 +84,7 @@ export default function MemberList({ members = [], onView, onEdit, onDelete }) {
                   <td className="px-5 py-3 text-gray-700">{member.department}</td>
                   <td className="px-5 py-3 text-gray-700">{member.category}</td>
                   <td className="px-5 py-3">
-                    <Badge tone={member.status === "Active" ? "success" : "neutral"}>
+                    <Badge tone={member.status === "Active" ? "active" : "inactive"}>
                       {member.status}
                     </Badge>
                   </td>

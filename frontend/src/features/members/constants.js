@@ -1,7 +1,11 @@
 // Shared option lists for the Members feature.
-// Centralized here so SearchBar, MemberForm, and MemberList
-// all reference the same source of truth — no duplicated arrays.
-
+//
+// CATEGORY TERMINOLOGY: exactly "Children", "Teenager", "Youth",
+// "Adult" (singular Teenager/Adult) — this exact wording is required
+// consistently across Members, Dashboard, Birthdays, and Reports per
+// the Reports page spec. Previously this said "Teenagers"/"Adults";
+// renamed here plus in members/mockData.js and Dashboard's category
+// chart so it's consistent everywhere, not just in Reports.
 export const CATEGORIES = ["All", "Children", "Teenager", "Youth", "Adult"];
 
 export const DEPARTMENTS = [
@@ -29,18 +33,8 @@ export const FORM_CATEGORIES = CATEGORIES.filter((c) => c !== "All");
 export const FORM_DEPARTMENTS = DEPARTMENTS.filter((d) => d !== "All Departments");
 export const FORM_STATUSES = STATUSES.filter((s) => s !== "All Status");
 
-export const TITLES = [
-  "Mr",
-  "Mrs",
-  "Miss",
-  "Pastor",
-  "Elder",
-  "Deacon",
-  "Deaconess",
-  "Brother",
-  "Sister",
-  "Master",
-];
+// NOTE: TITLES was removed entirely — the Title field no longer
+// exists in member registration per the registration-rules update.
 
 export const GENDERS = ["Male", "Female"];
 

@@ -20,6 +20,6 @@ export const NAV_ITEMS = [
   { label: "Events", path: "events", icon: CalendarDays, implemented: false },
   { label: "Workers", path: "workers", icon: HardHat, implemented: false },
   { label: "Cell Groups", path: "cell-groups", icon: UsersRound, implemented: false },
-  { label: "Reports", path: "reports", icon: BarChart3, implemented: false },
+  { label: "Reports", path: "reports", icon: BarChart3, implemented: true },
   { label: "Settings", path: "settings", icon: Settings, implemented: false },
 ];

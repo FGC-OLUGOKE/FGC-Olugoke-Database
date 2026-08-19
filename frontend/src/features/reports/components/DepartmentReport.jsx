@@ -26,7 +26,11 @@ export default function DepartmentReport({ departments, members, period }) {
               `${m.firstName} ${m.lastName}`,
               m.gender,
               m.category,
+<<<<<<< HEAD
               m.department || "Not Assigned",
+=======
+              m.departments.join(", ") || "Not Assigned",
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
               m.status,
               m.dateJoined,
             ]),
@@ -61,4 +65,8 @@ export default function DepartmentReport({ departments, members, period }) {
       </ul>
     </SectionCard>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900

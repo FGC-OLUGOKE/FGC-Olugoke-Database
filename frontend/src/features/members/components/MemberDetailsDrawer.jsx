@@ -43,19 +43,21 @@ export default function MemberDetailsDrawer({ member, isOpen, onClose, onEdit })
           <p className="text-lg font-semibold text-gray-900">
             {member.title} {member.firstName} {member.lastName}
           </p>
-          <p className="text-sm text-gray-500">{member.department}</p>
+          <p className="text-sm text-gray-500">{member.departments.join(", ") || "Not Assigned"}</p>
         </div>
         <Badge tone={member.status === "Active" ? "success" : "neutral"}>
           {member.status}
         </Badge>
-        <Button
-          variant="secondary"
-          onClick={() => onEdit?.(member)}
-          className="mt-1"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Edit Member
-        </Button>
+        {onEdit && (
+          <Button
+            variant="secondary"
+            onClick={() => onEdit(member)}
+            className="mt-1"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit Member
+          </Button>
+        )}
       </div>
 
       <Section title="Personal Information">
@@ -72,7 +74,7 @@ export default function MemberDetailsDrawer({ member, isOpen, onClose, onEdit })
       </Section>
 
       <Section title="Church Information">
-        <Field label="Department" value={member.department} />
+        <Field label="Department" value={member.departments.join(", ")} />
         <Field label="Status" value={member.status} />
         <Field label="Date Joined" value={formattedDate} />
         <Field

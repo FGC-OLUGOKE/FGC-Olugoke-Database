@@ -25,7 +25,11 @@ const GENDER_COLORS = { Male: "#154d78", Female: "#4a2969" };
 const CATEGORY_LIST = ["Children", "Teenager", "Youth", "Adult"];
 
 function isProfileComplete(m) {
+<<<<<<< HEAD
   return Boolean(m.phone && m.email && m.address && m.photoUrl && m.department);
+=======
+  return Boolean(m.phone && m.email && m.address && m.photoUrl && m.departments.length > 0);
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
 }
 
 function inRange(dateStr, range) {
@@ -194,8 +198,13 @@ export default function ReportsPage() {
     const totalWorkers = members.filter((m) => m.worker).length || 1;
     return departments
       .map((dept) => {
+<<<<<<< HEAD
         const count = members.filter((m) => m.department === dept.name).length;
         const workerCount = members.filter((m) => m.department === dept.name && m.worker).length;
+=======
+        const count = members.filter((m) => m.departments.includes(dept.name)).length;
+        const workerCount = members.filter((m) => m.departments.includes(dept.name) && m.worker).length;
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
         return {
           name: dept.name,
           count,
@@ -269,7 +278,11 @@ export default function ReportsPage() {
       email: members.filter((m) => !m.email).length,
       address: members.filter((m) => !m.address).length,
       photo: members.filter((m) => !m.photoUrl).length,
+<<<<<<< HEAD
       department: members.filter((m) => !m.department).length,
+=======
+      department: members.filter((m) => m.departments.length === 0).length,
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
     };
     const complete = members.filter(isProfileComplete).length;
     const incomplete = total - complete;
@@ -282,7 +295,11 @@ export default function ReportsPage() {
           !m.phone && "Phone",
           !m.email && "Email",
           !m.address && "Address",
+<<<<<<< HEAD
           !m.department && "Department",
+=======
+          m.departments.length === 0 && "Department",
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
         ].filter(Boolean),
       }));
 
@@ -491,4 +508,8 @@ export default function ReportsPage() {
       />
     </div>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900

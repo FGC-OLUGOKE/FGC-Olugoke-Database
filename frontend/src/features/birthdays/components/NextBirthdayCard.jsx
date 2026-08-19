@@ -30,7 +30,7 @@ export default function NextBirthdayCard({ entry, onSelect }) {
             {" · "}Turning {birthday.turningAge}
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            {member.category} · {member.department}
+            {member.category} · {member.departments.join(", ")}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-center gap-2 sm:items-end">

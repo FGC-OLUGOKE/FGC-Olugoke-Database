@@ -7,6 +7,10 @@ import SegmentedControl from "../../../components/ui/SegmentedControl";
 import Toggle from "../../../components/ui/Toggle";
 import Button from "../../../components/ui/Button";
 import PhotoUpload from "../../../components/ui/PhotoUpload";
+<<<<<<< HEAD
+=======
+import MultiSelect from "../../../components/ui/MultiSelect";
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
 import { getCurrentAge } from "../../../lib/birthdayUtils";
 import {
   GENDERS,
@@ -33,7 +37,7 @@ const EMPTY_FORM = {
   email: "",
   address: "",
   category: "",
-  department: "",
+  departments: [],
   status: "",
   dateJoined: "",
   baptized: false,
@@ -93,7 +97,7 @@ function validate(data) {
  * - onClose (fn)
  * - onSave  (fn)  (formData) => void
  */
-export default function MemberForm({ isOpen, member, onClose, onSave }) {
+export default function MemberForm({ isOpen, member, onClose, onSave, submitLabel = "Save Member", titleOverride }) {
   const isEditing = Boolean(member);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -133,7 +137,7 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Edit Member" : "Add New Member"}
+      title={titleOverride ?? (isEditing ? "Edit Member" : "Add New Member")}
       widthClass="md:max-w-2xl"
       desktopModal
     >
@@ -219,6 +223,7 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
           </FormSection>
 
           <FormSection icon={Church} iconTone="gold" title="Church Information">
+<<<<<<< HEAD
             <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Category"
@@ -235,6 +240,21 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
                 onChange={(e) => update("department", e.target.value)}
               />
             </div>
+=======
+            <Select
+              label="Category"
+              placeholder="Select Category"
+              options={FORM_CATEGORIES}
+              value={formData.category}
+              onChange={(e) => update("category", e.target.value)}
+            />
+            <MultiSelect
+              label="Departments"
+              options={FORM_DEPARTMENTS}
+              values={formData.departments}
+              onChange={(next) => update("departments", next)}
+            />
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
             <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Status"
@@ -290,7 +310,7 @@ export default function MemberForm({ isOpen, member, onClose, onSave }) {
             Cancel
           </Button>
           <Button variant="primary" type="submit">
-            Save Member
+            {submitLabel}
           </Button>
         </div>
       </form>
@@ -317,4 +337,8 @@ function FormSection({ icon: Icon, iconTone = "blue", title, children }) {
       <div className="space-y-4">{children}</div>
     </div>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900

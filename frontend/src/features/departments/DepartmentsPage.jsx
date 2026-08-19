@@ -49,7 +49,7 @@ export default function DepartmentsPage() {
   const departmentsWithCounts = useMemo(() => {
     return departments.map((dept) => ({
       ...dept,
-      memberCount: members.filter((m) => m.department === dept.name).length,
+      memberCount: members.filter((m) => m.departments.includes(dept.name)).length,
     }));
   }, [departments, members]);
 

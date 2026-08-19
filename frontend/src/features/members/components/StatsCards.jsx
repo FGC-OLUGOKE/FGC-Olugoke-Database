@@ -19,7 +19,7 @@ export default function StatsCards({ members = [] }) {
     const active = members.filter((m) => m.status === "Active").length;
     const inactive = total - active;
     const departments = new Set(
-      members.map((m) => m.department).filter(Boolean)
+      members.flatMap((m) => m.departments)
     ).size;
 
     return [

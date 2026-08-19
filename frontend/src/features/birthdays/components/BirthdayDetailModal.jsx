@@ -94,7 +94,7 @@ export default function BirthdayDetailModal({ member, birthday, isOpen, onClose,
           </div>
 
           <div className="space-y-2.5 px-6 py-4">
-            <DetailRow label="Department" value={member.department} />
+            <DetailRow label="Department" value={member.departments.join(", ") || "Not Assigned"} />
             <DetailRow label="Category" value={member.category} />
             <DetailRow
               label="Status"

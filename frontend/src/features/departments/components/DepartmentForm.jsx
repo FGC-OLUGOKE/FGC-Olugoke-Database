@@ -67,7 +67,7 @@ export default function DepartmentForm({ isOpen, department, members = [], onClo
     onSave?.(formData);
   }
 
-  const departmentMembers = members.filter((m) => m.department === formData.name);
+  const departmentMembers = members.filter((m) => m.departments.includes(formData.name));
 
   return (
     <Drawer

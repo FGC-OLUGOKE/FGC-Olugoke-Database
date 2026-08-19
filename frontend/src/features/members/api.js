@@ -49,3 +49,25 @@ export async function deleteMember(id) {
   // TODO: replace with a real DELETE to `/api/members/${id}`
   return simulateNetwork({ id });
 }
+
+/**
+ * Adds/removes ONE department from a member's `departments` array
+ * without touching their other memberships — this is what powers
+ * Department Admin's "add existing member" / "remove from
+ * department" actions (distinct from editing or deleting the member
+ * entirely, which Department Admins can't do). The actual array
+ * merge/filter happens in the calling page (it already has the
+ * member's current departments in state); these functions just
+ * represent the network round-trip.
+ */
+export async function assignMemberToDepartment(memberId, departmentName) {
+  // TODO: replace with a real PATCH to `/api/members/${memberId}/departments`
+  //   body: { add: departmentName }
+  return simulateNetwork({ memberId, departmentName, action: "add" });
+}
+
+export async function removeMemberFromDepartment(memberId, departmentName) {
+  // TODO: replace with a real PATCH to `/api/members/${memberId}/departments`
+  //   body: { remove: departmentName }
+  return simulateNetwork({ memberId, departmentName, action: "remove" });
+}

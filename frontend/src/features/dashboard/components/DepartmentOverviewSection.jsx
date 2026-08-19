@@ -5,7 +5,7 @@ export default function DepartmentOverviewSection({ departments, members }) {
   const navigate = useNavigate();
   const counts = departments.map((dept) => ({
     name: dept.name,
-    count: members.filter((m) => m.department === dept.name).length,
+    count: members.filter((m) => m.departments.includes(dept.name)).length,
   }));
   const max = Math.max(1, ...counts.map((d) => d.count));
 

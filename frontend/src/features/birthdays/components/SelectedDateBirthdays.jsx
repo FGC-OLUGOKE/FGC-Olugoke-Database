@@ -37,7 +37,7 @@ export default function SelectedDateBirthdays({ date, members, onSelect, onClear
                       {m.firstName} {m.lastName}
                     </p>
                     <p className="truncate text-xs text-gray-500">
-                      {m.category} · {m.department}
+                      {m.category} · {m.departments.join(", ")}
                     </p>
                   </div>
                   <Badge tone={m.status === "Active" ? "success" : "neutral"}>{m.status}</Badge>

@@ -1,4 +1,4 @@
-import { Phone, Calendar, MoreHorizontal, Eye, Pencil, Trash2 } from "lucide-react";
+import { Phone, Calendar, MoreHorizontal, Eye, Pencil, Trash2, UserMinus } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Avatar from "../../../components/ui/Avatar";
 import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownMenu";
@@ -9,7 +9,7 @@ import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownM
  * Mobile (≤768px) equivalent of a table row. Shown instead of
  * MemberList's <table> below the md breakpoint.
  */
-export default function MemberCard({ member, onView, onEdit, onDelete }) {
+export default function MemberCard({ member, onView, onEdit, onDelete, onRemoveFromDepartment }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -49,30 +49,47 @@ export default function MemberCard({ member, onView, onEdit, onDelete }) {
                   close();
                 }}
               />
-              <DropdownMenuItem
-                icon={Pencil}
-                label="Edit Member"
-                onClick={() => {
-                  onEdit?.(member);
-                  close();
-                }}
-              />
-              <DropdownMenuItem
-                icon={Trash2}
-                label="Delete Member"
-                variant="danger"
-                onClick={() => {
-                  onDelete?.(member);
-                  close();
-                }}
-              />
+              {onEdit && (
+                <DropdownMenuItem
+                  icon={Pencil}
+                  label="Edit Member"
+                  onClick={() => {
+                    onEdit(member);
+                    close();
+                  }}
+                />
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  icon={Trash2}
+                  label="Delete Member"
+                  variant="danger"
+                  onClick={() => {
+                    onDelete(member);
+                    close();
+                  }}
+                />
+              )}
+              {onRemoveFromDepartment && (
+                <DropdownMenuItem
+                  icon={UserMinus}
+                  label="Remove from Department"
+                  variant="danger"
+                  onClick={() => {
+                    onRemoveFromDepartment(member);
+                    close();
+                  }}
+                />
+              )}
             </>
           )}
         </DropdownMenu>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge tone="info">{member.department}</Badge>
+        {member.departments.map((d) => (
+          <Badge key={d} tone="info">{d}</Badge>
+        ))}
         <Badge tone="neutral">{member.category}</Badge>
         <Badge tone={member.status === "Active" ? "success" : "neutral"}>
           {member.status}

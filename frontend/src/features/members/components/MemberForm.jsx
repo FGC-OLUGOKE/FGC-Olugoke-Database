@@ -7,10 +7,7 @@ import SegmentedControl from "../../../components/ui/SegmentedControl";
 import Toggle from "../../../components/ui/Toggle";
 import Button from "../../../components/ui/Button";
 import PhotoUpload from "../../../components/ui/PhotoUpload";
-<<<<<<< HEAD
-=======
 import MultiSelect from "../../../components/ui/MultiSelect";
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
 import { getCurrentAge } from "../../../lib/birthdayUtils";
 import {
   GENDERS,
@@ -223,24 +220,6 @@ export default function MemberForm({ isOpen, member, onClose, onSave, submitLabe
           </FormSection>
 
           <FormSection icon={Church} iconTone="gold" title="Church Information">
-<<<<<<< HEAD
-            <div className="grid grid-cols-2 gap-4">
-              <Select
-                label="Category"
-                placeholder="Select Category"
-                options={FORM_CATEGORIES}
-                value={formData.category}
-                onChange={(e) => update("category", e.target.value)}
-              />
-              <Select
-                label="Department"
-                placeholder="Select Department"
-                options={FORM_DEPARTMENTS}
-                value={formData.department}
-                onChange={(e) => update("department", e.target.value)}
-              />
-            </div>
-=======
             <Select
               label="Category"
               placeholder="Select Category"
@@ -254,7 +233,6 @@ export default function MemberForm({ isOpen, member, onClose, onSave, submitLabe
               values={formData.departments}
               onChange={(next) => update("departments", next)}
             />
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
             <div className="grid grid-cols-2 gap-4">
               <Select
                 label="Status"
@@ -337,8 +315,4 @@ function FormSection({ icon: Icon, iconTone = "blue", title, children }) {
       <div className="space-y-4">{children}</div>
     </div>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900

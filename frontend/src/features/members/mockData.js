@@ -256,30 +256,6 @@ const mockMembers = [
     cellGroup: "Central Cell",
     serviceUnit: "",
   },
-<<<<<<< HEAD
-  {
-    id: 13,
-    title: "Brother",
-    firstName: "Samuel",
-    lastName: "Austin",
-    gender: "Male",
-    dateOfBirth: "1992-08-25",
-    maritalStatus: "Single",
-    occupation: "Conductor",
-    email: "", // deliberately missing — for Birthdays page contact-action tests
-    phone: "08011125674",
-    address: "17 Comfort Road, Lagos",
-    department: "Prayer",
-    category: "Youth",
-    status: "Active",
-    dateJoined: "2026-08-16",
-    baptized: true,
-    worker: true,
-    cellGroup: "Central Cell",
-    serviceUnit: "",
-  },
-=======
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
 ];
 
 export default mockMembers;

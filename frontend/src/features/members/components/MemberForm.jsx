@@ -94,17 +94,28 @@ function validate(data) {
  * - onClose (fn)
  * - onSave  (fn)  (formData) => void
  */
-export default function MemberForm({ isOpen, member, onClose, onSave, submitLabel = "Save Member", titleOverride }) {
+export default function MemberForm({
+  isOpen,
+  member,
+  onClose,
+  onSave,
+  submitLabel = "Save Member",
+  titleOverride,
+  lockedCategory,
+}) {
   const isEditing = Boolean(member);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(member ? { ...EMPTY_FORM, ...member } : EMPTY_FORM);
+      const base = member
+        ? { ...EMPTY_FORM, ...member }
+        : { ...EMPTY_FORM, category: lockedCategory || "" };
+      setFormData(base);
       setErrors({});
     }
-  }, [isOpen, member]);
+  }, [isOpen, member, lockedCategory]);
 
   function update(field, value) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -225,8 +236,14 @@ export default function MemberForm({ isOpen, member, onClose, onSave, submitLabe
               placeholder="Select Category"
               options={FORM_CATEGORIES}
               value={formData.category}
+              disabled={Boolean(lockedCategory)}
               onChange={(e) => update("category", e.target.value)}
             />
+            {lockedCategory && (
+              <p className="-mt-2 text-xs text-gray-400">
+                Category is set to your assigned scope and can't be changed here.
+              </p>
+            )}
             <MultiSelect
               label="Departments"
               options={FORM_DEPARTMENTS}

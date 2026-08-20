@@ -37,11 +37,7 @@ export default function NewMembersReport({ newMembers, breakdown, period }) {
             m.dateOfBirth || "—",
             m.dateOfBirth ? getCurrentAge(m.dateOfBirth) : "—",
             m.dateJoined,
-<<<<<<< HEAD
-            m.department || "Not Assigned",
-=======
             m.departments.join(", ") || "Not Assigned",
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
             m.status,
             m.phone || "Not provided",
             m.email || "Not provided",
@@ -100,11 +96,7 @@ export default function NewMembersReport({ newMembers, breakdown, period }) {
                     {m.firstName} {m.lastName}
                   </p>
                   <p className="truncate text-xs text-gray-500">
-<<<<<<< HEAD
-                    {m.category} · {m.department || "Not Assigned"}
-=======
                     {m.category} · {m.departments.join(", ") || "Not Assigned"}
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
                   </p>
                 </div>
                 <span className="text-xs text-gray-400">{m.dateJoined}</span>
@@ -122,11 +114,7 @@ export default function NewMembersReport({ newMembers, breakdown, period }) {
                       {m.firstName} {m.lastName}
                     </p>
                     <p className="truncate text-xs text-gray-500">
-<<<<<<< HEAD
-                      {m.category} · {m.department || "Not Assigned"}
-=======
                       {m.category} · {m.departments.join(", ") || "Not Assigned"}
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
                     </p>
                   </div>
                   <Badge tone={m.status === "Active" ? "success" : "neutral"}>{m.status}</Badge>
@@ -138,8 +126,4 @@ export default function NewMembersReport({ newMembers, breakdown, period }) {
       )}
     </SectionCard>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900

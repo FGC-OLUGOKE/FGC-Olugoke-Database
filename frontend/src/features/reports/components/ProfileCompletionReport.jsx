@@ -112,8 +112,4 @@ export default function ProfileCompletionReport({ completion, period }) {
       )}
     </SectionCard>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900

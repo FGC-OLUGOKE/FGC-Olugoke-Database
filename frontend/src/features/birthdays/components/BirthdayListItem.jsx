@@ -63,14 +63,16 @@ export default function BirthdayListItem({ member, birthday, onView, onEdit }) {
                 close();
               }}
             />
-            <DropdownMenuItem
-              icon={Pencil}
-              label="Edit Member"
-              onClick={() => {
-                onEdit(member);
-                close();
-              }}
-            />
+            {onEdit && (
+              <DropdownMenuItem
+                icon={Pencil}
+                label="Edit Member"
+                onClick={() => {
+                  onEdit(member);
+                  close();
+                }}
+              />
+            )}
             {member.phone && (
               <DropdownMenuItem
                 icon={Phone}

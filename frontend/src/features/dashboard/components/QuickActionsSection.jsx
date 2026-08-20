@@ -1,16 +1,40 @@
 import { useNavigate } from "react-router-dom";
 import { UserPlus, ClipboardCheck, CalendarPlus, Users, Cake } from "lucide-react";
 import SectionCard from "../../../components/ui/SectionCard";
+import { isSuperAdmin, canCreateMember, isDepartmentAdmin } from "../../../lib/permissions";
 
-export default function QuickActionsSection({ onAddMember }) {
+/**
+ * QuickActionsSection
+ *
+ * Actions are now filtered by role: recording attendance and adding
+ * events aren't in any role's permission list yet except Super
+ * Admin's implied full access, so they're hidden for everyone else
+ * rather than linking to an action the role isn't meant to perform.
+ * Birthdays isn't in Department Admin's allowed nav paths, so that
+ * shortcut is hidden for them too.
+ */
+export default function QuickActionsSection({ user, onAddMember }) {
   const navigate = useNavigate();
+
   const actions = [
-    { label: "Add Member", icon: UserPlus, onClick: onAddMember },
-    { label: "Record Attendance", icon: ClipboardCheck, onClick: () => navigate("/attendance") },
-    { label: "Add Event", icon: CalendarPlus, onClick: () => navigate("/events") },
+    canCreateMember(user) && { label: "Add Member", icon: UserPlus, onClick: onAddMember },
+    isSuperAdmin(user) && {
+      label: "Record Attendance",
+      icon: ClipboardCheck,
+      onClick: () => navigate("/attendance"),
+    },
+    isSuperAdmin(user) && {
+      label: "Add Event",
+      icon: CalendarPlus,
+      onClick: () => navigate("/events"),
+    },
     { label: "View Members", icon: Users, onClick: () => navigate("/members") },
-    { label: "View Birthdays", icon: Cake, onClick: () => navigate("/birthdays") },
-  ];
+    !isDepartmentAdmin(user) && {
+      label: "View Birthdays",
+      icon: Cake,
+      onClick: () => navigate("/birthdays"),
+    },
+  ].filter(Boolean);
 
   return (
     <SectionCard title="Quick Actions">

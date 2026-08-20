@@ -12,9 +12,17 @@ import LoadingState from "../../components/ui/LoadingState";
 import Pagination from "../../components/ui/Pagination";
 import { useToast } from "../../components/ui/ToastProvider";
 import { getMembers, updateMember } from "../members/api";
+import { submitApprovalRequest } from "../approvals/api";
 import { getNextBirthday } from "../../lib/birthdayUtils";
 import MemberDetailsDrawer from "../members/components/MemberDetailsDrawer";
 import MemberForm from "../members/components/MemberForm";
+import { useAuth } from "../auth/AuthContext";
+import {
+  getScopedMembers,
+  canEditMemberDirectly,
+  canRequestMemberEdit,
+  isCategoryAdmin,
+} from "../../lib/permissions";
 
 const PAGE_SIZE = 10;
 
@@ -61,17 +69,36 @@ function matchesTimePeriod(nextDate, period, today) {
   return nextDate >= start && nextDate <= endOfDay;
 }
 
+/** Shallow diff — mirrors MembersPage.jsx's helper, used to describe
+ * what a Category Admin's edit request is actually proposing. */
+function getChangedFields(original, updated) {
+  const changes = {};
+  Object.keys(updated).forEach((key) => {
+    if (key === "photoUrl") return;
+    const a = JSON.stringify(original[key]);
+    const b = JSON.stringify(updated[key]);
+    if (a !== b) changes[key] = updated[key];
+  });
+  return changes;
+}
+
 /**
  * BirthdaysPage
  *
  * Entirely derived from Members data (getMembers()) — there's no
- * separate "birthdays" entity or mock dataset. Reuses
- * MemberDetailsDrawer and MemberForm directly for "View Full
- * Profile" / "Edit Member" so those stay the single source of truth
- * for member editing, rather than duplicating that UI here.
+ * separate "birthdays" entity or mock dataset.
+ *
+ * Role-scoped: `scopedMembers` filters to the current user's
+ * category before ANY birthday computation runs, per "Category Admin
+ * should only see birthdays belonging to their category." Editing
+ * also now respects the same rule as MembersPage.jsx — a Category
+ * Admin's edit submits an approval request instead of applying
+ * directly; this used to bypass that rule by calling updateMember
+ * unconditionally, which has been fixed.
  */
 export default function BirthdaysPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const [members, setMembers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -113,11 +140,13 @@ export default function BirthdaysPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const scopedMembers = useMemo(() => getScopedMembers(user, members), [user, members]);
+
   const birthdayEntries = useMemo(() => {
-    return members
+    return scopedMembers
       .map((member) => ({ member, birthday: getNextBirthday(member.dateOfBirth) }))
       .filter((entry) => entry.birthday !== null);
-  }, [members]);
+  }, [scopedMembers]);
 
   const todayEntries = useMemo(
     () => birthdayEntries.filter((e) => e.birthday.daysAway === 0),
@@ -144,9 +173,6 @@ export default function BirthdaysPage() {
 
   // "Next Birthday" means the closest UPCOMING one — someone whose
   // birthday is today belongs to Today's Birthdays instead, not here.
-  // Without excluding daysAway === 0, a birthday happening today would
-  // always win (since 0 is the smallest possible value), duplicating
-  // that member into both sections.
   const nextEntry = useMemo(() => {
     const upcoming = birthdayEntries.filter((e) => e.birthday.daysAway > 0);
     if (upcoming.length === 0) return null;
@@ -210,12 +236,15 @@ export default function BirthdaysPage() {
 
   const selectedDateMembers = useMemo(() => {
     if (!selectedCalendarDate) return [];
-    return members.filter((m) => {
+    return scopedMembers.filter((m) => {
       if (!m.dateOfBirth) return false;
       const dob = new Date(m.dateOfBirth);
-      return dob.getMonth() === selectedCalendarDate.getMonth() && dob.getDate() === selectedCalendarDate.getDate();
+      return (
+        dob.getMonth() === selectedCalendarDate.getMonth() &&
+        dob.getDate() === selectedCalendarDate.getDate()
+      );
     });
-  }, [members, selectedCalendarDate]);
+  }, [scopedMembers, selectedCalendarDate]);
 
   function handleViewBirthday(member) {
     const entry = birthdayEntries.find((e) => e.member.id === member.id);
@@ -248,8 +277,29 @@ export default function BirthdaysPage() {
     setIsFormOpen(false);
   }
 
+  const allowEditDirectly = canEditMemberDirectly(user);
+  const allowRequestEdit = canRequestMemberEdit(user);
+
   async function handleSaveMember(formData) {
     try {
+      if (!allowEditDirectly && allowRequestEdit) {
+        // Category Admin: submit an edit REQUEST instead of applying
+        // it directly — same rule as MembersPage.jsx. This used to
+        // call updateMember unconditionally here, bypassing approval.
+        const changes = getChangedFields(formMember, formData);
+        await submitApprovalRequest({
+          type: "edit",
+          memberId: formMember.id,
+          memberName: `${formMember.firstName} ${formMember.lastName}`,
+          requestedBy: user,
+          changes,
+          reason: "Submitted via Birthdays page.",
+        });
+        toast.success("Edit request submitted for Super Admin approval");
+        setIsFormOpen(false);
+        return;
+      }
+
       await updateMember(formMember.id, formData);
       setMembers((prev) => prev.map((m) => (m.id === formMember.id ? { ...m, ...formData } : m)));
       toast.success(`${formData.firstName} ${formData.lastName} was updated`);
@@ -258,6 +308,8 @@ export default function BirthdaysPage() {
       toast.error("Something went wrong saving this member.");
     }
   }
+
+  const showEditAction = allowEditDirectly || allowRequestEdit;
 
   if (isLoading) {
     return <LoadingState label="Loading birthdays..." />;
@@ -295,7 +347,7 @@ export default function BirthdaysPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <BirthdayCalendar
-          members={members}
+          members={scopedMembers}
           selectedDate={selectedCalendarDate}
           onSelectDate={setSelectedCalendarDate}
         />
@@ -313,7 +365,7 @@ export default function BirthdaysPage() {
           entries={pageEntries}
           groupByTime={sort === "nearest" || sort === "furthest"}
           onView={handleViewBirthday}
-          onEdit={handleEditMember}
+          onEdit={showEditAction ? handleEditMember : undefined}
         />
         <Pagination
           page={currentPage}
@@ -331,22 +383,27 @@ export default function BirthdaysPage() {
         isOpen={isBirthdayModalOpen}
         onClose={handleCloseBirthdayModal}
         onViewProfile={handleViewFullProfile}
-        onEdit={handleEditMember}
+        onEdit={showEditAction ? handleEditMember : undefined}
       />
 
       <MemberDetailsDrawer
         member={profileMember}
         isOpen={isProfileDrawerOpen}
         onClose={handleCloseProfileDrawer}
-        onEdit={handleEditMember}
+        onEdit={showEditAction ? handleEditMember : undefined}
       />
 
-      <MemberForm
-        member={formMember}
-        isOpen={isFormOpen}
-        onClose={handleCloseForm}
-        onSave={handleSaveMember}
-      />
+      {showEditAction && (
+        <MemberForm
+          member={formMember}
+          isOpen={isFormOpen}
+          onClose={handleCloseForm}
+          onSave={handleSaveMember}
+          titleOverride={!allowEditDirectly && allowRequestEdit ? "Request Member Edit" : undefined}
+          submitLabel={!allowEditDirectly && allowRequestEdit ? "Submit Edit Request" : "Save Member"}
+          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
+        />
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import Layout from "./components/layout/Layout";
 import ComingSoon from "./components/layout/ComingSoon";
 import { NAV_ITEMS } from "./components/layout/navigation";
 import DashboardPage from "./features/dashboard/DashboardPage";
-import MembersPage from "./features/members/MembersPage";
+import MembersPage from "./features/members/MembersPage.jsx";
 import DepartmentsPage from "./features/departments/DepartmentsPage";
 import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import ReportsPage from "./features/reports/ReportsPage";

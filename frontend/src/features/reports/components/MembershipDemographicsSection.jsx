@@ -6,13 +6,22 @@ import DonutChart from "../../../components/ui/DonutChart";
  * (singular), matching the app-wide terminology rename — this
  * consumes categoryBreakdown computed in ReportsPage.jsx, so it
  * doesn't hardcode category names itself.
+ *
+ * If `categoryBreakdown` is passed as an empty array (Category
+ * Admin's view — a category breakdown is meaningless when every
+ * member IS already that one category), only Gender Distribution
+ * renders, full width, instead of an empty/broken chart alongside it.
  */
 export default function MembershipDemographicsSection({ categoryBreakdown, genderBreakdown, total }) {
+  const showCategory = categoryBreakdown.length > 0;
+
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <SectionCard title="Membership by Category">
-        <Legend data={categoryBreakdown} total={total} />
-      </SectionCard>
+    <div className={`grid grid-cols-1 gap-6 ${showCategory ? "lg:grid-cols-2" : ""}`}>
+      {showCategory && (
+        <SectionCard title="Membership by Category">
+          <Legend data={categoryBreakdown} total={total} />
+        </SectionCard>
+      )}
       <SectionCard title="Gender Distribution">
         <Legend data={genderBreakdown} total={total} />
       </SectionCard>

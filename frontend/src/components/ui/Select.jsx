@@ -41,7 +41,7 @@ export default function Select({
           {...props}
           aria-invalid={Boolean(error)}
           aria-required={required || undefined}
-          className={`w-full appearance-none rounded-lg border bg-gray-50 px-3 py-2 pr-9 text-sm transition-colors focus:bg-white focus:outline-none focus:ring-2 ${
+          className={`w-full appearance-none rounded-lg border bg-gray-50 px-3 py-2 pr-9 text-sm transition-colors focus:bg-white focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 ${
             error
               ? "border-[#9e263b] focus:border-[#9e263b] focus:ring-[#9e263b]/20"
               : "border-gray-200 focus:border-[#154d78] focus:ring-[#154d78]/20"

@@ -19,17 +19,15 @@ import { createMember } from "../members/api";
 import { getNextBirthday } from "../../lib/birthdayUtils";
 import { exportToExcel } from "../../lib/exportUtils";
 import MemberForm from "../members/components/MemberForm";
+import { useAuth } from "../auth/AuthContext";
+import { getScopedMembers, isSuperAdmin, isCategoryAdmin } from "../../lib/permissions";
 
 const CATEGORY_COLORS = { Children: "#d6b447", Teenager: "#4a2969", Youth: "#154d78", Adult: "#9e263b" };
 const GENDER_COLORS = { Male: "#154d78", Female: "#4a2969" };
 const CATEGORY_LIST = ["Children", "Teenager", "Youth", "Adult"];
 
 function isProfileComplete(m) {
-<<<<<<< HEAD
-  return Boolean(m.phone && m.email && m.address && m.photoUrl && m.department);
-=======
   return Boolean(m.phone && m.email && m.address && m.photoUrl && m.departments.length > 0);
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
 }
 
 function inRange(dateStr, range) {
@@ -83,16 +81,23 @@ function getPreviousPeriodRange(range) {
 /**
  * ReportsPage
  *
- * Answers "what does the church's data tell us over a selected
- * period" — distinct from Dashboard's "what's happening right now."
- * Fetches raw datasets once via getReportsData() (which itself just
- * calls each feature's own api.js), then every report section below
- * is a derived useMemo over that data + the current report period.
- * Nothing here owns data — Members/Departments/Attendance/Events
- * remain the single source of truth throughout.
+ * Role-scoped: `scopedMembers` filters to the current user's
+ * category before any member-derived report runs, per "Category
+ * Admin reports should be limited to their category... They should
+ * not access complete church-wide reports."
+ *
+ * Three sections are HIDDEN for Category Admin rather than shown
+ * with fake-scoped data, same reasoning as Dashboard: Membership
+ * Growth and Attendance are backed by church-wide aggregate mock
+ * data with no per-category breakdown, and the category-donut half
+ * of Membership Demographics is meaningless when every member IS
+ * already the admin's one category. Department Report is hidden too
+ * — not a Category Admin's concern per the spec (Category Admins and
+ * Department Admins are separate systems).
  */
 export default function ReportsPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [members, setMembers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -130,6 +135,8 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const scopedMembers = useMemo(() => getScopedMembers(user, members), [user, members]);
+
   const range = useMemo(
     () => getPeriodRange(period, customStart, customEnd),
     [period, customStart, customEnd]
@@ -137,8 +144,8 @@ export default function ReportsPage() {
   const previousRange = useMemo(() => getPreviousPeriodRange(range), [range]);
 
   const newMembersInPeriod = useMemo(
-    () => members.filter((m) => inRange(m.dateJoined, range)),
-    [members, range]
+    () => scopedMembers.filter((m) => inRange(m.dateJoined, range)),
+    [scopedMembers, range]
   );
 
   const attendanceInPeriod = useMemo(
@@ -151,15 +158,18 @@ export default function ReportsPage() {
   );
 
   const overallStats = useMemo(() => {
-    const total = members.length;
-    const active = members.filter((m) => m.status === "Active").length;
-    const inactive = members.filter((m) => m.status === "Inactive").length;
-    const workers = members.filter((m) => m.worker).length;
+    const total = scopedMembers.length;
+    const active = scopedMembers.filter((m) => m.status === "Active").length;
+    const inactive = scopedMembers.filter((m) => m.status === "Inactive").length;
+    const workers = scopedMembers.filter((m) => m.worker).length;
+    // Attendance is church-wide only (see file header) — shown as-is
+    // even for scoped roles, since there's no honest way to split it
+    // by category with the current mock data shape.
     const totalAttendance = attendanceInPeriod.reduce((sum, a) => sum + a.total, 0);
     const avgAttendance = attendanceInPeriod.length
       ? Math.round(totalAttendance / attendanceInPeriod.length)
       : 0;
-    const completeCount = members.filter(isProfileComplete).length;
+    const completeCount = scopedMembers.filter(isProfileComplete).length;
     const profileCompletionPct = total ? Math.round((completeCount / total) * 100) : 0;
 
     return {
@@ -172,39 +182,34 @@ export default function ReportsPage() {
       avgAttendance,
       profileCompletionPct,
     };
-  }, [members, attendanceInPeriod, newMembersInPeriod]);
+  }, [scopedMembers, attendanceInPeriod, newMembersInPeriod]);
 
   const categoryBreakdown = useMemo(
     () =>
       CATEGORY_LIST.map((name) => ({
         name,
-        value: members.filter((m) => m.category === name).length,
+        value: scopedMembers.filter((m) => m.category === name).length,
         color: CATEGORY_COLORS[name],
       })),
-    [members]
+    [scopedMembers]
   );
 
   const genderBreakdown = useMemo(
     () =>
       ["Male", "Female"].map((name) => ({
         name,
-        value: members.filter((m) => m.gender === name).length,
+        value: scopedMembers.filter((m) => m.gender === name).length,
         color: GENDER_COLORS[name],
       })),
-    [members]
+    [scopedMembers]
   );
 
   const departmentBreakdown = useMemo(() => {
     const totalWorkers = members.filter((m) => m.worker).length || 1;
     return departments
       .map((dept) => {
-<<<<<<< HEAD
-        const count = members.filter((m) => m.department === dept.name).length;
-        const workerCount = members.filter((m) => m.department === dept.name && m.worker).length;
-=======
         const count = members.filter((m) => m.departments.includes(dept.name)).length;
         const workerCount = members.filter((m) => m.departments.includes(dept.name) && m.worker).length;
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
         return {
           name: dept.name,
           count,
@@ -259,8 +264,8 @@ export default function ReportsPage() {
   }, [newMembersInPeriod]);
 
   const memberStatusBreakdown = useMemo(() => {
-    const total = members.length;
-    const active = members.filter((m) => m.status === "Active").length;
+    const total = scopedMembers.length;
+    const active = scopedMembers.filter((m) => m.status === "Active").length;
     const inactive = total - active;
     return {
       active,
@@ -269,24 +274,20 @@ export default function ReportsPage() {
       activePct: total ? Math.round((active / total) * 100) : 0,
       inactivePct: total ? Math.round((inactive / total) * 100) : 0,
     };
-  }, [members]);
+  }, [scopedMembers]);
 
   const profileCompletion = useMemo(() => {
-    const total = members.length;
+    const total = scopedMembers.length;
     const missing = {
-      phone: members.filter((m) => !m.phone).length,
-      email: members.filter((m) => !m.email).length,
-      address: members.filter((m) => !m.address).length,
-      photo: members.filter((m) => !m.photoUrl).length,
-<<<<<<< HEAD
-      department: members.filter((m) => !m.department).length,
-=======
-      department: members.filter((m) => m.departments.length === 0).length,
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
+      phone: scopedMembers.filter((m) => !m.phone).length,
+      email: scopedMembers.filter((m) => !m.email).length,
+      address: scopedMembers.filter((m) => !m.address).length,
+      photo: scopedMembers.filter((m) => !m.photoUrl).length,
+      department: scopedMembers.filter((m) => m.departments.length === 0).length,
     };
-    const complete = members.filter(isProfileComplete).length;
+    const complete = scopedMembers.filter(isProfileComplete).length;
     const incomplete = total - complete;
-    const affected = members
+    const affected = scopedMembers
       .filter((m) => !isProfileComplete(m))
       .map((m) => ({
         member: m,
@@ -295,16 +296,12 @@ export default function ReportsPage() {
           !m.phone && "Phone",
           !m.email && "Email",
           !m.address && "Address",
-<<<<<<< HEAD
-          !m.department && "Department",
-=======
           m.departments.length === 0 && "Department",
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900
         ].filter(Boolean),
       }));
 
     return { total, complete, incomplete, missing, affected };
-  }, [members]);
+  }, [scopedMembers]);
 
   const growthSummary = useMemo(() => {
     if (growth.length === 0) return null;
@@ -324,7 +321,7 @@ export default function ReportsPage() {
 
   const birthdayStats = useMemo(() => {
     const today = new Date();
-    const entries = members
+    const entries = scopedMembers
       .map((m) => ({ member: m, birthday: getNextBirthday(m.dateOfBirth) }))
       .filter((e) => e.birthday);
 
@@ -340,7 +337,7 @@ export default function ReportsPage() {
     }));
 
     return { thisMonthCount: thisMonth.length, upcoming, byCategory };
-  }, [members]);
+  }, [scopedMembers]);
 
   const eventStats = useMemo(() => {
     const today = new Date();
@@ -366,7 +363,8 @@ export default function ReportsPage() {
 
   const keyInsights = useMemo(() => {
     const insights = [];
-    if (growthSummary) {
+
+    if (isSuperAdmin(user) && growthSummary) {
       const isPositive = Number(growthSummary.growthPct) >= 0;
       insights.push(
         `Membership ${isPositive ? "increased" : "decreased"} by ${Math.abs(
@@ -374,12 +372,16 @@ export default function ReportsPage() {
         )}% over the selected period.`
       );
     }
-    const attendancePositive = Number(attendanceStats.changePct) >= 0;
-    insights.push(
-      `Average attendance ${attendancePositive ? "increased" : "decreased"} by ${Math.abs(
-        Number(attendanceStats.changePct)
-      )}% compared with the previous period.`
-    );
+
+    if (isSuperAdmin(user)) {
+      const attendancePositive = Number(attendanceStats.changePct) >= 0;
+      insights.push(
+        `Average attendance ${attendancePositive ? "increased" : "decreased"} by ${Math.abs(
+          Number(attendanceStats.changePct)
+        )}% compared with the previous period.`
+      );
+    }
+
     insights.push(
       `${newMembersInPeriod.length} new member${newMembersInPeriod.length === 1 ? "" : "s"} joined during the selected period.`
     );
@@ -391,15 +393,18 @@ export default function ReportsPage() {
         memberStatusBreakdown.inactive === 1 ? "is" : "are"
       } currently inactive.`
     );
-    if (departmentBreakdown.length > 0 && departmentBreakdown[0].workerCount > 0) {
+
+    if (isSuperAdmin(user) && departmentBreakdown.length > 0 && departmentBreakdown[0].workerCount > 0) {
       insights.push(
         `${departmentBreakdown[0].name} has the highest number of workers (${departmentBreakdown[0].workerCount}).`
       );
     }
+
     insights.push(`${birthdayStats.thisMonthCount} birthday${birthdayStats.thisMonthCount === 1 ? "" : "s"} this month.`);
     insights.push(`${eventStats.upcoming} event${eventStats.upcoming === 1 ? "" : "s"} scheduled.`);
     return insights;
   }, [
+    user,
     growthSummary,
     attendanceStats,
     newMembersInPeriod,
@@ -457,6 +462,8 @@ export default function ReportsPage() {
     return <LoadingState label="Loading reports..." />;
   }
 
+  const showChurchWideSections = isSuperAdmin(user);
+
   return (
     <div className="space-y-6">
       <ReportsHeader
@@ -473,21 +480,35 @@ export default function ReportsPage() {
 
       <OverallStatsSection stats={overallStats} period={period} />
 
-      <MembershipGrowthReport growth={growth} summary={growthSummary} period={period} />
+      {showChurchWideSections && (
+        <MembershipGrowthReport growth={growth} summary={growthSummary} period={period} />
+      )}
 
-      <MembershipDemographicsSection
-        categoryBreakdown={categoryBreakdown}
-        genderBreakdown={genderBreakdown}
-        total={members.length}
-      />
+      {showChurchWideSections ? (
+        <MembershipDemographicsSection
+          categoryBreakdown={categoryBreakdown}
+          genderBreakdown={genderBreakdown}
+          total={scopedMembers.length}
+        />
+      ) : (
+        <MembershipDemographicsSection
+          categoryBreakdown={[]}
+          genderBreakdown={genderBreakdown}
+          total={scopedMembers.length}
+        />
+      )}
 
-      <DepartmentReport departments={departmentBreakdown} members={members} period={period} />
+      {showChurchWideSections && (
+        <DepartmentReport departments={departmentBreakdown} members={members} period={period} />
+      )}
 
-      <AttendanceReport records={attendanceInPeriod} stats={attendanceStats} period={period} />
+      {showChurchWideSections && (
+        <AttendanceReport records={attendanceInPeriod} stats={attendanceStats} period={period} />
+      )}
 
       <NewMembersReport newMembers={newMembersInPeriod} breakdown={newMembersBreakdown} period={period} />
 
-      <MemberStatusReport breakdown={memberStatusBreakdown} members={members} period={period} />
+      <MemberStatusReport breakdown={memberStatusBreakdown} members={scopedMembers} period={period} />
 
       <ProfileCompletionReport completion={profileCompletion} period={period} />
 
@@ -498,18 +519,15 @@ export default function ReportsPage() {
 
       <KeyInsightsSection insights={keyInsights} />
 
-      <QuickReportActions onAddMember={() => setIsAddMemberOpen(true)} />
+      <QuickReportActions user={user} onAddMember={() => setIsAddMemberOpen(true)} />
 
       <MemberForm
         member={null}
         isOpen={isAddMemberOpen}
         onClose={() => setIsAddMemberOpen(false)}
         onSave={handleCreateMember}
+        lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
       />
     </div>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 72c3eaa55af4aca31cc89465f0cdd46eee6d5900

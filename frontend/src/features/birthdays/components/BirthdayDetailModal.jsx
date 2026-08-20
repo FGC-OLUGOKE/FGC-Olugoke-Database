@@ -106,10 +106,12 @@ export default function BirthdayDetailModal({ member, birthday, isOpen, onClose,
         </div>
 
         <div className="flex shrink-0 flex-col gap-2 border-t border-gray-100 px-6 py-4 sm:flex-row">
-          <Button variant="secondary" onClick={() => onEdit(member)} className="flex-1">
-            <Pencil className="h-3.5 w-3.5" />
-            Edit Member
-          </Button>
+          {onEdit && (
+            <Button variant="secondary" onClick={() => onEdit(member)} className="flex-1">
+              <Pencil className="h-3.5 w-3.5" />
+              Edit Member
+            </Button>
+          )}
           <Button variant="primary" onClick={() => onViewProfile(member)} className="flex-1">
             <Eye className="h-3.5 w-3.5" />
             View Full Profile

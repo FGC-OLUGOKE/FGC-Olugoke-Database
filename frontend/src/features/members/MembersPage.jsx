@@ -27,6 +27,7 @@ import {
   canRequestMemberEdit,
   canRequestMemberDeletion,
   isDepartmentAdmin,
+  isCategoryAdmin,
   getRoleLabel,
 } from "../../lib/permissions";
 
@@ -369,6 +370,7 @@ export default function MembersPage() {
           submitLabel={
             formMember && !allowEditDirectly && allowRequestEdit ? "Submit Edit Request" : "Save Member"
           }
+          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
         />
       )}
 

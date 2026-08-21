@@ -213,6 +213,7 @@ export default function MembersPage() {
 
   function handleDelete(member) {
     setMemberPendingDelete(member);
+    setIsDrawerOpen(false);
   }
 
   function handleCancelDelete() {
@@ -266,6 +267,7 @@ export default function MembersPage() {
 
   function handleRequestRemoveFromDepartment(member) {
     setMemberPendingRemoval(member);
+    setIsDrawerOpen(false);
   }
 
   function handleCancelRemoval() {
@@ -339,15 +341,7 @@ export default function MembersPage() {
             onSortChange={setSort}
           />
 
-          <MemberList
-            members={filteredMembers}
-            onView={handleView}
-            onEdit={showEditAction ? handleEdit : undefined}
-            onDelete={showDeleteAction ? handleDelete : undefined}
-            onRemoveFromDepartment={
-              showAssignButton ? handleRequestRemoveFromDepartment : undefined
-            }
-          />
+          <MemberList members={filteredMembers} onView={handleView} />
         </>
       )}
 
@@ -356,6 +350,10 @@ export default function MembersPage() {
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
         onEdit={showEditAction ? handleEdit : undefined}
+        onDelete={showDeleteAction ? handleDelete : undefined}
+        onRemoveFromDepartment={
+          showAssignButton ? handleRequestRemoveFromDepartment : undefined
+        }
       />
 
       {(showAddButton || allowRequestEdit) && (

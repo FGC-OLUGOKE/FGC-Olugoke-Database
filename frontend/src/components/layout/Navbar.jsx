@@ -1,4 +1,5 @@
 import { Church, Menu } from "lucide-react";
+import RoleSwitcher from "./RoleSwitcher";
 
 /**
  * Navbar
@@ -53,6 +54,10 @@ export default function Navbar({
             </p>
           </div>
         </div>
+
+         <div>
+        <RoleSwitcher />
+      </div>
 
         {/* Right: signed-in admin */}
         <div className="flex shrink-0 items-center gap-3">

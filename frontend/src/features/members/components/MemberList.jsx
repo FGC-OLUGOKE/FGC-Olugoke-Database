@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import { Eye, Pencil, Trash2, UserMinus, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Avatar from "../../../components/ui/Avatar";
 import EmptyState from "../../../components/ui/EmptyState";
-import DropdownMenu, { DropdownMenuItem } from "../../../components/ui/DropdownMenu";
 import MemberCard from "./MemberCard";
 
 const PAGE_SIZE = 5;
@@ -14,16 +13,18 @@ const PAGE_SIZE = 5;
  * Renders the member table on desktop (md: and above) and member
  * cards on mobile. Purely presentational + client-side pagination —
  * `members` is expected to already be filtered/sorted by the parent
- * (MembersPage). View/Edit/Delete are UI hooks only; wiring them to
- * real drawer/form/API behavior happens where these are used.
+ * (MembersPage).
+ *
+ * No more Manage ▾ dropdown — each row/card is directly clickable
+ * and opens the member's profile (MemberDetailsDrawer) via onView.
+ * Edit/Delete/Remove-from-Department now live at the bottom of that
+ * drawer instead of a per-row menu.
  *
  * Props:
- * - members  (array)   already-filtered list to display
- * - onView   (fn)      (member) => void
- * - onEdit   (fn)      (member) => void
- * - onDelete (fn)      (member) => void
+ * - members (array)  already-filtered list to display
+ * - onView  (fn)      (member) => void
  */
-export default function MemberList({ members = [], onView, onEdit, onDelete, onRemoveFromDepartment }) {
+export default function MemberList({ members = [], onView }) {
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
@@ -56,106 +57,49 @@ export default function MemberList({ members = [], onView, onEdit, onDelete, onR
               <th className="px-5 py-3">Category</th>
               <th className="px-5 py-3">Status</th>
               <th className="px-5 py-3">Joined</th>
-              <th className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {pageMembers.map((member) => {
-              return (
-                <tr key={member.id} className="hover:bg-gray-50/60">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar
-                        firstName={member.firstName}
-                        lastName={member.lastName}
-                        photoUrl={member.photoUrl}
-                        className="h-9 w-9 text-xs"
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-gray-900">
-                          {member.title} {member.firstName} {member.lastName}
-                        </p>
-                        <p className="truncate text-xs text-gray-500">
-                          {member.email}
-                        </p>
-                      </div>
+            {pageMembers.map((member) => (
+              <tr
+                key={member.id}
+                onClick={() => onView?.(member)}
+                className="cursor-pointer hover:bg-gray-50/60"
+              >
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar
+                      firstName={member.firstName}
+                      lastName={member.lastName}
+                      photoUrl={member.photoUrl}
+                      className="h-9 w-9 text-xs"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-gray-900">
+                        {member.title} {member.firstName} {member.lastName}
+                      </p>
+                      <p className="truncate text-xs text-gray-500">{member.email}</p>
                     </div>
-                  </td>
-                  <td className="px-5 py-3 text-gray-700">{member.departments.join(", ") || "Not Assigned"}</td>
-                  <td className="px-5 py-3 text-gray-700">{member.category}</td>
-                  <td className="px-5 py-3">
-                    <Badge tone={member.status === "Active" ? "success" : "neutral"}>
-                      {member.status}
-                    </Badge>
-                  </td>
-                  <td className="px-5 py-3 text-gray-700">
-                    {new Date(member.dateJoined).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <DropdownMenu
-                      trigger={
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Manage
-                          <span className="text-gray-400">▾</span>
-                        </button>
-                      }
-                    >
-                      {(close) => (
-                        <>
-                          <DropdownMenuItem
-                            icon={Eye}
-                            label="View Profile"
-                            onClick={() => {
-                              onView?.(member);
-                              close();
-                            }}
-                          />
-                          {onEdit && (
-                            <DropdownMenuItem
-                              icon={Pencil}
-                              label="Edit Member"
-                              onClick={() => {
-                                onEdit(member);
-                                close();
-                              }}
-                            />
-                          )}
-                          {onDelete && (
-                            <DropdownMenuItem
-                              icon={Trash2}
-                              label="Delete Member"
-                              variant="danger"
-                              onClick={() => {
-                                onDelete(member);
-                                close();
-                              }}
-                            />
-                          )}
-                          {onRemoveFromDepartment && (
-                            <DropdownMenuItem
-                              icon={UserMinus}
-                              label="Remove from Department"
-                              variant="danger"
-                              onClick={() => {
-                                onRemoveFromDepartment(member);
-                                close();
-                              }}
-                            />
-                          )}
-                        </>
-                      )}
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              );
-            })}
+                  </div>
+                </td>
+                <td className="px-5 py-3 text-gray-700">
+                  {member.departments.join(", ") || "Not Assigned"}
+                </td>
+                <td className="px-5 py-3 text-gray-700">{member.category}</td>
+                <td className="px-5 py-3">
+                  <Badge tone={member.status === "Active" ? "success" : "neutral"}>
+                    {member.status}
+                  </Badge>
+                </td>
+                <td className="px-5 py-3 text-gray-700">
+                  {new Date(member.dateJoined).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -163,14 +107,7 @@ export default function MemberList({ members = [], onView, onEdit, onDelete, onR
       {/* Mobile cards */}
       <div className="flex flex-col gap-3 md:hidden">
         {pageMembers.map((member) => (
-          <MemberCard
-            key={member.id}
-            member={member}
-            onView={onView}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onRemoveFromDepartment={onRemoveFromDepartment}
-          />
+          <MemberCard key={member.id} member={member} onView={onView} />
         ))}
       </div>
 

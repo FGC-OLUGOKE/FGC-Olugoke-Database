@@ -7,6 +7,7 @@ import MembersPage from "./features/members/MembersPage.jsx";
 import DepartmentsPage from "./features/departments/DepartmentsPage";
 import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import ReportsPage from "./features/reports/ReportsPage";
+import ApprovalRequestsPage from "./features/approvals/ApprovalRequestsPage";
 import { ToastProvider } from "./components/ui/ToastProvider";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="departments" element={<DepartmentsPage />} />
             <Route path="birthdays" element={<BirthdaysPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="approvals" element={<ApprovalRequestsPage />} />
 
             {NAV_ITEMS.filter((item) => !item.implemented).map((item) => (
               <Route

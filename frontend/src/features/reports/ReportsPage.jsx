@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReportsHeader from "./components/ReportsHeader";
 import OverallStatsSection from "./components/OverallStatsSection";
 import MembershipGrowthReport from "./components/MembershipGrowthReport";
+import CategoryGrowthSection from "./components/CategoryGrowthSection";
 import MembershipDemographicsSection from "./components/MembershipDemographicsSection";
 import DepartmentReport from "./components/DepartmentReport";
 import AttendanceReport from "./components/AttendanceReport";
@@ -483,6 +484,8 @@ export default function ReportsPage() {
       {showChurchWideSections && (
         <MembershipGrowthReport growth={growth} summary={growthSummary} period={period} />
       )}
+
+      {showChurchWideSections && <CategoryGrowthSection members={members} />}
 
       {showChurchWideSections ? (
         <MembershipDemographicsSection

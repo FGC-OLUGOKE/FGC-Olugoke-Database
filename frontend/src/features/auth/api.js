@@ -53,3 +53,20 @@ export async function createAdminAccount(accountData) {
   const created = { id: Date.now(), ...accountData };
   return simulateNetwork(created);
 }
+
+export async function updateAdminAccount(userId, updates) {
+  // TODO: replace with a real PATCH to `/api/users/${userId}`
+  return simulateNetwork({ id: userId, ...updates });
+}
+
+/**
+ * "Remove admin access" per the spec — only ever called on Category
+ * Admin / Department Admin accounts (see ApprovalRequestsPage.jsx,
+ * which never shows this action for a super_admin row). This is
+ * about revoking an ADMIN role, not deleting the underlying member
+ * record — a removed admin's membership in the church is untouched.
+ */
+export async function removeAdminAccount(userId) {
+  // TODO: replace with a real DELETE to `/api/users/${userId}`
+  return simulateNetwork({ id: userId });
+}

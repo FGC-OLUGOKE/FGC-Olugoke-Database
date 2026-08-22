@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle, Inbox, Users, UserPlus } from "lucide-react";
+import { CheckCircle2, XCircle, Inbox, Users, UserPlus, Pencil, UserX } from "lucide-react";
 import SectionCard from "../../components/ui/SectionCard";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/ToastProvider";
 import { getApprovalRequests, reviewApprovalRequest } from "./api";
-import { getUsers, createAdminAccount } from "../auth/api";
+import { getUsers, createAdminAccount, updateAdminAccount, removeAdminAccount } from "../auth/api";
 import { updateMember, deleteMember } from "../members/api";
 import { getRoleLabel } from "../../lib/permissions";
 import CreateAdminAccountForm from "./CreateAdminAccountForm";
@@ -20,26 +21,29 @@ import CreateAdminAccountForm from "./CreateAdminAccountForm";
  * matching the two things the spec lists as Super-Admin-exclusive:
  *
  * 1. Reviewing edit/delete requests submitted by Category Admins.
- *    Approving one now actually APPLIES the change (calls
- *    updateMember/deleteMember) — this isn't just a status flag with
- *    no effect. Known limitation: since each page fetches its own
- *    copy of `members` independently (no shared global store yet),
- *    an approval applied here won't visibly update the Members page
- *    until it's next loaded/refreshed. Worth revisiting once there's
- *    a shared data layer.
+ *    Approving one actually APPLIES the change (calls
+ *    updateMember/deleteMember) — not just a status flag.
  *
- * 2. Creating Category Admin / Department Admin accounts. Newly
- *    created accounts show up in this page's own list immediately,
- *    but won't appear in the Navbar's "Preview as" role switcher
- *    until the page reloads — that list comes from AuthContext,
- *    fetched once on app load, and isn't refreshed by this page.
+ * 2. Managing Category Admin / Department Admin accounts — create,
+ *    edit (role/scope), and remove admin access. Edit/Remove never
+ *    render for a super_admin row — there's no UI path to edit or
+ *    remove the highest authority in the system from within the app
+ *    itself.
+ *
+ * Known limitation, unchanged from before: since each page fetches
+ * its own copy of data independently (no shared global store yet),
+ * changes made here won't be visible elsewhere (Members page,
+ * Navbar's "Preview as" switcher) until that page/the app reloads.
  */
 export default function ApprovalRequestsPage() {
   const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+
+  const [editingAccount, setEditingAccount] = useState(null); // null = "create" mode
+  const [isAccountFormOpen, setIsAccountFormOpen] = useState(false);
+  const [accountPendingRemoval, setAccountPendingRemoval] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,14 +84,56 @@ export default function ApprovalRequestsPage() {
     }
   }
 
-  async function handleCreateAdmin(accountData) {
+  function handleAddAccount() {
+    setEditingAccount(null);
+    setIsAccountFormOpen(true);
+  }
+
+  function handleEditAccount(admin) {
+    setEditingAccount(admin);
+    setIsAccountFormOpen(true);
+  }
+
+  function handleCloseAccountForm() {
+    setIsAccountFormOpen(false);
+  }
+
+  async function handleSaveAccount(accountData) {
     try {
-      const created = await createAdminAccount(accountData);
-      setAdmins((prev) => [...prev, created]);
-      toast.success(`${created.name} was added as ${getRoleLabel(created)}`);
-      setIsCreateFormOpen(false);
+      if (editingAccount) {
+        await updateAdminAccount(editingAccount.id, accountData);
+        setAdmins((prev) =>
+          prev.map((a) => (a.id === editingAccount.id ? { ...a, ...accountData } : a))
+        );
+        toast.success(`${accountData.name}'s account was updated`);
+      } else {
+        const created = await createAdminAccount(accountData);
+        setAdmins((prev) => [...prev, created]);
+        toast.success(`${created.name} was added as ${getRoleLabel(created)}`);
+      }
+      setIsAccountFormOpen(false);
     } catch {
-      toast.error("Something went wrong creating this account.");
+      toast.error("Something went wrong saving this account.");
+    }
+  }
+
+  function handleRequestRemoveAccount(admin) {
+    setAccountPendingRemoval(admin);
+  }
+
+  function handleCancelRemoveAccount() {
+    setAccountPendingRemoval(null);
+  }
+
+  async function handleConfirmRemoveAccount() {
+    try {
+      await removeAdminAccount(accountPendingRemoval.id);
+      setAdmins((prev) => prev.filter((a) => a.id !== accountPendingRemoval.id));
+      toast.success(`${accountPendingRemoval.name}'s admin access was removed`);
+    } catch {
+      toast.error("Something went wrong removing this account.");
+    } finally {
+      setAccountPendingRemoval(null);
     }
   }
 
@@ -172,7 +218,7 @@ export default function ApprovalRequestsPage() {
 
       <SectionCard title="Admin Accounts">
         <div className="mb-4 flex justify-end">
-          <Button variant="primary" onClick={() => setIsCreateFormOpen(true)} className="text-xs">
+          <Button variant="primary" onClick={handleAddAccount} className="text-xs">
             <UserPlus className="h-3.5 w-3.5" />
             New Admin Account
           </Button>
@@ -182,25 +228,67 @@ export default function ApprovalRequestsPage() {
           <EmptyState icon={Users} title="No admin accounts" description="Create the first one to get started." />
         ) : (
           <ul className="divide-y divide-gray-100">
-            {admins.map((admin) => (
-              <li key={admin.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-900">{admin.name}</p>
-                  <p className="truncate text-xs text-gray-500">{admin.email}</p>
-                </div>
-                <Badge tone={admin.role === "super_admin" ? "info" : "neutral"}>
-                  {getRoleLabel(admin)}
-                </Badge>
-              </li>
-            ))}
+            {admins.map((admin) => {
+              const isSuperAdminRow = admin.role === "super_admin";
+              return (
+                <li
+                  key={admin.id}
+                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">{admin.name}</p>
+                    <p className="truncate text-xs text-gray-500">{admin.email}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge tone={isSuperAdminRow ? "info" : "neutral"}>{getRoleLabel(admin)}</Badge>
+                    {!isSuperAdminRow && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleEditAccount(admin)}
+                          aria-label={`Edit ${admin.name}'s account`}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRequestRemoveAccount(admin)}
+                          aria-label={`Remove ${admin.name}'s admin access`}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#9e263b]"
+                        >
+                          <UserX className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </SectionCard>
 
       <CreateAdminAccountForm
-        isOpen={isCreateFormOpen}
-        onClose={() => setIsCreateFormOpen(false)}
-        onSave={handleCreateAdmin}
+        isOpen={isAccountFormOpen}
+        account={editingAccount}
+        onClose={handleCloseAccountForm}
+        onSave={handleSaveAccount}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(accountPendingRemoval)}
+        title="Remove admin access?"
+        description={
+          accountPendingRemoval
+            ? `This will revoke ${accountPendingRemoval.name}'s ${getRoleLabel(
+                accountPendingRemoval
+              )} access. Their church membership record (if any) is not affected — only their admin account.`
+            : ""
+        }
+        confirmLabel="Remove Access"
+        onConfirm={handleConfirmRemoveAccount}
+        onCancel={handleCancelRemoveAccount}
       />
     </div>
   );

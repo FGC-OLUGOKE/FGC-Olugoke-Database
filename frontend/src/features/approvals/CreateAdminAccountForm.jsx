@@ -11,6 +11,10 @@ const ROLE_VALUE_MAP = {
   "Category Admin": "category_admin",
   "Department Admin": "department_admin",
 };
+const ROLE_LABEL_MAP = {
+  category_admin: "Category Admin",
+  department_admin: "Department Admin",
+};
 
 const EMPTY_FORM = { name: "", email: "", roleLabel: "Category Admin", scope: "" };
 
@@ -33,22 +37,38 @@ function validate(data) {
 /**
  * CreateAdminAccountForm
  *
- * Super Admin only. Per the spec, only Category Admin and
- * Department Admin accounts can be created here — there's no UI
- * path to create another Super Admin, matching "the highest
- * authority in the system" framing (that's a decision that
- * shouldn't happen from within the app itself).
+ * Super Admin only. Dual-purpose — same drawer handles both
+ * creating a new account and editing an existing one, matching the
+ * Add/Edit pattern MemberForm already uses. Pass `account` (an
+ * existing admin) to edit it; omit/pass null to create a new one.
+ *
+ * Only Category Admin and Department Admin accounts can be
+ * created/edited here — there's no UI path to create or edit a
+ * Super Admin, matching "the highest authority in the system"
+ * framing (that's a decision that shouldn't happen from within the
+ * app itself). ApprovalRequestsPage.jsx already never offers Edit on
+ * a super_admin row for the same reason.
  */
-export default function CreateAdminAccountForm({ isOpen, onClose, onSave }) {
+export default function CreateAdminAccountForm({ isOpen, account, onClose, onSave }) {
+  const isEditing = Boolean(account);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(EMPTY_FORM);
+      setFormData(
+        account
+          ? {
+              name: account.name,
+              email: account.email,
+              roleLabel: ROLE_LABEL_MAP[account.role] ?? "Category Admin",
+              scope: account.scope ?? "",
+            }
+          : EMPTY_FORM
+      );
       setErrors({});
     }
-  }, [isOpen]);
+  }, [isOpen, account]);
 
   function update(field, value) {
     setFormData((prev) => ({
@@ -86,7 +106,7 @@ export default function CreateAdminAccountForm({ isOpen, onClose, onSave }) {
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
-      title="New Admin Account"
+      title={isEditing ? "Edit Admin Account" : "New Admin Account"}
       widthClass="md:max-w-md"
       desktopModal
     >
@@ -130,7 +150,7 @@ export default function CreateAdminAccountForm({ isOpen, onClose, onSave }) {
             Cancel
           </Button>
           <Button variant="primary" type="submit">
-            Create Account
+            {isEditing ? "Save Changes" : "Create Account"}
           </Button>
         </div>
       </form>

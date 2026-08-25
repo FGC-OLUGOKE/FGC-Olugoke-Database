@@ -1,5 +1,13 @@
 import { useNavigate } from "react-router-dom";
-import { Users, UserPlus, Cake, Building2, ClipboardCheck, CalendarDays, ShieldAlert } from "lucide-react";
+import {
+  Users,
+  UserPlus,
+  Cake,
+  Building2,
+  ClipboardCheck,
+  CalendarDays,
+  ShieldAlert,
+} from "lucide-react";
 import SectionCard from "../../../components/ui/SectionCard";
 import { isSuperAdmin } from "../../../lib/permissions";
 
@@ -7,7 +15,7 @@ import { isSuperAdmin } from "../../../lib/permissions";
  * QuickReportActions
  *
  * "View Departments" and "View Attendance" are hidden for anyone
- * who isn't Super Admin — Category Admin can't reach either page
+ * who isn't Super Admin — Staff Admins can't reach either page
  * (not in their allowed nav paths in lib/permissions.js), so linking
  * to them here would just bounce back to /dashboard via RequireAccess.
  */
@@ -15,9 +23,17 @@ export default function QuickReportActions({ user, onAddMember }) {
   const navigate = useNavigate();
 
   const actions = [
-    { label: "View All Members", icon: Users, onClick: () => navigate("/members") },
+    {
+      label: "View All Members",
+      icon: Users,
+      onClick: () => navigate("/members"),
+    },
     { label: "Add Member", icon: UserPlus, onClick: onAddMember },
-    { label: "View Birthdays", icon: Cake, onClick: () => navigate("/birthdays") },
+    {
+      label: "View Birthdays",
+      icon: Cake,
+      onClick: () => navigate("/birthdays"),
+    },
     isSuperAdmin(user) && {
       label: "View Departments",
       icon: Building2,
@@ -33,7 +49,11 @@ export default function QuickReportActions({ user, onAddMember }) {
       icon: CalendarDays,
       onClick: () => navigate("/events"),
     },
-    { label: "View Incomplete Profiles", icon: ShieldAlert, onClick: () => navigate("/members") },
+    {
+      label: "View Incomplete Profiles",
+      icon: ShieldAlert,
+      onClick: () => navigate("/members"),
+    },
   ].filter(Boolean);
 
   return (

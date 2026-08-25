@@ -1,16 +1,20 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useAuth } from "./features/auth/AuthContext";
+import LoginPage from "./features/auth/LoginPage";
 import Layout from "./components/layout/Layout";
 import ComingSoon from "./components/layout/ComingSoon";
 import { NAV_ITEMS } from "./components/layout/navigation";
 import DashboardPage from "./features/dashboard/DashboardPage";
-import MembersPage from "./features/members/MembersPage.jsx";
+import MembersPage from "./features/members/MembersPage";
 import DepartmentsPage from "./features/departments/DepartmentsPage";
 import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import ReportsPage from "./features/reports/ReportsPage";
 import ApprovalRequestsPage from "./features/approvals/ApprovalRequestsPage";
 import { ToastProvider } from "./components/ui/ToastProvider";
-
 export default function App() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return <LoginPage />;
   return (
     <ToastProvider>
       <BrowserRouter>
@@ -18,12 +22,13 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="admin/dashboard" element={<DashboardPage />} />
             <Route path="members" element={<MembersPage />} />
             <Route path="departments" element={<DepartmentsPage />} />
             <Route path="birthdays" element={<BirthdaysPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="approvals" element={<ApprovalRequestsPage />} />
-
+            <Route path="admin" element={<ApprovalRequestsPage />} />
             {NAV_ITEMS.filter((item) => !item.implemented).map((item) => (
               <Route
                 key={item.path}

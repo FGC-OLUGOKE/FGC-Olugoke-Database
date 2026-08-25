@@ -17,7 +17,7 @@ export const NAV_ITEMS = [
   { label: "Departments", path: "departments", icon: Building2, implemented: true },
   { label: "Attendance", path: "attendance", icon: ClipboardCheck, implemented: false },
   { label: "Birthdays", path: "birthdays", icon: Cake, implemented: true },
-  { label: "Approval Requests", path: "approvals", icon: ClipboardCheck, implemented: true },
+  { label: "Admin Console", path: "admin", icon: ClipboardCheck, implemented: true },
   { label: "Events", path: "events", icon: CalendarDays, implemented: false },
   { label: "Workers", path: "workers", icon: HardHat, implemented: false },
   { label: "Cell Groups", path: "cell-groups", icon: UsersRound, implemented: false },

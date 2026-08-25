@@ -21,14 +21,21 @@ import { getNextBirthday } from "../../lib/birthdayUtils";
 import { exportToExcel } from "../../lib/exportUtils";
 import MemberForm from "../members/components/MemberForm";
 import { useAuth } from "../auth/AuthContext";
-import { getScopedMembers, isSuperAdmin, isCategoryAdmin } from "../../lib/permissions";
+import { getScopedMembers, isSuperAdmin } from "../../lib/permissions";
 
-const CATEGORY_COLORS = { Children: "#d6b447", Teenager: "#4a2969", Youth: "#154d78", Adult: "#9e263b" };
+const CATEGORY_COLORS = {
+  Children: "#d6b447",
+  Teenager: "#4a2969",
+  Youth: "#154d78",
+  Adult: "#9e263b",
+};
 const GENDER_COLORS = { Male: "#154d78", Female: "#4a2969" };
 const CATEGORY_LIST = ["Children", "Teenager", "Youth", "Adult"];
 
 function isProfileComplete(m) {
-  return Boolean(m.phone && m.email && m.address && m.photoUrl && m.departments.length > 0);
+  return Boolean(
+    m.phone && m.email && m.address && m.photoUrl && m.departments.length > 0,
+  );
 }
 
 function inRange(dateStr, range) {
@@ -52,9 +59,15 @@ function getPeriodRange(period, customStart, customEnd, today = new Date()) {
       return { start, end };
     }
     case "Last 3 Months":
-      return { start: new Date(today.getFullYear(), today.getMonth() - 2, 1), end: monthEnd };
+      return {
+        start: new Date(today.getFullYear(), today.getMonth() - 2, 1),
+        end: monthEnd,
+      };
     case "Last 6 Months":
-      return { start: new Date(today.getFullYear(), today.getMonth() - 5, 1), end: monthEnd };
+      return {
+        start: new Date(today.getFullYear(), today.getMonth() - 5, 1),
+        end: monthEnd,
+      };
     case "This Year": {
       const start = new Date(today.getFullYear(), 0, 1);
       const end = new Date(today.getFullYear(), 11, 31);
@@ -62,7 +75,8 @@ function getPeriodRange(period, customStart, customEnd, today = new Date()) {
       return { start, end };
     }
     case "Custom Date Range": {
-      if (!customStart || !customEnd) return { start: monthStart, end: monthEnd };
+      if (!customStart || !customEnd)
+        return { start: monthStart, end: monthEnd };
       const end = new Date(customEnd);
       end.setHours(23, 59, 59, 999);
       return { start: new Date(customStart), end };
@@ -87,13 +101,13 @@ function getPreviousPeriodRange(range) {
  * Admin reports should be limited to their category... They should
  * not access complete church-wide reports."
  *
- * Three sections are HIDDEN for Category Admin rather than shown
+ * Three sections are HIDDEN for Staff Admin rather than shown
  * with fake-scoped data, same reasoning as Dashboard: Membership
  * Growth and Attendance are backed by church-wide aggregate mock
  * data with no per-category breakdown, and the category-donut half
  * of Membership Demographics is meaningless when every member IS
  * already the admin's one category. Department Report is hidden too
- * — not a Category Admin's concern per the spec (Category Admins and
+ * — not a Staff Admin's concern per the spec (Staff Admins and
  * Department Admins are separate systems).
  */
 export default function ReportsPage() {
@@ -136,42 +150,52 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const scopedMembers = useMemo(() => getScopedMembers(user, members), [user, members]);
+  const scopedMembers = useMemo(
+    () => getScopedMembers(user, members),
+    [user, members],
+  );
 
   const range = useMemo(
     () => getPeriodRange(period, customStart, customEnd),
-    [period, customStart, customEnd]
+    [period, customStart, customEnd],
   );
   const previousRange = useMemo(() => getPreviousPeriodRange(range), [range]);
 
   const newMembersInPeriod = useMemo(
     () => scopedMembers.filter((m) => inRange(m.dateJoined, range)),
-    [scopedMembers, range]
+    [scopedMembers, range],
   );
 
   const attendanceInPeriod = useMemo(
     () => attendance.filter((a) => inRange(a.date, range)),
-    [attendance, range]
+    [attendance, range],
   );
   const attendancePrevPeriod = useMemo(
     () => attendance.filter((a) => inRange(a.date, previousRange)),
-    [attendance, previousRange]
+    [attendance, previousRange],
   );
 
   const overallStats = useMemo(() => {
     const total = scopedMembers.length;
     const active = scopedMembers.filter((m) => m.status === "Active").length;
-    const inactive = scopedMembers.filter((m) => m.status === "Inactive").length;
+    const inactive = scopedMembers.filter(
+      (m) => m.status === "Inactive",
+    ).length;
     const workers = scopedMembers.filter((m) => m.worker).length;
     // Attendance is church-wide only (see file header) — shown as-is
     // even for scoped roles, since there's no honest way to split it
-    // by category with the current mock data shape.
-    const totalAttendance = attendanceInPeriod.reduce((sum, a) => sum + a.total, 0);
+    // by category with the current API data shape.
+    const totalAttendance = attendanceInPeriod.reduce(
+      (sum, a) => sum + a.total,
+      0,
+    );
     const avgAttendance = attendanceInPeriod.length
       ? Math.round(totalAttendance / attendanceInPeriod.length)
       : 0;
     const completeCount = scopedMembers.filter(isProfileComplete).length;
-    const profileCompletionPct = total ? Math.round((completeCount / total) * 100) : 0;
+    const profileCompletionPct = total
+      ? Math.round((completeCount / total) * 100)
+      : 0;
 
     return {
       total,
@@ -192,7 +216,7 @@ export default function ReportsPage() {
         value: scopedMembers.filter((m) => m.category === name).length,
         color: CATEGORY_COLORS[name],
       })),
-    [scopedMembers]
+    [scopedMembers],
   );
 
   const genderBreakdown = useMemo(
@@ -202,15 +226,19 @@ export default function ReportsPage() {
         value: scopedMembers.filter((m) => m.gender === name).length,
         color: GENDER_COLORS[name],
       })),
-    [scopedMembers]
+    [scopedMembers],
   );
 
   const departmentBreakdown = useMemo(() => {
     const totalWorkers = members.filter((m) => m.worker).length || 1;
     return departments
       .map((dept) => {
-        const count = members.filter((m) => m.departments.includes(dept.name)).length;
-        const workerCount = members.filter((m) => m.departments.includes(dept.name) && m.worker).length;
+        const count = members.filter((m) =>
+          m.departments.includes(dept.name),
+        ).length;
+        const workerCount = members.filter(
+          (m) => m.departments.includes(dept.name) && m.worker,
+        ).length;
         return {
           name: dept.name,
           count,
@@ -234,12 +262,20 @@ export default function ReportsPage() {
     }
     const total = attendanceInPeriod.reduce((s, a) => s + a.total, 0);
     const average = Math.round(total / attendanceInPeriod.length);
-    const highest = attendanceInPeriod.reduce((max, a) => (a.total > max.total ? a : max));
-    const lowest = attendanceInPeriod.reduce((min, a) => (a.total < min.total ? a : min));
+    const highest = attendanceInPeriod.reduce((max, a) =>
+      a.total > max.total ? a : max,
+    );
+    const lowest = attendanceInPeriod.reduce((min, a) =>
+      a.total < min.total ? a : min,
+    );
 
     const prevTotal = attendancePrevPeriod.reduce((s, a) => s + a.total, 0);
-    const prevAvg = attendancePrevPeriod.length ? prevTotal / attendancePrevPeriod.length : 0;
-    const changePct = prevAvg ? (((average - prevAvg) / prevAvg) * 100).toFixed(1) : "0.0";
+    const prevAvg = attendancePrevPeriod.length
+      ? prevTotal / attendancePrevPeriod.length
+      : 0;
+    const changePct = prevAvg
+      ? (((average - prevAvg) / prevAvg) * 100).toFixed(1)
+      : "0.0";
 
     const byCategory = {
       adults: attendanceInPeriod.reduce((s, a) => s + a.adults, 0),
@@ -284,7 +320,8 @@ export default function ReportsPage() {
       email: scopedMembers.filter((m) => !m.email).length,
       address: scopedMembers.filter((m) => !m.address).length,
       photo: scopedMembers.filter((m) => !m.photoUrl).length,
-      department: scopedMembers.filter((m) => m.departments.length === 0).length,
+      department: scopedMembers.filter((m) => m.departments.length === 0)
+        .length,
     };
     const complete = scopedMembers.filter(isProfileComplete).length;
     const incomplete = total - complete;
@@ -309,7 +346,9 @@ export default function ReportsPage() {
     const starting = growth[0].total;
     const ending = growth[growth.length - 1].total;
     const netGrowth = ending - starting;
-    const growthPct = starting ? ((netGrowth / starting) * 100).toFixed(1) : "0.0";
+    const growthPct = starting
+      ? ((netGrowth / starting) * 100).toFixed(1)
+      : "0.0";
     return {
       starting,
       ending,
@@ -329,9 +368,11 @@ export default function ReportsPage() {
     const thisMonth = entries.filter(
       (e) =>
         e.birthday.next.getMonth() === today.getMonth() &&
-        e.birthday.next.getFullYear() === today.getFullYear()
+        e.birthday.next.getFullYear() === today.getFullYear(),
     );
-    const upcoming = [...entries].sort((a, b) => a.birthday.daysAway - b.birthday.daysAway).slice(0, 5);
+    const upcoming = [...entries]
+      .sort((a, b) => a.birthday.daysAway - b.birthday.daysAway)
+      .slice(0, 5);
     const byCategory = CATEGORY_LIST.map((c) => ({
       category: c,
       count: thisMonth.filter((e) => e.member.category === c).length,
@@ -350,7 +391,10 @@ export default function ReportsPage() {
     events.forEach((e) => {
       typeMap.set(e.type, (typeMap.get(e.type) ?? 0) + 1);
     });
-    const byType = Array.from(typeMap.entries()).map(([type, count]) => ({ type, count }));
+    const byType = Array.from(typeMap.entries()).map(([type, count]) => ({
+      type,
+      count,
+    }));
 
     return { total, upcoming, completed, byType };
   }, [events]);
@@ -369,8 +413,8 @@ export default function ReportsPage() {
       const isPositive = Number(growthSummary.growthPct) >= 0;
       insights.push(
         `Membership ${isPositive ? "increased" : "decreased"} by ${Math.abs(
-          Number(growthSummary.growthPct)
-        )}% over the selected period.`
+          Number(growthSummary.growthPct),
+        )}% over the selected period.`,
       );
     }
 
@@ -378,31 +422,39 @@ export default function ReportsPage() {
       const attendancePositive = Number(attendanceStats.changePct) >= 0;
       insights.push(
         `Average attendance ${attendancePositive ? "increased" : "decreased"} by ${Math.abs(
-          Number(attendanceStats.changePct)
-        )}% compared with the previous period.`
+          Number(attendanceStats.changePct),
+        )}% compared with the previous period.`,
       );
     }
 
     insights.push(
-      `${newMembersInPeriod.length} new member${newMembersInPeriod.length === 1 ? "" : "s"} joined during the selected period.`
+      `${newMembersInPeriod.length} new member${newMembersInPeriod.length === 1 ? "" : "s"} joined during the selected period.`,
     );
     insights.push(
-      `${profileCompletion.incomplete} member${profileCompletion.incomplete === 1 ? "" : "s"} have incomplete profiles.`
+      `${profileCompletion.incomplete} member${profileCompletion.incomplete === 1 ? "" : "s"} have incomplete profiles.`,
     );
     insights.push(
       `${memberStatusBreakdown.inactive} member${memberStatusBreakdown.inactive === 1 ? "" : "s"} ${
         memberStatusBreakdown.inactive === 1 ? "is" : "are"
-      } currently inactive.`
+      } currently inactive.`,
     );
 
-    if (isSuperAdmin(user) && departmentBreakdown.length > 0 && departmentBreakdown[0].workerCount > 0) {
+    if (
+      isSuperAdmin(user) &&
+      departmentBreakdown.length > 0 &&
+      departmentBreakdown[0].workerCount > 0
+    ) {
       insights.push(
-        `${departmentBreakdown[0].name} has the highest number of workers (${departmentBreakdown[0].workerCount}).`
+        `${departmentBreakdown[0].name} has the highest number of workers (${departmentBreakdown[0].workerCount}).`,
       );
     }
 
-    insights.push(`${birthdayStats.thisMonthCount} birthday${birthdayStats.thisMonthCount === 1 ? "" : "s"} this month.`);
-    insights.push(`${eventStats.upcoming} event${eventStats.upcoming === 1 ? "" : "s"} scheduled.`);
+    insights.push(
+      `${birthdayStats.thisMonthCount} birthday${birthdayStats.thisMonthCount === 1 ? "" : "s"} this month.`,
+    );
+    insights.push(
+      `${eventStats.upcoming} event${eventStats.upcoming === 1 ? "" : "s"} scheduled.`,
+    );
     return insights;
   }, [
     user,
@@ -444,7 +496,7 @@ export default function ReportsPage() {
           ],
         },
       ],
-      "reports-overview.xlsx"
+      "reports-overview.xlsx",
     );
   }
 
@@ -482,7 +534,11 @@ export default function ReportsPage() {
       <OverallStatsSection stats={overallStats} period={period} />
 
       {showChurchWideSections && (
-        <MembershipGrowthReport growth={growth} summary={growthSummary} period={period} />
+        <MembershipGrowthReport
+          growth={growth}
+          summary={growthSummary}
+          period={period}
+        />
       )}
 
       {showChurchWideSections && <CategoryGrowthSection members={members} />}
@@ -502,16 +558,32 @@ export default function ReportsPage() {
       )}
 
       {showChurchWideSections && (
-        <DepartmentReport departments={departmentBreakdown} members={members} period={period} />
+        <DepartmentReport
+          departments={departmentBreakdown}
+          members={members}
+          period={period}
+        />
       )}
 
       {showChurchWideSections && (
-        <AttendanceReport records={attendanceInPeriod} stats={attendanceStats} period={period} />
+        <AttendanceReport
+          records={attendanceInPeriod}
+          stats={attendanceStats}
+          period={period}
+        />
       )}
 
-      <NewMembersReport newMembers={newMembersInPeriod} breakdown={newMembersBreakdown} period={period} />
+      <NewMembersReport
+        newMembers={newMembersInPeriod}
+        breakdown={newMembersBreakdown}
+        period={period}
+      />
 
-      <MemberStatusReport breakdown={memberStatusBreakdown} members={scopedMembers} period={period} />
+      <MemberStatusReport
+        breakdown={memberStatusBreakdown}
+        members={scopedMembers}
+        period={period}
+      />
 
       <ProfileCompletionReport completion={profileCompletion} period={period} />
 
@@ -522,14 +594,17 @@ export default function ReportsPage() {
 
       <KeyInsightsSection insights={keyInsights} />
 
-      <QuickReportActions user={user} onAddMember={() => setIsAddMemberOpen(true)} />
+      <QuickReportActions
+        user={user}
+        onAddMember={() => setIsAddMemberOpen(true)}
+      />
 
       <MemberForm
         member={null}
         isOpen={isAddMemberOpen}
         onClose={() => setIsAddMemberOpen(false)}
         onSave={handleCreateMember}
-        lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
+        lockedCategory={undefined}
       />
     </div>
   );

@@ -12,17 +12,11 @@ import LoadingState from "../../components/ui/LoadingState";
 import Pagination from "../../components/ui/Pagination";
 import { useToast } from "../../components/ui/ToastProvider";
 import { getMembers, updateMember } from "../members/api";
-import { submitApprovalRequest } from "../approvals/api";
 import { getNextBirthday } from "../../lib/birthdayUtils";
 import MemberDetailsDrawer from "../members/components/MemberDetailsDrawer";
 import MemberForm from "../members/components/MemberForm";
 import { useAuth } from "../auth/AuthContext";
-import {
-  getScopedMembers,
-  canEditMemberDirectly,
-  canRequestMemberEdit,
-  isCategoryAdmin,
-} from "../../lib/permissions";
+import { getScopedMembers, canEditMemberDirectly } from "../../lib/permissions";
 
 const PAGE_SIZE = 10;
 
@@ -70,7 +64,7 @@ function matchesTimePeriod(nextDate, period, today) {
 }
 
 /** Shallow diff — mirrors MembersPage.jsx's helper, used to describe
- * what a Category Admin's edit request is actually proposing. */
+ * what a staff member's edit is actually changing. */
 function getChangedFields(original, updated) {
   const changes = {};
   Object.keys(updated).forEach((key) => {
@@ -86,15 +80,11 @@ function getChangedFields(original, updated) {
  * BirthdaysPage
  *
  * Entirely derived from Members data (getMembers()) — there's no
- * separate "birthdays" entity or mock dataset.
+ * separate "birthdays" entity.
  *
  * Role-scoped: `scopedMembers` filters to the current user's
- * category before ANY birthday computation runs, per "Category Admin
- * should only see birthdays belonging to their category." Editing
- * also now respects the same rule as MembersPage.jsx — a Category
- * Admin's edit submits an approval request instead of applying
- * directly; this used to bypass that rule by calling updateMember
- * unconditionally, which has been fixed.
+ * department before ANY birthday computation runs. Editing also
+ * respects the same department scope as MembersPage.jsx.
  */
 export default function BirthdaysPage() {
   const toast = useToast();
@@ -140,17 +130,23 @@ export default function BirthdaysPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const scopedMembers = useMemo(() => getScopedMembers(user, members), [user, members]);
+  const scopedMembers = useMemo(
+    () => getScopedMembers(user, members),
+    [user, members],
+  );
 
   const birthdayEntries = useMemo(() => {
     return scopedMembers
-      .map((member) => ({ member, birthday: getNextBirthday(member.dateOfBirth) }))
+      .map((member) => ({
+        member,
+        birthday: getNextBirthday(member.dateOfBirth),
+      }))
       .filter((entry) => entry.birthday !== null);
   }, [scopedMembers]);
 
   const todayEntries = useMemo(
     () => birthdayEntries.filter((e) => e.birthday.daysAway === 0),
-    [birthdayEntries]
+    [birthdayEntries],
   );
 
   const weekCount = useMemo(() => {
@@ -162,7 +158,9 @@ export default function BirthdaysPage() {
   const nextWeekCount = useMemo(() => {
     const today = new Date();
     const [start, end] = getTimePeriodRange("Next Week", today);
-    return birthdayEntries.filter((e) => e.birthday.next >= start && e.birthday.next <= end).length;
+    return birthdayEntries.filter(
+      (e) => e.birthday.next >= start && e.birthday.next <= end,
+    ).length;
   }, [birthdayEntries]);
 
   const monthCount = useMemo(() => {
@@ -176,7 +174,9 @@ export default function BirthdaysPage() {
   const nextEntry = useMemo(() => {
     const upcoming = birthdayEntries.filter((e) => e.birthday.daysAway > 0);
     if (upcoming.length === 0) return null;
-    return [...upcoming].sort((a, b) => a.birthday.daysAway - b.birthday.daysAway)[0];
+    return [...upcoming].sort(
+      (a, b) => a.birthday.daysAway - b.birthday.daysAway,
+    )[0];
   }, [birthdayEntries]);
 
   const filteredEntries = useMemo(() => {
@@ -186,17 +186,27 @@ export default function BirthdaysPage() {
     return birthdayEntries.filter(({ member, birthday }) => {
       const matchesSearch =
         !query ||
-        `${member.firstName} ${member.lastName}`.toLowerCase().includes(query) ||
+        `${member.firstName} ${member.lastName}`
+          .toLowerCase()
+          .includes(query) ||
         member.departments.some((d) => d.toLowerCase().includes(query)) ||
         member.category.toLowerCase().includes(query);
 
-      const matchesCategory = category === "All" || member.category === category;
+      const matchesCategory =
+        category === "All" || member.category === category;
       const matchesDepartment =
-        department === "All Departments" || member.departments.includes(department);
+        department === "All Departments" ||
+        member.departments.includes(department);
       const matchesStatus = status === "All Status" || member.status === status;
       const matchesPeriod = matchesTimePeriod(birthday.next, timePeriod, today);
 
-      return matchesSearch && matchesCategory && matchesDepartment && matchesStatus && matchesPeriod;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesDepartment &&
+        matchesStatus &&
+        matchesPeriod
+      );
     });
   }, [birthdayEntries, search, category, department, status, timePeriod]);
 
@@ -210,11 +220,11 @@ export default function BirthdaysPage() {
           return b.birthday.daysAway - a.birthday.daysAway;
         case "az":
           return `${a.member.firstName} ${a.member.lastName}`.localeCompare(
-            `${b.member.firstName} ${b.member.lastName}`
+            `${b.member.firstName} ${b.member.lastName}`,
           );
         case "za":
           return `${b.member.firstName} ${b.member.lastName}`.localeCompare(
-            `${a.member.firstName} ${a.member.lastName}`
+            `${a.member.firstName} ${a.member.lastName}`,
           );
         case "youngest":
           return a.birthday.turningAge - b.birthday.turningAge;
@@ -278,30 +288,12 @@ export default function BirthdaysPage() {
   }
 
   const allowEditDirectly = canEditMemberDirectly(user);
-  const allowRequestEdit = canRequestMemberEdit(user);
-
   async function handleSaveMember(formData) {
     try {
-      if (!allowEditDirectly && allowRequestEdit) {
-        // Category Admin: submit an edit REQUEST instead of applying
-        // it directly — same rule as MembersPage.jsx. This used to
-        // call updateMember unconditionally here, bypassing approval.
-        const changes = getChangedFields(formMember, formData);
-        await submitApprovalRequest({
-          type: "edit",
-          memberId: formMember.id,
-          memberName: `${formMember.firstName} ${formMember.lastName}`,
-          requestedBy: user,
-          changes,
-          reason: "Submitted via Birthdays page.",
-        });
-        toast.success("Edit request submitted for Super Admin approval");
-        setIsFormOpen(false);
-        return;
-      }
-
       await updateMember(formMember.id, formData);
-      setMembers((prev) => prev.map((m) => (m.id === formMember.id ? { ...m, ...formData } : m)));
+      setMembers((prev) =>
+        prev.map((m) => (m.id === formMember.id ? { ...m, ...formData } : m)),
+      );
       toast.success(`${formData.firstName} ${formData.lastName} was updated`);
       setIsFormOpen(false);
     } catch {
@@ -309,7 +301,7 @@ export default function BirthdaysPage() {
     }
   }
 
-  const showEditAction = allowEditDirectly || allowRequestEdit;
+  const showEditAction = allowEditDirectly;
 
   if (isLoading) {
     return <LoadingState label="Loading birthdays..." />;
@@ -317,7 +309,11 @@ export default function BirthdaysPage() {
 
   return (
     <div className="space-y-6">
-      <BirthdayHeader todayCount={todayEntries.length} weekCount={weekCount} monthCount={monthCount} />
+      <BirthdayHeader
+        todayCount={todayEntries.length}
+        weekCount={weekCount}
+        monthCount={monthCount}
+      />
 
       <BirthdayStats
         todayCount={todayEntries.length}
@@ -360,7 +356,9 @@ export default function BirthdaysPage() {
       </div>
 
       <div>
-        <h2 className="mb-4 text-base font-semibold text-gray-900">All Upcoming Birthdays</h2>
+        <h2 className="mb-4 text-base font-semibold text-gray-900">
+          All Upcoming Birthdays
+        </h2>
         <BirthdayList
           entries={pageEntries}
           groupByTime={sort === "nearest" || sort === "furthest"}
@@ -399,9 +397,17 @@ export default function BirthdaysPage() {
           isOpen={isFormOpen}
           onClose={handleCloseForm}
           onSave={handleSaveMember}
-          titleOverride={!allowEditDirectly && allowRequestEdit ? "Request Member Edit" : undefined}
-          submitLabel={!allowEditDirectly && allowRequestEdit ? "Submit Edit Request" : "Save Member"}
-          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
+          titleOverride={
+            !allowEditDirectly && allowRequestEdit
+              ? "Request Member Edit"
+              : undefined
+          }
+          submitLabel={
+            !allowEditDirectly && allowRequestEdit
+              ? "Submit Edit Request"
+              : "Save Member"
+          }
+          lockedCategory={undefined}
         />
       )}
     </div>

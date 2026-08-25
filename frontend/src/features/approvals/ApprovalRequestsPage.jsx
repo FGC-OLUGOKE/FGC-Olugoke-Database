@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle, Inbox, Users, UserPlus, Pencil, UserX } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Inbox,
+  Users,
+  UserPlus,
+  Pencil,
+  UserX,
+} from "lucide-react";
 import SectionCard from "../../components/ui/SectionCard";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
@@ -8,10 +16,17 @@ import Button from "../../components/ui/Button";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/ToastProvider";
 import { getApprovalRequests, reviewApprovalRequest } from "./api";
-import { getUsers, createAdminAccount, updateAdminAccount, removeAdminAccount } from "../auth/api";
+import {
+  getUsers,
+  createAdminAccount,
+  updateAdminAccount,
+  removeAdminAccount,
+} from "../auth/api";
 import { updateMember, deleteMember } from "../members/api";
 import { getRoleLabel } from "../../lib/permissions";
+import { isSuperAdmin } from "../../lib/permissions";
 import CreateAdminAccountForm from "./CreateAdminAccountForm";
+import { useAuth } from "../auth/AuthContext";
 
 /**
  * ApprovalRequestsPage
@@ -20,11 +35,11 @@ import CreateAdminAccountForm from "./CreateAdminAccountForm";
  * roles' nav via lib/permissions.js). Two responsibilities live here,
  * matching the two things the spec lists as Super-Admin-exclusive:
  *
- * 1. Reviewing edit/delete requests submitted by Category Admins.
+ * 1. Reviewing existing edit/delete requests.
  *    Approving one actually APPLIES the change (calls
  *    updateMember/deleteMember) — not just a status flag.
  *
- * 2. Managing Category Admin / Department Admin accounts — create,
+ * 2. Managing Staff Admin accounts — create,
  *    edit (role/scope), and remove admin access. Edit/Remove never
  *    render for a super_admin row — there's no UI path to edit or
  *    remove the highest authority in the system from within the app
@@ -36,6 +51,7 @@ import CreateAdminAccountForm from "./CreateAdminAccountForm";
  * Navbar's "Preview as" switcher) until that page/the app reloads.
  */
 export default function ApprovalRequestsPage() {
+  const { user } = useAuth();
   const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -46,6 +62,10 @@ export default function ApprovalRequestsPage() {
   const [accountPendingRemoval, setAccountPendingRemoval] = useState(null);
 
   useEffect(() => {
+    if (!isSuperAdmin(user)) {
+      setIsLoading(false);
+      return undefined;
+    }
     let isMounted = true;
     Promise.all([getApprovalRequests(), getUsers()])
       .then(([requestsData, usersData]) => {
@@ -59,7 +79,7 @@ export default function ApprovalRequestsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   async function handleReview(request, decision) {
     try {
@@ -74,10 +94,12 @@ export default function ApprovalRequestsPage() {
       }
 
       setRequests((prev) =>
-        prev.map((r) => (r.id === request.id ? { ...r, status: decision } : r))
+        prev.map((r) => (r.id === request.id ? { ...r, status: decision } : r)),
       );
       toast.success(
-        decision === "approved" ? "Request approved and applied" : "Request rejected"
+        decision === "approved"
+          ? "Request approved and applied"
+          : "Request rejected",
       );
     } catch {
       toast.error("Something went wrong reviewing this request.");
@@ -103,7 +125,9 @@ export default function ApprovalRequestsPage() {
       if (editingAccount) {
         await updateAdminAccount(editingAccount.id, accountData);
         setAdmins((prev) =>
-          prev.map((a) => (a.id === editingAccount.id ? { ...a, ...accountData } : a))
+          prev.map((a) =>
+            a.id === editingAccount.id ? { ...a, ...accountData } : a,
+          ),
         );
         toast.success(`${accountData.name}'s account was updated`);
       } else {
@@ -128,7 +152,9 @@ export default function ApprovalRequestsPage() {
   async function handleConfirmRemoveAccount() {
     try {
       await removeAdminAccount(accountPendingRemoval.id);
-      setAdmins((prev) => prev.filter((a) => a.id !== accountPendingRemoval.id));
+      setAdmins((prev) =>
+        prev.filter((a) => a.id !== accountPendingRemoval.id),
+      );
       toast.success(`${accountPendingRemoval.name}'s admin access was removed`);
     } catch {
       toast.error("Something went wrong removing this account.");
@@ -139,6 +165,16 @@ export default function ApprovalRequestsPage() {
 
   const pending = requests.filter((r) => r.status === "pending");
 
+  if (!isSuperAdmin(user)) {
+    return (
+      <EmptyState
+        icon={Users}
+        title="Super Admin access required"
+        description="This administration console is restricted to the Super Admin."
+      />
+    );
+  }
+
   if (isLoading) {
     return <LoadingState label="Loading approval requests..." />;
   }
@@ -146,9 +182,11 @@ export default function ApprovalRequestsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Approvals &amp; Admin Accounts</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          Approvals &amp; Admin Accounts
+        </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Review requests from Category Admins and manage Category/Department Admin accounts.
+          Review requests and manage Staff Admin accounts.
         </p>
       </div>
 
@@ -168,8 +206,12 @@ export default function ApprovalRequestsPage() {
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <Badge tone={request.type === "delete" ? "neutral" : "info"}>
-                      {request.type === "delete" ? "Deletion Request" : "Edit Request"}
+                    <Badge
+                      tone={request.type === "delete" ? "neutral" : "info"}
+                    >
+                      {request.type === "delete"
+                        ? "Deletion Request"
+                        : "Edit Request"}
                     </Badge>
                     <span className="text-xs text-gray-400">
                       {new Date(request.createdAt).toLocaleDateString("en-US", {
@@ -179,18 +221,20 @@ export default function ApprovalRequestsPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm font-medium text-gray-900">
-                    {request.memberName} — requested by {request.requestedBy.name} (
-                    {request.requestedBy.scope} Category Admin)
+                    {request.memberName} — requested by{" "}
+                    {request.requestedBy.name} ({request.requestedBy.scope}{" "}
+                    Staff Admin)
                   </p>
                   <p className="text-sm text-gray-600">{request.reason}</p>
-                  {request.changes && Object.keys(request.changes).length > 0 && (
-                    <p className="mt-1 text-xs text-gray-400">
-                      Proposed change:{" "}
-                      {Object.entries(request.changes)
-                        .map(([key, value]) => `${key} → ${value}`)
-                        .join(", ")}
-                    </p>
-                  )}
+                  {request.changes &&
+                    Object.keys(request.changes).length > 0 && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        Proposed change:{" "}
+                        {Object.entries(request.changes)
+                          .map(([key, value]) => `${key} → ${value}`)
+                          .join(", ")}
+                      </p>
+                    )}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button
@@ -218,14 +262,22 @@ export default function ApprovalRequestsPage() {
 
       <SectionCard title="Admin Accounts">
         <div className="mb-4 flex justify-end">
-          <Button variant="primary" onClick={handleAddAccount} className="text-xs">
+          <Button
+            variant="primary"
+            onClick={handleAddAccount}
+            className="text-xs"
+          >
             <UserPlus className="h-3.5 w-3.5" />
             New Admin Account
           </Button>
         </div>
 
         {admins.length === 0 ? (
-          <EmptyState icon={Users} title="No admin accounts" description="Create the first one to get started." />
+          <EmptyState
+            icon={Users}
+            title="No admin accounts"
+            description="Create the first one to get started."
+          />
         ) : (
           <ul className="divide-y divide-gray-100">
             {admins.map((admin) => {
@@ -236,11 +288,17 @@ export default function ApprovalRequestsPage() {
                   className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900">{admin.name}</p>
-                    <p className="truncate text-xs text-gray-500">{admin.email}</p>
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {admin.name}
+                    </p>
+                    <p className="truncate text-xs text-gray-500">
+                      {admin.email}
+                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Badge tone={isSuperAdminRow ? "info" : "neutral"}>{getRoleLabel(admin)}</Badge>
+                    <Badge tone={isSuperAdminRow ? "info" : "neutral"}>
+                      {getRoleLabel(admin)}
+                    </Badge>
                     {!isSuperAdminRow && (
                       <>
                         <button
@@ -282,7 +340,7 @@ export default function ApprovalRequestsPage() {
         description={
           accountPendingRemoval
             ? `This will revoke ${accountPendingRemoval.name}'s ${getRoleLabel(
-                accountPendingRemoval
+                accountPendingRemoval,
               )} access. Their church membership record (if any) is not affected — only their admin account.`
             : ""
         }

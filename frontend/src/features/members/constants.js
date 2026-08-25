@@ -4,7 +4,6 @@
 // "Adult" (singular Teenager/Adult) — this exact wording is required
 // consistently across Members, Dashboard, Birthdays, and Reports per
 // the Reports page spec. Previously this said "Teenagers"/"Adults";
-// renamed here plus in members/mockData.js and Dashboard's category
 // chart so it's consistent everywhere, not just in Reports.
 export const CATEGORIES = ["All", "Children", "Teenager", "Youth", "Adult"];
 

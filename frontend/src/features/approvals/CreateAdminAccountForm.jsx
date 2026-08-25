@@ -4,19 +4,12 @@ import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import SegmentedControl from "../../components/ui/SegmentedControl";
 import Button from "../../components/ui/Button";
-import { FORM_CATEGORIES, FORM_DEPARTMENTS } from "../members/constants";
+import { FORM_DEPARTMENTS } from "../members/constants";
 
-const ROLE_OPTIONS = ["Category Admin", "Department Admin"];
-const ROLE_VALUE_MAP = {
-  "Category Admin": "category_admin",
-  "Department Admin": "department_admin",
-};
-const ROLE_LABEL_MAP = {
-  category_admin: "Category Admin",
-  department_admin: "Department Admin",
-};
+const ROLE_OPTIONS = ["Staff Admin"];
+const ROLE_VALUE = "department_admin";
 
-const EMPTY_FORM = { name: "", email: "", roleLabel: "Category Admin", scope: "" };
+const EMPTY_FORM = { name: "", email: "", roleLabel: "Staff Admin", scope: "" };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,7 +22,7 @@ function validate(data) {
     errors.email = "Enter a valid email address";
   }
   if (!data.scope) {
-    errors.scope = `Please select a ${data.roleLabel === "Category Admin" ? "category" : "department"}`;
+    errors.scope = "Please select a department";
   }
   return errors;
 }
@@ -42,14 +35,18 @@ function validate(data) {
  * Add/Edit pattern MemberForm already uses. Pass `account` (an
  * existing admin) to edit it; omit/pass null to create a new one.
  *
- * Only Category Admin and Department Admin accounts can be
- * created/edited here — there's no UI path to create or edit a
+ * Only Staff Admin accounts can be created/edited here — there's no UI path to create or edit a
  * Super Admin, matching "the highest authority in the system"
  * framing (that's a decision that shouldn't happen from within the
  * app itself). ApprovalRequestsPage.jsx already never offers Edit on
  * a super_admin row for the same reason.
  */
-export default function CreateAdminAccountForm({ isOpen, account, onClose, onSave }) {
+export default function CreateAdminAccountForm({
+  isOpen,
+  account,
+  onClose,
+  onSave,
+}) {
   const isEditing = Boolean(account);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -61,10 +58,10 @@ export default function CreateAdminAccountForm({ isOpen, account, onClose, onSav
           ? {
               name: account.name,
               email: account.email,
-              roleLabel: ROLE_LABEL_MAP[account.role] ?? "Category Admin",
+              roleLabel: "Staff Admin",
               scope: account.scope ?? "",
             }
-          : EMPTY_FORM
+          : EMPTY_FORM,
       );
       setErrors({});
     }
@@ -74,7 +71,7 @@ export default function CreateAdminAccountForm({ isOpen, account, onClose, onSav
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === "roleLabel" ? { scope: "" } : {}), // reset scope when role changes
+      ...(field === "roleLabel" ? { scope: "" } : {}),
     }));
     setErrors((prev) => {
       if (!prev[field]) return prev;
@@ -94,13 +91,13 @@ export default function CreateAdminAccountForm({ isOpen, account, onClose, onSav
     onSave({
       name: formData.name,
       email: formData.email,
-      role: ROLE_VALUE_MAP[formData.roleLabel],
+      role: ROLE_VALUE,
       scope: formData.scope,
     });
   }
 
-  const scopeOptions = formData.roleLabel === "Category Admin" ? FORM_CATEGORIES : FORM_DEPARTMENTS;
-  const scopeLabel = formData.roleLabel === "Category Admin" ? "Category" : "Department";
+  const scopeOptions = FORM_DEPARTMENTS;
+  const scopeLabel = "Department";
 
   return (
     <Drawer

@@ -1,72 +1,8 @@
-import mockUsers from "./mockUsers";
-
-const SIMULATED_DELAY_MS = 300;
-const CURRENT_USER_STORAGE_KEY = "mockCurrentUserId"; // dev-only, see AuthContext.jsx
-
-function simulateNetwork(value) {
-  return new Promise((resolve) => setTimeout(() => resolve(value), SIMULATED_DELAY_MS));
-}
-
-/**
- * Data-access layer for auth/users — same api.js pattern as every
- * other feature. The important seam is getCurrentUser(): right now
- * it just reads whichever mock account was last picked via the
- * dev-only role switcher (persisted in localStorage so it survives
- * a refresh). Once real login exists, replace the body of
- * getCurrentUser() with a real "who am I" call and DELETE
- * setCurrentUser() entirely (it has no real-world equivalent —
- * you don't "set" who's logged in, a session/token determines that).
- * Nothing outside this file needs to change: every consumer just
- * calls getCurrentUser() and gets a { id, name, email, role, scope }
- * object back, same shape either way.
- */
-
-export async function getUsers() {
-  // TODO: replace with `GET /api/users` (Super Admin only — the
-  // real backend should enforce that, not just the frontend hiding
-  // the page).
-  return simulateNetwork(mockUsers);
-}
-
-export async function getCurrentUser() {
-  // TODO: replace with:
-  //   const res = await fetch("/api/me", { credentials: "include" });
-  //   if (!res.ok) throw new Error("Not authenticated");
-  //   return res.json();
-  const storedId = window.localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-  const id = storedId ? Number(storedId) : mockUsers[0].id;
-  const user = mockUsers.find((u) => u.id === id) ?? mockUsers[0];
-  return simulateNetwork(user);
-}
-
-/**
- * Dev-only — backs the role switcher so you can preview the app as
- * any mock account. DELETE this function once real login exists;
- * it has no real-world equivalent.
- */
-export async function setCurrentUser(userId) {
-  window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, String(userId));
-}
-
-export async function createAdminAccount(accountData) {
-  // TODO: replace with a real POST to `/api/users`
-  const created = { id: Date.now(), ...accountData };
-  return simulateNetwork(created);
-}
-
-export async function updateAdminAccount(userId, updates) {
-  // TODO: replace with a real PATCH to `/api/users/${userId}`
-  return simulateNetwork({ id: userId, ...updates });
-}
-
-/**
- * "Remove admin access" per the spec — only ever called on Category
- * Admin / Department Admin accounts (see ApprovalRequestsPage.jsx,
- * which never shows this action for a super_admin row). This is
- * about revoking an ADMIN role, not deleting the underlying member
- * record — a removed admin's membership in the church is untouched.
- */
-export async function removeAdminAccount(userId) {
-  // TODO: replace with a real DELETE to `/api/users/${userId}`
-  return simulateNetwork({ id: userId });
-}
+import { apiRequest, clearToken, setToken } from "../../lib/apiClient";
+export const getUsers = () => apiRequest("/users/");
+export const getCurrentUser = () => apiRequest("/me/");
+export async function login(email, password) { const result = await apiRequest("/auth/login/", { method: "POST", body: JSON.stringify({ email, password }) }); setToken(result.token); return result.user; }
+export async function logout() { try { await apiRequest("/auth/logout/", { method: "POST" }); } finally { clearToken(); } }
+export const createAdminAccount = (data) => apiRequest("/users/", { method: "POST", body: JSON.stringify(data) });
+export const updateAdminAccount = (id, data) => apiRequest(`/users/${id}/`, { method: "PATCH", body: JSON.stringify(data) });
+export const removeAdminAccount = (id) => apiRequest(`/users/${id}/`, { method: "DELETE" });

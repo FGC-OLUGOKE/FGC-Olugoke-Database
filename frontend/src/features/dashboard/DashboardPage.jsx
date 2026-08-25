@@ -22,29 +22,28 @@ import {
   getScopedMembers,
   canCreateMember,
   isSuperAdmin,
-  isCategoryAdmin,
   isDepartmentAdmin,
 } from "../../lib/permissions";
 
 /**
  * DashboardPage
  *
- * Role-scoped: Category/Department Admins see the exact same
+ * Role-scoped: Staff Admins see the exact same
  * components as Super Admin, just fed `scopedMembers` instead of the
  * full church member list — so "Total Members" naturally becomes
- * "Total Youth Members" in effect for a Youth Category Admin,
+ * a department-scoped member total,
  * without needing three separate dashboard implementations.
  *
  * Two sections are intentionally HIDDEN for scoped roles rather than
  * shown with fake-scoped data: Membership Growth and Attendance
- * Overview. Both are backed by mock datasets that are church-wide
- * aggregates with no per-category/per-department breakdown — showing
+ * Overview. Both are backed by church-wide aggregates with no
+ * per-department breakdown — showing
  * them "as if" scoped to Youth or Media would just be the full
  * church's numbers mislabeled. Same for Membership by Category (a
  * category-scoped admin's members ARE all one category, so a
  * category breakdown chart is meaningless for them) and Department
- * Overview (not Category Admin's concern; meaningless for a
- * Department Admin who only has one department to show).
+ * Overview is hidden for Staff Admins because it is not a
+ * department-level view.
  */
 export default function DashboardPage() {
   const toast = useToast();
@@ -73,7 +72,8 @@ export default function DashboardPage() {
         setActivity(data.activity);
       })
       .catch(() => {
-        if (isMounted) toast.error("Couldn't load the dashboard. Try refreshing.");
+        if (isMounted)
+          toast.error("Couldn't load the dashboard. Try refreshing.");
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
@@ -85,10 +85,12 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const scopedMembers = useMemo(() => getScopedMembers(user, members), [user, members]);
+  const scopedMembers = useMemo(
+    () => getScopedMembers(user, members),
+    [user, members],
+  );
 
   const scopeLabel = useMemo(() => {
-    if (isCategoryAdmin(user)) return `${user.scope} Category`;
     if (isDepartmentAdmin(user)) return `${user.scope} Department`;
     return null;
   }, [user]);
@@ -100,7 +102,10 @@ export default function DashboardPage() {
       activeMembers: scopedMembers.filter((m) => m.status === "Active").length,
       newMembersThisMonth: scopedMembers.filter((m) => {
         const joined = new Date(m.dateJoined);
-        return joined.getFullYear() === now.getFullYear() && joined.getMonth() === now.getMonth();
+        return (
+          joined.getFullYear() === now.getFullYear() &&
+          joined.getMonth() === now.getMonth()
+        );
       }).length,
       workersCount: scopedMembers.filter((m) => m.worker).length,
     };
@@ -109,7 +114,9 @@ export default function DashboardPage() {
   const needsAttention = useMemo(() => {
     const alerts = [];
 
-    const incompleteProfiles = scopedMembers.filter((m) => !m.occupation?.trim());
+    const incompleteProfiles = scopedMembers.filter(
+      (m) => !m.occupation?.trim(),
+    );
     if (incompleteProfiles.length > 0) {
       alerts.push({
         title: `${incompleteProfiles.length} member${incompleteProfiles.length === 1 ? "" : "s"} with incomplete profiles`,
@@ -119,7 +126,9 @@ export default function DashboardPage() {
       });
     }
 
-    const inactiveMembers = scopedMembers.filter((m) => m.status === "Inactive");
+    const inactiveMembers = scopedMembers.filter(
+      (m) => m.status === "Inactive",
+    );
     if (inactiveMembers.length > 0) {
       alerts.push({
         title: `${inactiveMembers.length} member${inactiveMembers.length === 1 ? "" : "s"} may need follow-up`,
@@ -133,12 +142,18 @@ export default function DashboardPage() {
       const now = new Date();
       const soonConvention = events.find((e) => {
         const daysAway = (new Date(e.date) - now) / (1000 * 60 * 60 * 24);
-        return daysAway >= 0 && daysAway <= 30 && e.name.toLowerCase().includes("convention");
+        return (
+          daysAway >= 0 &&
+          daysAway <= 30 &&
+          e.name.toLowerCase().includes("convention")
+        );
       });
       if (soonConvention) {
         alerts.push({
           title: `${soonConvention.name} is coming up`,
-          description: `Scheduled for ${new Date(soonConvention.date).toLocaleDateString("en-US", {
+          description: `Scheduled for ${new Date(
+            soonConvention.date,
+          ).toLocaleDateString("en-US", {
             month: "long",
             day: "numeric",
           })} — confirm venue and logistics.`,
@@ -179,7 +194,10 @@ export default function DashboardPage() {
         workersCount={stats.workersCount}
       />
 
-      <QuickActionsSection user={user} onAddMember={() => setIsAddMemberOpen(true)} />
+      <QuickActionsSection
+        user={user}
+        onAddMember={() => setIsAddMemberOpen(true)}
+      />
 
       {isSuperAdmin(user) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -193,7 +211,10 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <GenderDistributionSection members={scopedMembers} />
         {isSuperAdmin(user) && (
-          <DepartmentOverviewSection departments={departments} members={scopedMembers} />
+          <DepartmentOverviewSection
+            departments={departments}
+            members={scopedMembers}
+          />
         )}
       </div>
 
@@ -202,7 +223,9 @@ export default function DashboardPage() {
         {!isDepartmentAdmin(user) && <UpcomingEventsSection events={events} />}
       </div>
 
-      {isSuperAdmin(user) && <AttendanceOverviewSection attendance={attendance} />}
+      {isSuperAdmin(user) && (
+        <AttendanceOverviewSection attendance={attendance} />
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <MemberStatusSection members={scopedMembers} />
@@ -217,7 +240,7 @@ export default function DashboardPage() {
           isOpen={isAddMemberOpen}
           onClose={() => setIsAddMemberOpen(false)}
           onSave={handleCreateMember}
-          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
+          lockedCategory={undefined}
         />
       )}
     </div>

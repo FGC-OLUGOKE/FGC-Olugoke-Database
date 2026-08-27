@@ -15,7 +15,7 @@ export const NAV_ITEMS = [
   { label: "Dashboard", path: "dashboard", icon: LayoutDashboard, implemented: true },
   { label: "Members", path: "members", icon: Users, implemented: true },
   { label: "Departments", path: "departments", icon: Building2, implemented: true },
-  { label: "Attendance", path: "attendance", icon: ClipboardCheck, implemented: false },
+  { label: "Attendance", path: "attendance", icon: ClipboardCheck, implemented: true },
   { label: "Birthdays", path: "birthdays", icon: Cake, implemented: true },
   { label: "Reports", path: "reports", icon: BarChart3, implemented: true },
   { label: "Admin Console", path: "admin", icon: ClipboardCheck, implemented: true },

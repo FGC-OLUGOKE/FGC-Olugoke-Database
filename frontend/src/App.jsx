@@ -10,18 +10,9 @@ import DepartmentsPage from "./features/departments/DepartmentsPage";
 import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import ReportsPage from "./features/reports/ReportsPage";
 import ApprovalRequestsPage from "./features/approvals/ApprovalRequestsPage";
+import AttendancePage from "./features/attendance/AttendancePage";
 import { ToastProvider } from "./components/ui/ToastProvider";
-import { getAllowedNavPaths } from "./lib/permissions";
-
-function RequireAccess({ path, children }) {
-  const { user } = useAuth();
-  const allowedPaths = getAllowedNavPaths(user);
-  return allowedPaths && !allowedPaths.includes(path) ? (
-    <Navigate to="/dashboard" replace />
-  ) : (
-    children
-  );
-}
+import { isSuperAdmin, isCategoryAdmin } from "./lib/permissions";
 export default function App() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
@@ -35,32 +26,12 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="admin/dashboard" element={<DashboardPage />} />
             <Route path="members" element={<MembersPage />} />
-            <Route
-              path="departments"
-              element={
-                <RequireAccess path="departments">
-                  <DepartmentsPage />
-                </RequireAccess>
-              }
-            />
+            <Route path="departments" element={isSuperAdmin(user) ? <DepartmentsPage /> : <Navigate to="/dashboard" replace />} />
             <Route path="birthdays" element={<BirthdaysPage />} />
+            <Route path="attendance" element={isSuperAdmin(user) || isCategoryAdmin(user) ? <AttendancePage /> : <Navigate to="/dashboard" replace />} />
             <Route path="reports" element={<ReportsPage />} />
-            <Route
-              path="approvals"
-              element={
-                <RequireAccess path="admin">
-                  <ApprovalRequestsPage />
-                </RequireAccess>
-              }
-            />
-            <Route
-              path="admin"
-              element={
-                <RequireAccess path="admin">
-                  <ApprovalRequestsPage />
-                </RequireAccess>
-              }
-            />
+            <Route path="approvals" element={isSuperAdmin(user) ? <ApprovalRequestsPage /> : <Navigate to="/dashboard" replace />} />
+            <Route path="admin" element={isSuperAdmin(user) ? <ApprovalRequestsPage /> : <Navigate to="/dashboard" replace />} />
             {NAV_ITEMS.filter((item) => !item.implemented).map((item) => (
               <Route
                 key={item.path}

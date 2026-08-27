@@ -43,7 +43,7 @@ export default function MemberDetailsDrawer({
       })
     : null;
 
-  const hasActions = Boolean(onEdit || onDelete || onRemoveFromDepartment);
+  // const hasActions = Boolean(onEdit || onDelete || onRemoveFromDepartment);
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose}>
@@ -95,13 +95,10 @@ export default function MemberDetailsDrawer({
 
           <Section title="Spiritual Information">
             <Field label="Baptized" value={member.baptized ? "Yes" : "No"} />
-            <Field label="Worker" value={member.worker ? "Yes" : "No"} />
-            <Field label="Cell Group" value={member.cellGroup} />
-            <Field label="Service Unit" value={member.serviceUnit} />
           </Section>
         </div>
 
-        {hasActions && (
+        {/* {hasActions && ( */}
           <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white px-5 py-4">
             {onEdit && (
               <Button variant="secondary" onClick={() => onEdit(member)} className="flex-1">
@@ -109,13 +106,13 @@ export default function MemberDetailsDrawer({
                 Edit Member
               </Button>
             )}
-            {onDelete && (
+            {/* {onDelete && ( */}
               <Button variant="danger" onClick={() => onDelete(member)} className="flex-1">
                 <Trash2 className="h-3.5 w-3.5" />
                 Delete Member
               </Button>
-            )}
-            {onRemoveFromDepartment && (
+            {/* )} */}
+            {/* {onRemoveFromDepartment && (
               <Button
                 variant="danger"
                 onClick={() => onRemoveFromDepartment(member)}
@@ -124,9 +121,9 @@ export default function MemberDetailsDrawer({
                 <UserMinus className="h-3.5 w-3.5" />
                 Remove from Department
               </Button>
-            )}
+             )} */}
           </div>
-        )}
+        {/* )} */}
       </div>
     </Drawer>
   );

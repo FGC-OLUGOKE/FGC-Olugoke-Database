@@ -33,7 +33,9 @@ export function getScopedMembers(user, members = []) {
   if (!user) return [];
   if (isSuperAdmin(user)) return members;
   if (isCategoryAdmin(user)) return members.filter((m) => m.category === user.scope);
-  if (isDepartmentAdmin(user)) return members.filter((m) => m.departments.includes(user.scope));
+  if (isDepartmentAdmin(user)) {
+    return members.filter((m) => (m.departments ?? []).includes(user.scope));
+  }
   return [];
 }
 
@@ -41,7 +43,6 @@ export function getScopedMembers(user, members = []) {
 export function getScopedDepartments(user, departments = []) {
   if (!user) return [];
   if (isSuperAdmin(user)) return departments;
-  if (isCategoryAdmin(user)) return [];
   if (isDepartmentAdmin(user)) return departments.filter((d) => d.name === user.scope);
   return [];
 }
@@ -101,7 +102,8 @@ export function canManageUsers(user) {
  */
 export function getAllowedNavPaths(user) {
   if (isSuperAdmin(user)) return null;
-  if (isCategoryAdmin(user) || isDepartmentAdmin(user)) return ["dashboard", "members", "birthdays", "reports"];
+  if (isCategoryAdmin(user)) return ["dashboard", "members", "attendance", "birthdays", "reports"];
+  if (isDepartmentAdmin(user)) return ["dashboard", "members", "birthdays", "reports"];
   return ["dashboard"];
 }
 
@@ -109,6 +111,6 @@ export function getRoleLabel(user) {
   if (!user) return "";
   if (isSuperAdmin(user)) return "Super Admin";
   if (isCategoryAdmin(user)) return `${user.scope} Category Admin`;
-  if (isDepartmentAdmin(user)) return `${user.scope} Departmental Admin`;
+  if (isDepartmentAdmin(user)) return `${user.scope} Department Admin`;
   return "Unknown Role";
 }

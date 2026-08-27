@@ -11,6 +11,17 @@ import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import ReportsPage from "./features/reports/ReportsPage";
 import ApprovalRequestsPage from "./features/approvals/ApprovalRequestsPage";
 import { ToastProvider } from "./components/ui/ToastProvider";
+import { getAllowedNavPaths } from "./lib/permissions";
+
+function RequireAccess({ path, children }) {
+  const { user } = useAuth();
+  const allowedPaths = getAllowedNavPaths(user);
+  return allowedPaths && !allowedPaths.includes(path) ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    children
+  );
+}
 export default function App() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
@@ -24,11 +35,32 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="admin/dashboard" element={<DashboardPage />} />
             <Route path="members" element={<MembersPage />} />
-            <Route path="departments" element={<DepartmentsPage />} />
+            <Route
+              path="departments"
+              element={
+                <RequireAccess path="departments">
+                  <DepartmentsPage />
+                </RequireAccess>
+              }
+            />
             <Route path="birthdays" element={<BirthdaysPage />} />
             <Route path="reports" element={<ReportsPage />} />
-            <Route path="approvals" element={<ApprovalRequestsPage />} />
-            <Route path="admin" element={<ApprovalRequestsPage />} />
+            <Route
+              path="approvals"
+              element={
+                <RequireAccess path="admin">
+                  <ApprovalRequestsPage />
+                </RequireAccess>
+              }
+            />
+            <Route
+              path="admin"
+              element={
+                <RequireAccess path="admin">
+                  <ApprovalRequestsPage />
+                </RequireAccess>
+              }
+            />
             {NAV_ITEMS.filter((item) => !item.implemented).map((item) => (
               <Route
                 key={item.path}

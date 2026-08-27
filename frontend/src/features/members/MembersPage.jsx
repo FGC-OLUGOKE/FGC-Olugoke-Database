@@ -23,8 +23,6 @@ import {
   canCreateMember,
   canEditMemberDirectly,
   canDeleteMemberDirectly,
-  canRequestMemberEdit,
-  canRequestMemberDelete,
   isDepartmentAdmin,
   isCategoryAdmin,
   getRoleLabel,
@@ -161,8 +159,8 @@ export default function MembersPage() {
 
   const allowEditDirectly = canEditMemberDirectly(user);
   const allowDeleteDirectly = canDeleteMemberDirectly(user);
-  const allowEditRequest = canRequestMemberEdit(user);
-  const allowDeleteRequest = canRequestMemberDelete(user);
+  // const allowEditRequest = canRequestMemberEdit(user);
+  // const allowDeleteRequest = canRequestMemberDelete(user);
 
   async function handleSaveMember(formData) {
     try {

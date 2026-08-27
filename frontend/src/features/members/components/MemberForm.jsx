@@ -38,9 +38,6 @@ const EMPTY_FORM = {
   status: "",
   dateJoined: "",
   baptized: false,
-  worker: false,
-  cellGroup: "",
-  serviceUnit: "",
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +46,7 @@ const PHONE_PATTERN = /^[0-9+()\-\s]{7,}$/;
 /**
  * Only First Name, Last Name, Gender, and Date of Birth block
  * submission — per the updated registration rules, everything else
- * (phone, email, address, department, category, marital status,
+ * (phone, email, address, department, marital status,
  * status, etc.) is optional so an admin can register someone with
  * just their basic identity and complete the rest of the profile
  * later. Phone/email still get FORMAT validation, but only if the
@@ -62,6 +59,7 @@ function validate(data) {
   if (!data.lastName.trim()) errors.lastName = "Last name is required";
   if (!data.gender) errors.gender = "Please select a gender";
   if (!data.dateOfBirth) errors.dateOfBirth = "Date of birth is required";
+  if (!data.category) errors.category = "Please select a category";
 
   if (data.phone.trim() && !PHONE_PATTERN.test(data.phone.trim())) {
     errors.phone = "Enter a valid phone number";
@@ -136,7 +134,7 @@ export default function MemberForm({
       return;
     }
 
-    onSave?.(formData);
+    onSave?.({ ...formData, worker: formData.departments.length > 0 });
   }
 
   const age = formData.dateOfBirth ? getCurrentAge(formData.dateOfBirth) : null;
@@ -208,7 +206,11 @@ export default function MemberForm({
             />
           </FormSection>
 
-          <FormSection icon={Phone} iconTone="purple" title="Contact Information">
+          <FormSection
+            icon={Phone}
+            iconTone="purple"
+            title="Contact Information"
+          >
             <Input
               label="Phone"
               type="tel"
@@ -233,15 +235,18 @@ export default function MemberForm({
           <FormSection icon={Church} iconTone="gold" title="Church Information">
             <Select
               label="Category"
+              required
               placeholder="Select Category"
               options={FORM_CATEGORIES}
               value={formData.category}
+              error={errors.category}
               disabled={Boolean(lockedCategory)}
               onChange={(e) => update("category", e.target.value)}
             />
             {lockedCategory && (
               <p className="-mt-2 text-xs text-gray-400">
-                Category is set to your assigned scope and can't be changed here.
+                Category is set to your assigned scope and can't be changed
+                here.
               </p>
             )}
             <MultiSelect
@@ -267,19 +272,37 @@ export default function MemberForm({
             </div>
           </FormSection>
 
-          <FormSection icon={Sparkles} iconTone="blue" title="Spiritual Information">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Toggle
-                label="Baptized"
-                checked={formData.baptized}
-                onChange={(v) => update("baptized", v)}
+          <FormSection
+            icon={Sparkles}
+            iconTone="blue"
+            title="Spiritual Information"
+          >
+            <p className="text-sm text-gray-500">
+              Members assigned to a department are automatically marked as
+              workers.
+            </p>
+            <Toggle
+              label="Baptized"
+              checked={formData.baptized}
+              onChange={(value) => update("baptized", value)}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Cell Group"
+                value={formData.cellGroup}
+                onChange={(e) => update("cellGroup", e.target.value)}
+              />
+              <Input
+                label="Service Unit"
+                value={formData.serviceUnit}
+                onChange={(e) => update("serviceUnit", e.target.value)}
               />
             </div>
           </FormSection>
 
           <p className="text-xs text-gray-400">
-            <span className="text-[#9e263b]">*</span> Required field — everything else can be
-            completed later
+            <span className="text-[#9e263b]">*</span> Required field —
+            everything else can be completed later
           </p>
         </div>
 
@@ -307,7 +330,9 @@ function FormSection({ icon: Icon, iconTone = "blue", title, children }) {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone.bg}`}>
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone.bg}`}
+        >
           <Icon className={`h-3.5 w-3.5 ${tone.text}`} strokeWidth={2} />
         </span>
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>

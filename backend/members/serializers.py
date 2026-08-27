@@ -12,6 +12,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 class MemberSerializer(serializers.ModelSerializer):
     departments = serializers.SlugRelatedField(slug_field="name", many=True, queryset=Department.objects.all(), required=False)
+    category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, required=True)
     firstName = serializers.CharField(source="first_name")
     lastName = serializers.CharField(source="last_name")
     dateOfBirth = serializers.DateField(source="date_of_birth")
@@ -34,10 +35,11 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email")
     scope = serializers.SerializerMethodField()
     departmentId = serializers.PrimaryKeyRelatedField(source="department", queryset=Department.objects.all(), write_only=True, required=False, allow_null=True)
+    category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, write_only=True, required=False, allow_null=True)
     password = serializers.CharField(source="user.password", write_only=True, required=False, min_length=8)
     class Meta:
         model = AdminAccount
-        fields = ("id", "name", "email", "role", "scope", "departmentId", "password")
+        fields = ("id", "name", "email", "role", "scope", "departmentId", "category", "password")
         read_only_fields = ()
 
     def to_internal_value(self, data):
@@ -50,18 +52,38 @@ class AdminAccountSerializer(serializers.ModelSerializer):
                 if not department:
                     raise serializers.ValidationError({"scope": "Unknown department."})
                 data["departmentId"] = department.pk
+            elif role == AdminAccount.CATEGORY_ADMIN:
+                data["category"] = scope
         return super().to_internal_value(data)
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.email
     def get_scope(self, obj):
-        return obj.department.name if obj.department_id else None
+        return obj.department.name if obj.department_id else obj.category
     def validate(self, attrs):
         role = attrs.get("role", self.instance.role if self.instance else AdminAccount.DEPARTMENT_ADMIN)
         department = attrs.get("department", self.instance.department if self.instance else None)
+        category = attrs.get("category", self.instance.category if self.instance else None)
+        if role == AdminAccount.CATEGORY_ADMIN:
+            department = None
+            attrs["department"] = None
+        elif role == AdminAccount.DEPARTMENT_ADMIN:
+            category = None
+            attrs["category"] = None
+        elif role == AdminAccount.SUPER_ADMIN:
+            department = None
+            category = None
+            attrs["department"] = None
+            attrs["category"] = None
         if role == AdminAccount.DEPARTMENT_ADMIN and not department:
-            raise serializers.ValidationError({"departmentId": "A Department Admin must be assigned to a department."})
-        if role == AdminAccount.SUPER_ADMIN and department:
+            raise serializers.ValidationError({"departmentId": "A Departmental Admin must be assigned to a department."})
+        if role == AdminAccount.CATEGORY_ADMIN and not category:
+            raise serializers.ValidationError({"category": "A Category Admin must be assigned to a category."})
+        if role == AdminAccount.SUPER_ADMIN and (department or category):
             raise serializers.ValidationError({"scope": "A Super Admin cannot have a scope."})
+        if role == AdminAccount.CATEGORY_ADMIN and department:
+            raise serializers.ValidationError({"departmentId": "A Category Admin cannot be assigned to a department."})
+        if role == AdminAccount.DEPARTMENT_ADMIN and category:
+            raise serializers.ValidationError({"category": "A Departmental Admin cannot be assigned to a category."})
         return attrs
     def create(self, validated_data):
         user_data = validated_data.pop("user")

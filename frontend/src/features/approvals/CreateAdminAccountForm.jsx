@@ -6,13 +6,19 @@ import SegmentedControl from "../../components/ui/SegmentedControl";
 import Button from "../../components/ui/Button";
 import { FORM_CATEGORIES, FORM_DEPARTMENTS } from "../members/constants";
 
-const ROLE_OPTIONS = ["Category Admin", "Department Admin"];
+const ROLE_OPTIONS = ["Category Admin", "Departmental Admin"];
 const ROLE_VALUES = {
   "Category Admin": "category_admin",
-  "Department Admin": "department_admin",
+  "Departmental Admin": "department_admin",
 };
 
-const EMPTY_FORM = { name: "", email: "", roleLabel: "Category Admin", scope: "" };
+const EMPTY_FORM = {
+  name: "",
+  email: "",
+  roleLabel: "Category Admin",
+  scope: "",
+  password: "",
+};
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,6 +33,8 @@ function validate(data) {
   if (!data.scope) {
     errors.scope = `Please select a ${data.roleLabel === "Category Admin" ? "category" : "department"}`;
   }
+  if (!data.password && !data.isEditing) errors.password = "Password is required";
+  if (data.password && data.password.length < 8) errors.password = "Password must be at least 8 characters";
   return errors;
 }
 
@@ -63,8 +71,9 @@ export default function CreateAdminAccountForm({
               roleLabel:
                 account.role === "category_admin"
                   ? "Category Admin"
-                  : "Department Admin",
+                  : "Departmental Admin",
               scope: account.scope ?? "",
+              password: "",
             }
           : EMPTY_FORM,
       );
@@ -88,17 +97,19 @@ export default function CreateAdminAccountForm({
 
   function handleSubmit(event) {
     event.preventDefault();
-    const validationErrors = validate(formData);
+    const validationErrors = validate({ ...formData, isEditing });
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    onSave({
+    const accountData = {
       name: formData.name,
       email: formData.email,
       role: ROLE_VALUES[formData.roleLabel],
       scope: formData.scope,
-    });
+    };
+    if (formData.password) accountData.password = formData.password;
+    onSave(accountData);
   }
 
   const isCategoryRole = formData.roleLabel === "Category Admin";
@@ -129,6 +140,14 @@ export default function CreateAdminAccountForm({
             error={errors.email}
             value={formData.email}
             onChange={(e) => update("email", e.target.value)}
+          />
+          <Input
+            label={isEditing ? "New Password" : "Password"}
+            type="password"
+            required={!isEditing}
+            error={errors.password}
+            value={formData.password}
+            onChange={(e) => update("password", e.target.value)}
           />
           <SegmentedControl
             label="Role"

@@ -1,6 +1,8 @@
 import { NavLink } from "react-router-dom";
 import Drawer from "../ui/Drawer";
 import { NAV_ITEMS } from "./navigation";
+import { useAuth } from "../../features/auth/AuthContext";
+import { getAllowedNavPaths } from "../../lib/permissions";
 
 /**
  * MobileNav
@@ -11,10 +13,15 @@ import { NAV_ITEMS } from "./navigation";
  * on a small screen. Opened via the Navbar's hamburger button.
  */
 export default function MobileNav({ isOpen, onClose }) {
+  const { user } = useAuth();
+  const allowedPaths = getAllowedNavPaths(user);
+  const items = allowedPaths
+    ? NAV_ITEMS.filter((item) => allowedPaths.includes(item.path))
+    : NAV_ITEMS;
   return (
     <Drawer isOpen={isOpen} onClose={onClose} side="left" title="Menu">
       <nav className="flex flex-col gap-1 p-3">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink

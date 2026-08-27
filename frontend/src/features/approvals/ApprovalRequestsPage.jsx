@@ -223,7 +223,10 @@ export default function ApprovalRequestsPage() {
                   <p className="mt-1 text-sm font-medium text-gray-900">
                     {request.memberName} — requested by{" "}
                     {request.requestedBy.name} ({request.requestedBy.scope}{" "}
-                    Staff Admin)
+                    {request.requestedBy.role === "category_admin"
+                      ? "Category Admin"
+                      : "Departmental Admin"}
+                    )
                   </p>
                   <p className="text-sm text-gray-600">{request.reason}</p>
                   {request.changes &&

@@ -274,7 +274,6 @@ export default function MemberForm({
             </div>
           </FormSection>
 
-<<<<<<< HEAD
           <FormSection
             icon={Sparkles}
             iconTone="blue"
@@ -299,14 +298,6 @@ export default function MemberForm({
                 label="Service Unit"
                 value={formData.serviceUnit}
                 onChange={(e) => update("serviceUnit", e.target.value)}
-=======
-          <FormSection icon={Sparkles} iconTone="blue" title="Spiritual Information">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Toggle
-                label="Baptized"
-                checked={formData.baptized}
-                onChange={(v) => update("baptized", v)}
->>>>>>> 54a8e361fd5f2f6f5a3827ab7e145d1dd1d7662d
               />
             </div>
           </FormSection>

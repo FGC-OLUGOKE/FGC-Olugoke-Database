@@ -23,9 +23,13 @@ import {
   canCreateMember,
   canEditMemberDirectly,
   canDeleteMemberDirectly,
+  canRequestMemberEdit,
+  canRequestMemberDelete,
   isDepartmentAdmin,
+  isCategoryAdmin,
   getRoleLabel,
 } from "../../lib/permissions";
+import { submitApprovalRequest } from "../approvals/api";
 
 /**
  * MembersPage
@@ -157,15 +161,34 @@ export default function MembersPage() {
 
   const allowEditDirectly = canEditMemberDirectly(user);
   const allowDeleteDirectly = canDeleteMemberDirectly(user);
+  const allowEditRequest = canRequestMemberEdit(user);
+  const allowDeleteRequest = canRequestMemberDelete(user);
 
   async function handleSaveMember(formData) {
     try {
       if (formMember) {
-        await updateMember(formMember.id, formData);
-        setMembers((prev) =>
-          prev.map((m) => (m.id === formMember.id ? { ...m, ...formData } : m)),
-        );
-        toast.success(`${formData.firstName} ${formData.lastName} was updated`);
+        if (allowEditDirectly) {
+          await updateMember(formMember.id, formData);
+          setMembers((prev) =>
+            prev.map((m) => (m.id === formMember.id ? { ...m, ...formData } : m)),
+          );
+          toast.success(`${formData.firstName} ${formData.lastName} was updated`);
+        } else if (allowEditRequest) {
+          const changes = Object.fromEntries(
+            Object.entries(formData).filter(([key, value]) => value !== formMember[key]),
+          );
+          if (Object.keys(changes).length === 0) {
+            setIsFormOpen(false);
+            return;
+          }
+          await submitApprovalRequest({
+            type: "edit",
+            memberId: formMember.id,
+            memberName: `${formMember.firstName} ${formMember.lastName}`,
+            changes,
+          });
+          toast.success("Edit request sent to Super Admin for approval");
+        }
       } else {
         const created = await createMember(formData);
         setMembers((prev) => [...prev, created]);
@@ -188,13 +211,23 @@ export default function MembersPage() {
 
   async function handleConfirmDelete() {
     try {
-      await deleteMember(memberPendingDelete.id);
-      setMembers((prev) => prev.filter((m) => m.id !== memberPendingDelete.id));
-      toast.success(
-        `${memberPendingDelete.firstName} ${memberPendingDelete.lastName} was deleted`,
-      );
+      if (allowDeleteDirectly) {
+        await deleteMember(memberPendingDelete.id);
+        setMembers((prev) => prev.filter((m) => m.id !== memberPendingDelete.id));
+        toast.success(
+          `${memberPendingDelete.firstName} ${memberPendingDelete.lastName} was deleted`,
+        );
+      } else if (allowDeleteRequest) {
+        await submitApprovalRequest({
+          type: "delete",
+          memberId: memberPendingDelete.id,
+          memberName: `${memberPendingDelete.firstName} ${memberPendingDelete.lastName}`,
+          changes: {},
+        });
+        toast.success("Deletion request sent to Super Admin for approval");
+      }
     } catch {
-      toast.error("Something went wrong deleting this member.");
+      toast.error("Something went wrong processing this member action.");
     } finally {
       setMemberPendingDelete(null);
     }
@@ -255,8 +288,8 @@ export default function MembersPage() {
 
   const showAddButton = canCreateMember(user);
   const showAssignButton = isDepartmentAdmin(user);
-  const showEditAction = allowEditDirectly;
-  const showDeleteAction = allowDeleteDirectly;
+  const showEditAction = allowEditDirectly || allowEditRequest;
+  const showDeleteAction = allowDeleteDirectly || allowDeleteRequest;
 
   return (
     <div className="space-y-6">
@@ -331,7 +364,7 @@ export default function MembersPage() {
           onSave={handleSaveMember}
           titleOverride={undefined}
           submitLabel={"Save Member"}
-          lockedCategory={undefined}
+          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
         />
       )}
 

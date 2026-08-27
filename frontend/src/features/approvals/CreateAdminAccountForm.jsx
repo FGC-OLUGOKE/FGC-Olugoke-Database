@@ -4,12 +4,15 @@ import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import SegmentedControl from "../../components/ui/SegmentedControl";
 import Button from "../../components/ui/Button";
-import { FORM_DEPARTMENTS } from "../members/constants";
+import { FORM_CATEGORIES, FORM_DEPARTMENTS } from "../members/constants";
 
-const ROLE_OPTIONS = ["Staff Admin"];
-const ROLE_VALUE = "department_admin";
+const ROLE_OPTIONS = ["Category Admin", "Department Admin"];
+const ROLE_VALUES = {
+  "Category Admin": "category_admin",
+  "Department Admin": "department_admin",
+};
 
-const EMPTY_FORM = { name: "", email: "", roleLabel: "Staff Admin", scope: "" };
+const EMPTY_FORM = { name: "", email: "", roleLabel: "Category Admin", scope: "" };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,7 +25,7 @@ function validate(data) {
     errors.email = "Enter a valid email address";
   }
   if (!data.scope) {
-    errors.scope = "Please select a department";
+    errors.scope = `Please select a ${data.roleLabel === "Category Admin" ? "category" : "department"}`;
   }
   return errors;
 }
@@ -35,10 +38,9 @@ function validate(data) {
  * Add/Edit pattern MemberForm already uses. Pass `account` (an
  * existing admin) to edit it; omit/pass null to create a new one.
  *
- * Only Staff Admin accounts can be created/edited here — there's no UI path to create or edit a
- * Super Admin, matching "the highest authority in the system"
- * framing (that's a decision that shouldn't happen from within the
- * app itself). ApprovalRequestsPage.jsx already never offers Edit on
+ * Category Admin and Department Admin accounts can be created/edited here.
+ * There is no UI path to create or edit a Super Admin account because
+ * the Super Admin is the highest authority in the system. ApprovalRequestsPage.jsx already never offers Edit on
  * a super_admin row for the same reason.
  */
 export default function CreateAdminAccountForm({
@@ -58,7 +60,10 @@ export default function CreateAdminAccountForm({
           ? {
               name: account.name,
               email: account.email,
-              roleLabel: "Staff Admin",
+              roleLabel:
+                account.role === "category_admin"
+                  ? "Category Admin"
+                  : "Department Admin",
               scope: account.scope ?? "",
             }
           : EMPTY_FORM,
@@ -91,13 +96,14 @@ export default function CreateAdminAccountForm({
     onSave({
       name: formData.name,
       email: formData.email,
-      role: ROLE_VALUE,
+      role: ROLE_VALUES[formData.roleLabel],
       scope: formData.scope,
     });
   }
 
-  const scopeOptions = FORM_DEPARTMENTS;
-  const scopeLabel = "Department";
+  const isCategoryRole = formData.roleLabel === "Category Admin";
+  const scopeOptions = isCategoryRole ? FORM_CATEGORIES : FORM_DEPARTMENTS;
+  const scopeLabel = isCategoryRole ? "Category" : "Department";
 
   return (
     <Drawer

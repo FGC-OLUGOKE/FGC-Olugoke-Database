@@ -186,7 +186,7 @@ export default function ApprovalRequestsPage() {
           Approvals &amp; Admin Accounts
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Review requests and manage Staff Admin accounts.
+          Review member change requests and manage Category Admin and Department Admin accounts.
         </p>
       </div>
 

@@ -22,6 +22,7 @@ import {
   getScopedMembers,
   canCreateMember,
   isSuperAdmin,
+  isCategoryAdmin,
   isDepartmentAdmin,
 } from "../../lib/permissions";
 
@@ -67,7 +68,6 @@ export default function DashboardPage() {
         setMembers(data.members);
         setDepartments(data.departments);
         setGrowth(data.growth);
-        setAttendance(data.attendance);
         setEvents(data.events);
         setActivity(data.activity);
         // console.log("Attendance data:", data.attendance);
@@ -93,6 +93,7 @@ export default function DashboardPage() {
 
   const scopeLabel = useMemo(() => {
     if (isDepartmentAdmin(user)) return `${user.scope} Department`;
+    if (isCategoryAdmin(user)) return `${user.scope} Category`;
     return null;
   }, [user]);
 
@@ -241,7 +242,7 @@ export default function DashboardPage() {
           isOpen={isAddMemberOpen}
           onClose={() => setIsAddMemberOpen(false)}
           onSave={handleCreateMember}
-          lockedCategory={undefined}
+          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
         />
       )}
     </div>

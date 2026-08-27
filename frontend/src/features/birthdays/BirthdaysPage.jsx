@@ -164,16 +164,10 @@ export default function BirthdaysPage() {
   }, [birthdayEntries]);
 
   const monthCount = useMemo(() => {
-  const today = new Date();
-
-  return scopedMembers.filter((member) => {
-    if (!member.dateOfBirth) return false;
-
-    const dob = new Date(member.dateOfBirth);
-
-    return dob.getMonth() === today.getMonth();
-  }).length;
-}, [scopedMembers]);
+    const today = new Date();
+    const [, end] = getTimePeriodRange("This Month", today);
+    return birthdayEntries.filter((e) => e.birthday.next <= end).length;
+  }, [birthdayEntries]);
 
   // "Next Birthday" means the closest UPCOMING one — someone whose
   // birthday is today belongs to Today's Birthdays instead, not here.

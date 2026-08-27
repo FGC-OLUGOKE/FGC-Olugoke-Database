@@ -1,5 +1,6 @@
 import { Church, Menu } from "lucide-react";
 import RoleSwitcher from "./RoleSwitcher";
+import Logo from "../../assets/logo.svg";
 
 /**
  * Navbar
@@ -42,8 +43,8 @@ export default function Navbar({
             <Menu className="h-5 w-5" strokeWidth={2} />
           </button>
 
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
-            <Church className="h-5 w-5 text-white" strokeWidth={2} />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+            <img src={Logo} alt="Logo" />
           </div>
           <div className="min-w-0 leading-tight">
             <p className="truncate text-[15px] font-semibold text-white">

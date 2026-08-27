@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const [members, setMembers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [growth, setGrowth] = useState([]);
-  const [attendance, setAttendance] = useState([]);
+  // const [attendance, setAttendance] = useState([]);
   const [events, setEvents] = useState([]);
   const [activity, setActivity] = useState([]);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -70,6 +70,7 @@ export default function DashboardPage() {
         setAttendance(data.attendance);
         setEvents(data.events);
         setActivity(data.activity);
+        // console.log("Attendance data:", data.attendance);
       })
       .catch(() => {
         if (isMounted)
@@ -223,9 +224,9 @@ export default function DashboardPage() {
         {!isDepartmentAdmin(user) && <UpcomingEventsSection events={events} />}
       </div>
 
-      {isSuperAdmin(user) && (
+      {/* {isSuperAdmin(user) && (
         <AttendanceOverviewSection attendance={attendance} />
-      )}
+      )} */}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <MemberStatusSection members={scopedMembers} />

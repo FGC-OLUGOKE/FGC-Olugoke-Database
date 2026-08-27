@@ -23,6 +23,7 @@ import {
   canCreateMember,
   canEditMemberDirectly,
   canDeleteMemberDirectly,
+  isCategoryAdmin,
   isDepartmentAdmin,
   getRoleLabel,
 } from "../../lib/permissions";
@@ -331,7 +332,7 @@ export default function MembersPage() {
           onSave={handleSaveMember}
           titleOverride={undefined}
           submitLabel={"Save Member"}
-          lockedCategory={undefined}
+          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
         />
       )}
 

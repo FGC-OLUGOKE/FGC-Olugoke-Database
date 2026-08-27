@@ -19,6 +19,9 @@ class AccessControlTests(APITestCase):
         self.choir_member.departments.add(self.choir)
         self.media_member = Member.objects.create(first_name="Ben", last_name="Media", gender="Male", date_of_birth="2000-01-01")
         self.media_member.departments.add(self.media)
+        category_user = User.objects.create_user(username="youth@example.com", email="youth@example.com", password="secure-pass")
+        AdminAccount.objects.create(user=category_user, role=AdminAccount.CATEGORY_ADMIN, category="Youth")
+        self.category_token = Token.objects.create(user=category_user).key
 
     def authenticate(self, token):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
@@ -45,3 +48,16 @@ class AccessControlTests(APITestCase):
         staff_account = AdminAccount.objects.get(user__email="choir@example.com")
         response = self.client.patch(f"/api/users/{staff_account.id}/", {"departmentId": None}, format="json")
         self.assertEqual(response.status_code, 400)
+
+    def test_category_admin_only_sees_and_creates_members_in_own_category(self):
+        self.choir_member.category = "Youth"
+        self.choir_member.save(update_fields=("category",))
+        self.media_member.category = "Adult"
+        self.media_member.save(update_fields=("category",))
+        self.authenticate(self.category_token)
+        response = self.client.get("/api/members/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([member["id"] for member in response.data], [self.choir_member.id])
+        response = self.client.post("/api/members/", {"firstName": "Cara", "lastName": "Youth", "gender": "Female", "dateOfBirth": "2001-01-01", "category": "Adult"}, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["category"], "Youth")

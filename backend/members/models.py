@@ -19,10 +19,13 @@ class Department(models.Model):
 class AdminAccount(models.Model):
     """An application account scoped to the records its administrator manages."""
     SUPER_ADMIN = "super_admin"
+    CATEGORY_ADMIN = "category_admin"
     DEPARTMENT_ADMIN = "department_admin"
-    ROLE_CHOICES = ((SUPER_ADMIN, "Super Admin"), (DEPARTMENT_ADMIN, "Staff Admin"))
+    CATEGORY_CHOICES = (("Children", "Children"), ("Teenager", "Teenager"), ("Youth", "Youth"), ("Adult", "Adult"))
+    ROLE_CHOICES = ((SUPER_ADMIN, "Super Admin"), (CATEGORY_ADMIN, "Category Admin"), (DEPARTMENT_ADMIN, "Departmental Admin"))
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="admin_account")
     role = models.CharField(max_length=32, choices=ROLE_CHOICES)
+    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, null=True, blank=True)
     department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name="admins")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -30,10 +33,12 @@ class AdminAccount(models.Model):
         constraints = [models.UniqueConstraint(fields=("role",), condition=Q(role="super_admin"), name="single_super_admin")]
 
     def clean(self):
-        if self.role == self.SUPER_ADMIN and self.department_id:
-            raise ValidationError({"department": "A Super Admin cannot be assigned to a department."})
+        if self.role == self.SUPER_ADMIN and (self.department_id or self.category):
+            raise ValidationError("A Super Admin cannot have a scope.")
+        if self.role == self.CATEGORY_ADMIN and not self.category:
+            raise ValidationError({"category": "A Category Admin must be assigned to one category."})
         if self.role == self.DEPARTMENT_ADMIN and not self.department_id:
-            raise ValidationError({"department": "A Department Admin must be assigned to one department."})
+            raise ValidationError({"department": "A Departmental Admin must be assigned to one department."})
 
 
 class Member(models.Model):
@@ -49,7 +54,7 @@ class Member(models.Model):
     phone = models.CharField(max_length=32, blank=True)
     email = models.EmailField(blank=True)
     address = models.TextField(blank=True)
-    category = models.CharField(max_length=32, blank=True)
+    category = models.CharField(max_length=32, choices=AdminAccount.CATEGORY_CHOICES)
     departments = models.ManyToManyField(Department, blank=True, related_name="members")
     status = models.CharField(max_length=32, blank=True)
     date_joined = models.DateField(null=True, blank=True)

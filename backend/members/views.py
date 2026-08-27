@@ -17,6 +17,10 @@ def is_super_admin(user):
     account = account_for(user)
     return bool(account and account.role == AdminAccount.SUPER_ADMIN)
 
+def is_category_admin(user):
+    account = account_for(user)
+    return bool(account and account.role == AdminAccount.CATEGORY_ADMIN)
+
 def log_activity(user, description, department=None):
     ActivityLog.objects.create(admin=user, description=description, department=department)
 
@@ -26,13 +30,18 @@ class IsApplicationAdmin(permissions.BasePermission):
 class SuperAdminOnly(permissions.BasePermission):
     def has_permission(self, request, view): return is_super_admin(request.user)
 
+class NonCategoryAdmin(permissions.BasePermission):
+    def has_permission(self, request, view): return not is_category_admin(request.user)
+
 class DepartmentViewSet(viewsets.ModelViewSet):
-    queryset = Department.objects.all(); serializer_class = DepartmentSerializer; permission_classes = (IsApplicationAdmin,)
+    queryset = Department.objects.all(); serializer_class = DepartmentSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user)
         queryset = Department.objects.annotate(member_count=Count("members"))
         if account.role == AdminAccount.DEPARTMENT_ADMIN:
             return queryset.filter(pk=account.department_id)
+        if account.role == AdminAccount.CATEGORY_ADMIN:
+            return queryset.none()
         return queryset
     def get_permissions(self): return [IsApplicationAdmin(), SuperAdminOnly()] if self.action not in ("list", "retrieve") else [IsApplicationAdmin()]
 
@@ -42,6 +51,8 @@ class MemberViewSet(viewsets.ModelViewSet):
         queryset = Member.objects.prefetch_related("departments").all(); account = account_for(self.request.user)
         if account.role == AdminAccount.SUPER_ADMIN:
             return queryset
+        if account.role == AdminAccount.CATEGORY_ADMIN:
+            return queryset.filter(category=account.category)
         return queryset.filter(departments=account.department).distinct()
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
@@ -51,14 +62,22 @@ class MemberViewSet(viewsets.ModelViewSet):
             serializer.validated_data.pop("departments", None)
             member = serializer.save()
             member.departments.add(account.department)
+        elif account.role == AdminAccount.CATEGORY_ADMIN:
+            serializer.validated_data["category"] = account.category
+            serializer.validated_data.pop("departments", None)
+            member = serializer.save()
         else:
             member = serializer.save()
+        member.worker = member.departments.exists()
+        member.save(update_fields=("worker",))
         log_activity(self.request.user, f"Added new member {member.first_name} {member.last_name}")
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         data = request.data.copy()
-        if account_for(request.user).role == AdminAccount.DEPARTMENT_ADMIN and "departments" in request.data:
+        if account_for(request.user).role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.CATEGORY_ADMIN) and "departments" in request.data:
             data.pop("departments")
+        if account_for(request.user).role == AdminAccount.CATEGORY_ADMIN:
+            data["category"] = account_for(request.user).category
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -68,7 +87,10 @@ class MemberViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
     def perform_update(self, serializer):
-        member = serializer.save(); log_activity(self.request.user, f"Updated member {member.first_name} {member.last_name}")
+        member = serializer.save()
+        member.worker = member.departments.exists()
+        member.save(update_fields=("worker",))
+        log_activity(self.request.user, f"Updated member {member.first_name} {member.last_name}")
     def perform_destroy(self, instance):
         name = str(instance); instance.delete(); log_activity(self.request.user, f"Deleted member {name}")
     @action(detail=True, methods=("patch",), url_path="departments")
@@ -80,7 +102,10 @@ class MemberViewSet(viewsets.ModelViewSet):
         try: department = Department.objects.get(name=add or remove)
         except Department.DoesNotExist: return Response({"department": "Unknown department."}, status=status.HTTP_400_BAD_REQUEST)
         if account.role == AdminAccount.DEPARTMENT_ADMIN and department.pk != account.department_id: return Response({"detail": "You may only manage your assigned department."}, status=status.HTTP_403_FORBIDDEN)
+        if account.role == AdminAccount.CATEGORY_ADMIN: return Response({"detail": "Category Admins cannot manage department assignments."}, status=status.HTTP_403_FORBIDDEN)
         (member.departments.add if add else member.departments.remove)(department)
+        member.worker = member.departments.exists()
+        member.save(update_fields=("worker",))
         log_activity(request.user, f"{'Added' if add else 'Removed'} {member} {'to' if add else 'from'} {department.name}", department)
         return Response(MemberSerializer(member).data)
 
@@ -93,7 +118,7 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
-    serializer_class = AnnouncementSerializer; permission_classes = (IsApplicationAdmin,)
+    serializer_class = AnnouncementSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = Announcement.objects.select_related("department", "author")
         return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department)
@@ -105,7 +130,7 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
         else: serializer.save(author=self.request.user)
 
 class DepartmentReportViewSet(viewsets.ModelViewSet):
-    serializer_class = DepartmentReportSerializer; permission_classes = (IsApplicationAdmin,)
+    serializer_class = DepartmentReportSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = DepartmentReport.objects.select_related("department", "submitted_by")
         return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department)
@@ -117,7 +142,7 @@ class DepartmentReportViewSet(viewsets.ModelViewSet):
             serializer.save(submitted_by=self.request.user)
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
-    serializer_class = AttendanceRecordSerializer; permission_classes = (IsApplicationAdmin,)
+    serializer_class = AttendanceRecordSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = AttendanceRecord.objects.select_related("department", "recorded_by")
         return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department)
@@ -128,7 +153,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         log_activity(self.request.user, f"Recorded attendance for {record.date:%b %d}", department)
 
 class ChurchEventViewSet(viewsets.ModelViewSet):
-    serializer_class = ChurchEventSerializer; permission_classes = (IsApplicationAdmin,)
+    serializer_class = ChurchEventSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = ChurchEvent.objects.select_related("department", "created_by")
         return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department) | query.filter(department__isnull=True)
@@ -142,7 +167,7 @@ class ChurchEventViewSet(viewsets.ModelViewSet):
         name, department = instance.name, instance.department; instance.delete(); log_activity(self.request.user, f"Deleted event: {name}", department)
 
 class ApprovalRequestViewSet(viewsets.ModelViewSet):
-    serializer_class = ApprovalRequestSerializer; permission_classes = (IsApplicationAdmin,)
+    serializer_class = ApprovalRequestSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = ApprovalRequest.objects.select_related("member", "requested_by", "requested_by__admin_account", "requested_by__admin_account__department")
         return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(requested_by=self.request.user)
@@ -185,7 +210,12 @@ def me(request): return Response(AdminAccountSerializer(account_for(request.user
 def membership_growth(request):
     """Cumulative registrations by month for the dashboard trend chart."""
     account = account_for(request.user)
-    members = Member.objects.all() if account.role == AdminAccount.SUPER_ADMIN else Member.objects.filter(departments=account.department).distinct()
+    if account.role == AdminAccount.SUPER_ADMIN:
+        members = Member.objects.all()
+    elif account.role == AdminAccount.CATEGORY_ADMIN:
+        members = Member.objects.filter(category=account.category)
+    else:
+        members = Member.objects.filter(departments=account.department).distinct()
     today = date.today(); months = []
     for offset in range(7, -1, -1):
         month_number = today.month - offset; year = today.year
@@ -201,5 +231,6 @@ def membership_growth(request):
 @permission_classes((IsApplicationAdmin,))
 def activity_log(request):
     account = account_for(request.user); query = ActivityLog.objects.select_related("admin", "department")
+    if account.role == AdminAccount.CATEGORY_ADMIN: return Response([])
     if account.role != AdminAccount.SUPER_ADMIN: query = query.filter(department=account.department)
     return Response(ActivityLogSerializer(query[:50], many=True).data)

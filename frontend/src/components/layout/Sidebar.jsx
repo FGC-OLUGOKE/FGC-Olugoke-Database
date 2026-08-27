@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { NAV_ITEMS } from "./navigation";
+import { useAuth } from "../../features/auth/AuthContext";
+import { getAllowedNavPaths } from "../../lib/permissions";
 
 /**
  * Sidebar
@@ -20,6 +22,11 @@ import { NAV_ITEMS } from "./navigation";
  * `margin-left` to the main content area (see Layout.jsx).
  */
 export default function Sidebar({ isOpen }) {
+  const { user } = useAuth();
+  const allowedPaths = getAllowedNavPaths(user);
+  const items = allowedPaths
+    ? NAV_ITEMS.filter((item) => allowedPaths.includes(item.path))
+    : NAV_ITEMS;
   return (
     <aside
       className={`fixed bottom-0 left-0 top-16 z-30 hidden overflow-hidden bg-white transition-all duration-200 ease-out md:block ${
@@ -27,7 +34,7 @@ export default function Sidebar({ isOpen }) {
       }`}
     >
       <nav className="flex h-full w-60 flex-col gap-1 overflow-y-auto p-3">
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <NavItem key={item.path} item={item} />
         ))}
       </nav>

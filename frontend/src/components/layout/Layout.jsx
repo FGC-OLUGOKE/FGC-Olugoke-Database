@@ -5,6 +5,8 @@ import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import PageContainer from "./PageContainer";
+import { useAuth } from "../../features/auth/AuthContext";
+import { getRoleLabel } from "../../lib/permissions";
 
 const SIDEBAR_WIDTH_PX = 240; // matches Sidebar's w-60 / content's md:ml-60
 const TOGGLE_SIZE_PX = 28; // matches h-7 w-7 below
@@ -25,14 +27,15 @@ const TOGGLE_SIZE_PX = 28; // matches h-7 w-7 below
  * 0 at the same time the sidebar's width animates to 0.
  */
 export default function Layout() {
+  const { user } = useAuth();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
-        adminName="Pastor John Doe"
-        adminRole="Church Admin"
+        adminName={user?.name}
+        adminRole={getRoleLabel(user)}
         onMenuClick={() => setIsMobileNavOpen(true)}
       />
 

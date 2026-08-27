@@ -286,18 +286,6 @@ export default function MemberForm({
               checked={formData.baptized}
               onChange={(value) => update("baptized", value)}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Cell Group"
-                value={formData.cellGroup}
-                onChange={(e) => update("cellGroup", e.target.value)}
-              />
-              <Input
-                label="Service Unit"
-                value={formData.serviceUnit}
-                onChange={(e) => update("serviceUnit", e.target.value)}
-              />
-            </div>
           </FormSection>
 
           <p className="text-xs text-gray-400">

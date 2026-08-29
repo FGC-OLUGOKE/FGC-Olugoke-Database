@@ -1,5 +1,7 @@
 export function handleLogout(navigate) {
-   if (navigate) {
+  localStorage.clear();
+  sessionStorage.clear();
+  if (navigate) {
     navigate("/login");
   } else {
     window.location.href = "/login";

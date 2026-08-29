@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "./AuthContext";
+import { Lock, Mail, Loader2, AlertCircle } from "lucide-react";
+import Logo from "../../assets/logo.svg";
+
 export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
@@ -25,51 +28,118 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm space-y-4 rounded-xl bg-white p-6 shadow"
-      >
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            Church Admin Login
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">API test login</p>
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-6">
+        {/* Main Card */}
+        <div className="overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-900/5">
+          {/* Header Accent Line */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-[#154d78] via-[#d6b447] to-[#154d78]" />
+
+          <div className="p-8 sm:p-10">
+            {/* Branding Header */}
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#154d78]/10 p-2 shadow-inner">
+                {Logo ? (
+                  <img src={Logo} alt="Logo" className="h-10 w-10 object-contain" />
+                ) : (
+                  <div className="h-10 w-10 rounded-lg bg-[#154d78]" />
+                )}
+              </div>
+              <h1 className="mt-4 text-2xl font-bold tracking-tight text-gray-900">
+                FGC Olugoke
+              </h1>
+              <p className="mt-1 text-sm font-medium text-gray-500">
+                Member Management System
+              </p>
+            </div>
+
+            {/* Login Form */}
+            <form onSubmit={submit} className="mt-8 space-y-5">
+              {/* Error Banner */}
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-lg border border-[#9e263b]/20 bg-[#9e263b]/5 p-3.5 text-xs text-[#9e263b]"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-[#9e263b]" />
+                  <span className="leading-relaxed">{error}</span>
+                </div>
+              )}
+
+              {/* Email Input */}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5"
+                >
+                  Email Address
+                </label>
+                <div className="relative rounded-lg shadow-sm">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Mail className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="admin@church.org"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    required
+                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
+                  />
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5"
+                >
+                  Password
+                </label>
+                <div className="relative rounded-lg shadow-sm">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Lock className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
+                  />
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-[#154d78] py-2.5 px-4 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#113e61] focus:outline-none focus:ring-2 focus:ring-[#154d78] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <span>Sign In</span>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Card Footer / API Info */}
+          <div className="border-t border-gray-100 bg-gray-50/80 px-8 py-4 text-center">
+            <p className="text-xs text-gray-400 font-mono">
+              Backend API: http://127.0.0.1:8000/api
+            </p>
+          </div>
         </div>
-        <input
-          className="w-full rounded border p-2"
-          type="email"
-          placeholder="Admin email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
-        <input
-          className="w-full rounded border p-2"
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
-        {error && (
-          <p
-            role="alert"
-            className="rounded bg-red-50 p-2 text-sm text-red-700"
-          >
-            {error}
-          </p>
-        )}
-        <button
-          className="w-full rounded bg-[#154d78] p-2 text-white disabled:opacity-60"
-          disabled={loading}
-        >
-          {loading ? "Testing API..." : "Sign in and test API"}
-        </button>
-        <p className="text-center text-xs text-gray-400">
-          Backend: http://127.0.0.1:8000/api
-        </p>
-      </form>
+      </div>
     </main>
   );
 }

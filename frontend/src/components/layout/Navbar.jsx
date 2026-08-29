@@ -1,6 +1,9 @@
-import { Church, Menu } from "lucide-react";
+import { Church, Menu, LogOut, User, Settings } from "lucide-react";
 import RoleSwitcher from "./RoleSwitcher";
 import Logo from "../../assets/logo.svg";
+import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
+import { handleLogout } from "../../features/auth/logout";
+import { useNavigate } from "react-router-dom";
 
 /**
  * Navbar
@@ -11,17 +14,16 @@ import Logo from "../../assets/logo.svg";
  * Props:
  * - adminName   (string) - name of the signed-in admin
  * - adminRole   (string) - role label shown under the name
+ * - onLogout    (fn)     - function to trigger sign-out
  * - onMenuClick (fn)     - opens MobileNav; button only shows on mobile
- *
- * Note: the desktop Sidebar's collapse/expand control does NOT live
- * here — it's a floating button on the sidebar's own edge (see
- * Layout.jsx), not a header control.
  */
 export default function Navbar({
   adminName = "Administrator",
   adminRole = "Church Admin",
+  onLogout,
   onMenuClick,
 }) {
+  const navigate = useNavigate();
   const initials = adminName
     .split(" ")
     .filter(Boolean)
@@ -56,11 +58,7 @@ export default function Navbar({
           </div>
         </div>
 
-         <div>
-        <RoleSwitcher />
-      </div>
-
-        {/* Right: signed-in admin */}
+        {/* Right: signed-in admin Avatar with Dropdown */}
         <div className="flex shrink-0 items-center gap-3">
           <div className="hidden text-right leading-tight sm:block">
             <p className="truncate text-sm font-medium text-white">
@@ -68,9 +66,52 @@ export default function Navbar({
             </p>
             <p className="truncate text-xs text-white/60">{adminRole}</p>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white ring-1 ring-white/15">
-            {initials || "A"}
-          </div>
+
+          <DropdownMenu
+            width={200}
+            trigger={
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/30"
+                aria-label="User actions"
+              >
+                {initials || "A"}
+              </button>
+            }
+          >
+            {(close) => (
+              <div className="py-1">
+                {/* Mobile Admin details header inside dropdown */}
+                <div className="border-b border-gray-100 px-3 py-2 sm:hidden">
+                  <p className="truncate text-sm font-semibold text-gray-900">
+                    {adminName}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">{adminRole}</p>
+                </div>
+
+                <DropdownMenuItem
+                  icon={User}
+                  label="View Profile"
+                  onClick={() => {
+                    close();
+                    // Navigate to profile if needed
+                  }}
+                />
+                
+                <div className="my-1 border-t border-gray-100" />
+
+                <DropdownMenuItem
+                  icon={LogOut}
+                  label="Log Out"
+                  variant="danger"
+                  onClick={() => {
+                    close();
+                    handleLogout(navigate);
+                  }}
+                />
+              </div>
+            )}
+          </DropdownMenu>
         </div>
       </div>
 

@@ -27,7 +27,6 @@ function todayValue() {
 function createEmptyForm(user) {
   return {
     date: todayValue(),
-    total: "",
     adults: "",
     youth: "",
     teenagers: "",
@@ -49,27 +48,8 @@ export default function AttendancePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const canRecord = isSuperAdmin(user);
+  const canRecord = isSuperAdmin(user) || isCategoryAdmin(user);
   const isScopedRecorder = isCategoryAdmin(user);
-
-  useEffect(() => {
-    let mounted = true;
-    setIsLoading(true);
-    getAttendanceHistory()
-      .then((data) => {
-        if (mounted) setRecords(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (mounted) setError("Couldn't load attendance records. Try refreshing.");
-      })
-      .finally(() => {
-        if (mounted) setIsLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   const scopedCategoryKey = useMemo(() => {
     const fieldByCategory = {
       Adult: "adults",
@@ -79,6 +59,28 @@ export default function AttendancePage() {
     };
     return fieldByCategory[user?.scope] || null;
   }, [user]);
+  const visibleCategoryFields = isScopedRecorder
+    ? CATEGORY_FIELDS.filter((field) => field.key === scopedCategoryKey)
+    : CATEGORY_FIELDS;
+
+  useEffect(() => {
+    let mounted = true;
+    setIsLoading(true);
+    getAttendanceHistory()
+      .then((data) => {
+        if (mounted) setRecords(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (mounted)
+          setError("Couldn't load attendance records. Try refreshing.");
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function update(field, value) {
     if (/^\d*$/.test(value)) {
@@ -86,6 +88,33 @@ export default function AttendancePage() {
       setError("");
     }
   }
+
+  function buildSubmissionPayload(formData) {
+    if (!isScopedRecorder) {
+      return {
+        date: formData.date,
+        adults: toNumber(formData.adults),
+        youth: toNumber(formData.youth),
+        teenagers: toNumber(formData.teenagers),
+        children: toNumber(formData.children),
+        // department: ""
+      };
+    }
+
+    return {
+      date: formData.date,
+      adults: scopedCategoryKey === "adults" ? toNumber(formData.adults) : 0,
+      youth: scopedCategoryKey === "youth" ? toNumber(formData.youth) : 0,
+      teenagers:
+        scopedCategoryKey === "teenagers" ? toNumber(formData.teenagers) : 0,
+      children:
+        scopedCategoryKey === "children" ? toNumber(formData.children) : 0,
+    };
+  }
+
+  const calculatedTotal = (
+    isScopedRecorder ? visibleCategoryFields : CATEGORY_FIELDS
+  ).reduce((sum, field) => sum + toNumber(form[field.key]), 0);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -96,42 +125,24 @@ export default function AttendancePage() {
       return;
     }
 
-    const categoryTotal = CATEGORY_FIELDS.reduce(
-      (sum, field) => sum + toNumber(form[field.key]),
-      0,
-    );
-    const total = toNumber(form.total);
-
-    if (form.total === "") {
-      toast.error("Total attendance is required.");
-      return;
-    }
-
-    if (categoryTotal !== total) {
-      setError(
-        `The category totals add up to ${categoryTotal}, but Total Attendance is ${total}. Make sure the figures match before saving.`,
-      );
-      return;
-    }
-
     setIsSaving(true);
     try {
-      const saved = await recordAttendance({
-        date: form.date,
-        total,
-        adults: toNumber(form.adults),
-        youth: toNumber(form.youth),
-        teenagers: toNumber(form.teenagers),
-        children: toNumber(form.children),
-      });
+      const payload = buildSubmissionPayload(form);
+      // console.log(payload);
+      const saved = await recordAttendance(payload);
       setRecords((previous) => {
-        const withoutSameDate = previous.filter((record) => record.date !== saved.date);
-        return [...withoutSameDate, saved].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const withoutSameDate = previous.filter(
+          (record) => record.date !== saved.date,
+        );
+        return [...withoutSameDate, saved].sort(
+          (a, b) => new Date(a.date) - new Date(b.date),
+        );
       });
       setForm(createEmptyForm(user));
       toast.success("Attendance recorded successfully.");
-    } catch {
+    } catch (error) {
       toast.error("Couldn't save attendance. Try again.");
+      // console.log(error.message)
     } finally {
       setIsSaving(false);
     }
@@ -176,30 +187,41 @@ export default function AttendancePage() {
                 label="Attendance Date"
                 type="date"
                 value={form.date}
-                onChange={(event) => setForm((previous) => ({ ...previous, date: event.target.value }))}
+                onChange={(event) =>
+                  setForm((previous) => ({
+                    ...previous,
+                    date: event.target.value,
+                  }))
+                }
               />
               <Input
                 label="Total Appearances"
                 type="number"
                 min="0"
-                value={form.total}
-                onChange={(event) => update("total", event.target.value)}
+                value={calculatedTotal}
+                readOnly
               />
             </div>
 
             <div>
               <div className="mb-3 flex items-center gap-2">
                 <Users className="h-4 w-4 text-[#4a2969]" strokeWidth={2} />
-                <h3 className="text-sm font-semibold text-gray-900">Appearances by Category</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Appearances by Category
+                </h3>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {CATEGORY_FIELDS.map((field) => (
+                {visibleCategoryFields.map((field) => (
                   <Input
                     key={field.key}
                     label={field.label}
                     type="number"
+                    required
                     min="0"
                     value={form[field.key]}
+                    disabled={
+                      isScopedRecorder && field.key !== scopedCategoryKey
+                    }
                     onChange={(event) => update(field.key, event.target.value)}
                   />
                 ))}
@@ -219,9 +241,13 @@ export default function AttendancePage() {
       {isScopedRecorder && (
         <SectionCard title={`${user.scope} Attendance`}>
           <div className="rounded-lg border border-[#154d78]/15 bg-[#154d78]/5 px-4 py-3 text-sm text-gray-600">
-            <p className="font-medium text-gray-900">Category-scoped attendance view</p>
+            <p className="font-medium text-gray-900">
+              Category-scoped attendance view
+            </p>
             <p className="mt-1">
-              Attendance figures shown here are limited to your assigned category. Category-specific recording will be enabled after the final attendance recorder workflow is agreed.
+              Attendance figures shown here are limited to your assigned
+              category, and the record form allows you to submit counts for{" "}
+              {user.scope.toLowerCase()} attendance.
             </p>
           </div>
         </SectionCard>

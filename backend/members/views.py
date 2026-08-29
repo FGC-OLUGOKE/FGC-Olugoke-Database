@@ -142,13 +142,25 @@ class DepartmentReportViewSet(viewsets.ModelViewSet):
             serializer.save(submitted_by=self.request.user)
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
-    serializer_class = AttendanceRecordSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
+    serializer_class = AttendanceRecordSerializer; permission_classes = (IsApplicationAdmin,)
     def get_queryset(self):
         account = account_for(self.request.user); query = AttendanceRecord.objects.select_related("department", "recorded_by")
-        return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department)
+        if account.role == AdminAccount.SUPER_ADMIN or account.role == AdminAccount.CATEGORY_ADMIN:
+            return query
+        return query.filter(department=account.department)
     def perform_create(self, serializer):
         account = account_for(self.request.user)
+        date = serializer.validated_data["date"]
         department = account.department if account.role == AdminAccount.DEPARTMENT_ADMIN else serializer.validated_data.get("department")
+        existing = AttendanceRecord.objects.filter(date=date, department=department).first()
+        if existing:
+            for field in ("adults", "youth", "teenagers", "children"):
+                setattr(existing, field, serializer.validated_data.get(field, getattr(existing, field)))
+            existing.recorded_by = self.request.user
+            existing.save(update_fields=("adults", "youth", "teenagers", "children", "recorded_by"))
+            serializer.instance = existing
+            log_activity(self.request.user, f"Updated attendance for {existing.date:%b %d}", department)
+            return
         record = serializer.save(recorded_by=self.request.user, department=department)
         log_activity(self.request.user, f"Recorded attendance for {record.date:%b %d}", department)
 

@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
-from .models import AdminAccount, Department, Member
+from .models import AdminAccount, AttendanceRecord, Department, Member
 
 
 class AccessControlTests(APITestCase):
@@ -61,3 +61,38 @@ class AccessControlTests(APITestCase):
         response = self.client.post("/api/members/", {"firstName": "Cara", "lastName": "Youth", "gender": "Female", "dateOfBirth": "2001-01-01", "category": "Adult"}, format="json")
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["category"], "Youth")
+
+    def test_category_admin_can_record_and_view_attendance_for_their_category(self):
+        self.authenticate(self.category_token)
+        response = self.client.post(
+            "/api/attendance/",
+            {
+                "date": "2026-08-29",
+                "adults": 8,
+                "youth": 5,
+                "teenagers": 3,
+                "children": 4,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["total"], 20)
+
+        response = self.client.post(
+            "/api/attendance/",
+            {
+                "date": "2026-08-29",
+                "adults": 0,
+                "youth": 8,
+                "teenagers": 0,
+                "children": 0,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["total"], 8)
+
+        response = self.client.get("/api/attendance/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["youth"], 8)

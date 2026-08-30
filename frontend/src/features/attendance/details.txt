@@ -1,0 +1,169 @@
+### Sunday School Attendance — Variables & Functions Needed
+
+* **Sunday School Classes**
+
+  * List of all available Sunday School classes.
+  * Default classes:
+
+    * CDC 1
+    * CDC 2
+    * CDC 3
+    * Next Gen
+    * Youth Class
+    * Adult Class
+    * Yoruba Class
+  * Custom classes created by admins.
+  * Every newly created class remains available for future attendance sessions.
+
+* **Class Information**
+
+  * Class ID
+  * Class name
+  * Class description (optional)
+  * Class status — active/inactive
+  * Date created
+  * Assigned attendance recorders
+
+* **Class Members**
+
+  * Members assigned to each Sunday School class.
+  * A member can belong to **only one Sunday School class at a time**.
+  * Member's church category does not determine their Sunday School class.
+  * Children remain under their children's church/class structure.
+  * CDC members can graduate:
+
+    * CDC 1 → CDC 2
+    * CDC 2 → CDC 3
+  * Other classes do not automatically graduate into another class.
+
+* **Attendance Session**
+
+  * Session ID
+  * Attendance date
+  * Event/service name
+  * List of selected Sunday School classes
+  * Session status
+  * Date the session was created
+  * User who created the session
+  * Whether attendance has started
+  * Whether attendance has been completely submitted
+
+* **Creating a Session**
+
+  * Select existing Sunday School classes to include.
+  * Create a new custom class while creating the session.
+  * Newly created custom classes become available for future sessions.
+  * A class that isn't selected does **not** appear in that session's attendance list.
+  * Assign one or more category admins to each selected class.
+  * A category admin can be assigned to multiple classes.
+  * The same class can be reassigned to another category admin when necessary.
+  * Example:
+
+    * Youth Admin → Youth Class + CDC 3
+    * Adult Admin → Adult Class
+    * Adult Admin can temporarily handle Youth Class if the Youth Admin isn't available.
+
+* **Attendance Recorder**
+
+  * Category admin sees only the Sunday School classes assigned to them.
+  * They can open a class to see its members.
+  * Each member appears with a checkbox.
+  * Checked = present.
+  * Unchecked = absent.
+  * They submit the attendance for that class.
+  * Once submitted, the class attendance is considered completed.
+  * Recorders should be able to see an overview of their assigned classes and submission status.
+
+* **Admin Attendance Overview**
+
+  * Show all classes included in the current session.
+  * Show assigned recorder for each class.
+  * Show number of members in each class.
+  * Show number present.
+  * Show number absent.
+  * Show submission status:
+
+    * Pending
+    * Submitted
+  * Show overall Sunday School attendance totals.
+  * Admin can view the attendance details after submission.
+
+* **Session Rules**
+
+  * A session can contain any combination of existing classes.
+  * Different sessions can contain different classes.
+  * Classes can be reused in multiple sessions.
+  * Members are automatically pulled from their current assigned Sunday School class.
+  * Attendance should represent the members belonging to the class **at the time of the session**.
+  * Changing a member's class later should not alter an already-submitted historical attendance record.
+
+* **Editing**
+
+  * Admin can modify a session while attendance is still pending.
+  * Admin can change assigned recorders before submission.
+  * Admin can add/remove classes before any class has submitted attendance.
+  * Once attendance has been submitted for a class, that class's submitted record should be protected from accidental changes.
+
+* **Deleting**
+
+  * A Sunday School attendance session can be deleted **only when no class has submitted attendance**.
+  * If even one class has submitted attendance, the session cannot be deleted.
+  * The UI should clearly explain why deletion is unavailable.
+
+* **Member Assignment**
+
+  * When creating/editing a member, there should be a Sunday School Class field.
+  * The field should contain all existing classes.
+  * Custom classes should also appear in the list.
+  * A member's Sunday School class is independent of their church category.
+  * Moving a member to another class should affect future sessions, not historical attendance.
+
+* **Useful UI State Variables**
+
+  * `activeTab`
+  * `selectedClasses`
+  * `classes`
+  * `customClassName`
+  * `sessionDate`
+  * `eventName`
+  * `classAssignments`
+  * `assignedRecorder`
+  * `sessionStatus`
+  * `attendanceRecords`
+  * `submittedClasses`
+  * `pendingClasses`
+  * `selectedClass`
+  * `isCreatingClass`
+  * `isCreatingSession`
+  * `isSaving`
+  * `isDeleting`
+  * `errors`
+  * `showDeleteConfirmation`
+
+* **Useful UI Functions**
+
+  * `fetchClasses()`
+  * `createClass()`
+  * `updateClass()`
+  * `selectClass()`
+  * `toggleClassSelection()`
+  * `createAttendanceSession()`
+  * `updateAttendanceSession()`
+  * `assignRecorder()`
+  * `removeRecorder()`
+  * `fetchClassMembers()`
+  * `toggleMemberAttendance()`
+  * `submitClassAttendance()`
+  * `fetchSessionOverview()`
+  * `fetchAttendanceHistory()`
+  * `deleteAttendanceSession()`
+  * `canDeleteSession()`
+  * `getAssignedClasses()`
+  * `getClassAttendanceSummary()`
+  * `getSessionStatus()`
+
+* **Important distinction**
+
+  * **Church category:** Adult, Youth, Teenager, Children.
+  * **Sunday School class:** CDC 1, CDC 2, CDC 3, Next Gen, Youth Class, Adult Class, Yoruba Class, or custom classes.
+  * These are **separate systems**. A person's church category should not automatically determine their Sunday School class.

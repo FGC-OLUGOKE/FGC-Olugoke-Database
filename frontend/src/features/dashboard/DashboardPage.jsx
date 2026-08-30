@@ -6,7 +6,6 @@ import MembershipByCategorySection from "./components/MembershipByCategorySectio
 import GenderDistributionSection from "./components/GenderDistributionSection";
 import DepartmentOverviewSection from "./components/DepartmentOverviewSection";
 import RecentMembersSection from "./components/RecentMembersSection";
-import UpcomingEventsSection from "./components/UpcomingEventsSection";
 import AttendanceOverviewSection from "./components/AttendanceOverviewSection";
 import MemberStatusSection from "./components/MemberStatusSection";
 import QuickActionsSection from "./components/QuickActionsSection";
@@ -220,10 +219,10 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <RecentMembersSection members={scopedMembers} />
         {!isDepartmentAdmin(user) && <UpcomingEventsSection events={events} />}
-      </div>
+      </div> */}
 
       {/* {isSuperAdmin(user) && (
         <AttendanceOverviewSection attendance={attendance} />

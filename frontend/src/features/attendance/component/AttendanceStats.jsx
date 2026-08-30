@@ -1,43 +1,132 @@
-import { useMemo } from "react";
-import { BarChart3, CalendarDays, Users } from "lucide-react";
 
-function Stat({ icon: Icon, label, value }) {
+import { useMemo } from "react";
+
+import {
+  BarChart3,
+  CalendarDays,
+  TrendingUp,
+} from "lucide-react";
+
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  description,
+  iconClass,
+  iconBgClass,
+}) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-gray-500">
-        <Icon className="h-4 w-4" strokeWidth={2} />
-        <span className="text-xs font-medium">{label}</span>
+    <div className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        {/* ICON */}
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconBgClass}`}
+        >
+          <Icon
+            className={`h-5 w-5 ${iconClass}`}
+            strokeWidth={2}
+          />
+        </div>
+
+        {/* VALUE */}
+        <p className="text-right text-2xl font-semibold tracking-tight text-gray-900">
+          {value.toLocaleString()}
+        </p>
       </div>
-      <p className="mt-2 text-2xl font-semibold text-gray-900">{value}</p>
+
+      {/* LABEL */}
+      <div className="mt-4">
+        <p className="text-sm font-medium text-gray-700">
+          {label}
+        </p>
+
+        {description && (
+          <p className="mt-1 text-xs text-gray-400">
+            {description}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
 
-export default function AttendanceStats({ records, categoryKey, categoryLabel }) {
+export default function AttendanceStats({
+  records,
+  categoryKey,
+  categoryLabel,
+}) {
   const stats = useMemo(() => {
-    if (!records.length) return { total: 0, average: 0, highest: 0, services: 0 };
+    if (!records.length) {
+      return {
+        total: 0,
+        average: 0,
+        highest: 0,
+        services: 0,
+      };
+    }
 
-    const totals = records.map((record) =>
-      Number(categoryKey ? record[categoryKey] : record.total) || 0,
+    const totals = records.map(
+      (record) =>
+        Number(
+          categoryKey
+            ? record[categoryKey]
+            : record.total,
+        ) || 0,
     );
-    const total = totals.reduce((sum, value) => sum + value, 0);
+
+    const total = totals.reduce(
+      (sum, value) => sum + value,
+      0,
+    );
 
     return {
       total,
-      average: Math.round(total / totals.length),
+      average: Math.round(
+        total / totals.length,
+      ),
       highest: Math.max(...totals),
       services: records.length,
     };
   }, [records, categoryKey]);
 
-  const prefix = categoryLabel ? `${categoryLabel} ` : "";
+  const prefix = categoryLabel
+    ? `${categoryLabel} `
+    : "";
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Stat icon={Users} label={`${prefix}Appearances`} value={stats.total} />
-      <Stat icon={BarChart3} label={`${prefix}Average`} value={stats.average} />
-      <Stat icon={BarChart3} label={`${prefix}Highest`} value={stats.highest} />
-      <Stat icon={CalendarDays} label="Services Recorded" value={stats.services} />
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+      {/* AVERAGE */}
+      <Stat
+        icon={BarChart3}
+        label={`${prefix}Average`}
+        value={stats.average}
+        description="Average attendance per service"
+        iconClass="text-[#4a2969]"
+        iconBgClass="bg-[#4a2969]/10"
+      />
+
+      {/* HIGHEST */}
+      <Stat
+        icon={TrendingUp}
+        label={`${prefix}Highest`}
+        value={stats.highest}
+        description="Highest attendance recorded"
+        iconClass="text-[#9e263b]"
+        iconBgClass="bg-[#9e263b]/10"
+      />
+
+      {/* SERVICES */}
+      <Stat
+        icon={CalendarDays}
+        label="Services Recorded"
+        value={stats.services}
+        description="Total services with attendance"
+        iconClass="text-[#154d78]"
+        iconBgClass="bg-[#154d78]/10"
+      />
+
     </div>
   );
 }
+

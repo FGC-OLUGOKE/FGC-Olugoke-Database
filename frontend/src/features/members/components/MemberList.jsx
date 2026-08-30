@@ -87,7 +87,7 @@ export default function MemberList({ members = [], onView }) {
                 </td>
                 <td className="px-5 py-3 text-gray-700">{member.category}</td>
                 <td className="px-5 py-3">
-                  <Badge tone={member.status === "Active" ? "success" : "neutral"}>
+                  <Badge tone={member.status === "Active" ? "active" : "inactive"}>
                     {member.status}
                   </Badge>
                 </td>

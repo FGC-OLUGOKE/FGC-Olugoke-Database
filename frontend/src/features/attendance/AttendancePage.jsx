@@ -59,6 +59,7 @@ export default function AttendancePage() {
     };
     return fieldByCategory[user?.scope] || null;
   }, [user]);
+
   const visibleCategoryFields = isScopedRecorder
     ? CATEGORY_FIELDS.filter((field) => field.key === scopedCategoryKey)
     : CATEGORY_FIELDS;
@@ -97,7 +98,6 @@ export default function AttendancePage() {
         youth: toNumber(formData.youth),
         teenagers: toNumber(formData.teenagers),
         children: toNumber(formData.children),
-        // department: ""
       };
     }
 
@@ -116,33 +116,65 @@ export default function AttendancePage() {
     isScopedRecorder ? visibleCategoryFields : CATEGORY_FIELDS
   ).reduce((sum, field) => sum + toNumber(form[field.key]), 0);
 
+  // Form Validation helper
+  function validateForm() {
+    if (!form.date) {
+      return "Select the attendance date.";
+    }
+
+    // Ensure all visible inputs are filled
+    for (const field of visibleCategoryFields) {
+      const val = form[field.key];
+      if (val === "" || val === null || val === undefined) {
+        return `Please enter attendance for ${field.label}.`;
+      }
+      if (Number(val) < 0) {
+        return `${field.label} attendance cannot be negative.`;
+      }
+    }
+
+    // Ensure total attendance isn't zero
+    if (calculatedTotal <= 0) {
+      return "Attendance total must be greater than zero.";
+    }
+
+    return null;
+  }
+
+  // Check if form is currently valid to enable/disable button
+  const isFormValid = useMemo(() => {
+    if (!form.date) return false;
+    const hasEmptyFields = visibleCategoryFields.some(
+      (field) => form[field.key] === "" || form[field.key] === null
+    );
+    return !hasEmptyFields && calculatedTotal > 0;
+  }, [form, visibleCategoryFields, calculatedTotal]);
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
 
-    if (!form.date) {
-      setError("Select the attendance date.");
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      toast.error(validationError);
       return;
     }
 
     setIsSaving(true);
     try {
       const payload = buildSubmissionPayload(form);
-      // console.log(payload);
       const saved = await recordAttendance(payload);
       setRecords((previous) => {
-        const withoutSameDate = previous.filter(
-          (record) => record.date !== saved.date,
-        );
-        return [...withoutSameDate, saved].sort(
+        return [...previous, saved].sort(
           (a, b) => new Date(a.date) - new Date(b.date),
         );
       });
       setForm(createEmptyForm(user));
       toast.success("Attendance recorded successfully.");
-    } catch (error) {
+    } catch (err) {
       toast.error("Couldn't save attendance. Try again.");
-      // console.log(error.message)
+      console.log(err.message);
     } finally {
       setIsSaving(false);
     }
@@ -181,11 +213,12 @@ export default function AttendancePage() {
 
       {canRecord && (
         <SectionCard title="Record Church Service Attendance">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 label="Attendance Date"
                 type="date"
+                required
                 value={form.date}
                 onChange={(event) =>
                   setForm((previous) => ({
@@ -218,6 +251,7 @@ export default function AttendancePage() {
                     type="number"
                     required
                     min="0"
+                    placeholder="0"
                     value={form[field.key]}
                     disabled={
                       isScopedRecorder && field.key !== scopedCategoryKey
@@ -229,7 +263,7 @@ export default function AttendancePage() {
             </div>
 
             <div className="flex items-center justify-end">
-              <Button type="submit" disabled={isSaving}>
+              <Button type="submit" disabled={isSaving || !isFormValid}>
                 <Save className="h-4 w-4" />
                 {isSaving ? "Saving..." : "Save Attendance"}
               </Button>
@@ -247,7 +281,7 @@ export default function AttendancePage() {
             <p className="mt-1">
               Attendance figures shown here are limited to your assigned
               category, and the record form allows you to submit counts for{" "}
-              {user.scope.toLowerCase()} attendance.
+              {user?.scope?.toLowerCase()} attendance.
             </p>
           </div>
         </SectionCard>

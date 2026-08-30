@@ -34,7 +34,7 @@ export default function NextBirthdayCard({ entry, onSelect }) {
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-center gap-2 sm:items-end">
-          <Badge tone={member.status === "Active" ? "success" : "neutral"}>{member.status}</Badge>
+          <Badge tone={member.status === "Active" ? "active" : "inactive"}>{member.status}</Badge>
           <span className="text-sm font-medium text-[#154d78]">{relative}</span>
         </div>
       </button>

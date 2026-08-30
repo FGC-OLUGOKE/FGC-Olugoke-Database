@@ -1,4 +1,5 @@
-import { Pencil, Trash2, UserMinus } from "lucide-react";
+import { Pencil, Trash2, UserMinus, X } from "lucide-react";
+
 import Drawer from "../../../components/ui/Drawer";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
@@ -8,23 +9,17 @@ import Avatar from "../../../components/ui/Avatar";
  * MemberDetailsDrawer
  *
  * Right-side profile drawer (full-width on mobile), opened by
- * clicking a member anywhere in the app. Edit/Delete/Remove-from-
- * Department all live in a sticky footer at the bottom now — there's
- * no separate Manage menu anymore; this drawer is the single place
- * those actions happen from, reached by clicking the member first.
- *
- * Each action is independently optional — pass only the ones the
- * current user's role is allowed to perform (see MembersPage.jsx),
- * and the corresponding button simply doesn't render.
+ * clicking a member anywhere in the app.
  *
  * Props:
- * - member                 (object|null)
- * - isOpen                 (bool)
- * - onClose                (fn)
- * - onEdit                 (fn, optional)  (member) => void
- * - onDelete               (fn, optional)  (member) => void
- * - onRemoveFromDepartment (fn, optional)  (member) => void
+ * - member                  (object|null)
+ * - isOpen                  (bool)
+ * - onClose                 (fn)
+ * - onEdit                  (fn, optional)  (member) => void
+ * - onDelete                (fn, optional)  (member) => void
+ * - onRemoveFromDepartment  (fn, optional)  (member) => void
  */
+
 export default function MemberDetailsDrawer({
   member,
   isOpen,
@@ -43,29 +38,42 @@ export default function MemberDetailsDrawer({
       })
     : null;
 
-  // const hasActions = Boolean(onEdit || onDelete || onRemoveFromDepartment);
-
   return (
     <Drawer isOpen={isOpen} onClose={onClose}>
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-y-auto">
+          {/* Close button */}
+          <div className="flex justify-end px-5 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close member details"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
           {/* Profile header */}
-          <div className="flex flex-col items-center gap-3 border-b border-gray-100 px-5 py-6 text-center">
+          <div className="flex flex-col items-center gap-3 border-b border-gray-100 px-5 pb-6 text-center">
             <Avatar
               firstName={member.firstName}
               lastName={member.lastName}
               photoUrl={member.photoUrl}
               className="h-20 w-20 text-2xl"
             />
+
             <div>
               <p className="text-lg font-semibold text-gray-900">
                 {member.title} {member.firstName} {member.lastName}
               </p>
+
               <p className="text-sm text-gray-500">
-                {member.departments.join(", ") || "Not Assigned"}
+                {member.departments?.join(", ") || "Not Assigned"}
               </p>
             </div>
-            <Badge tone={member.status === "Active" ? "success" : "neutral"}>
+
+            <Badge tone={member.status === "Active" ? "active" : "inactive"}>
               {member.status}
             </Badge>
           </div>
@@ -84,46 +92,64 @@ export default function MemberDetailsDrawer({
           </Section>
 
           <Section title="Church Information">
-            <Field label="Department" value={member.departments.join(", ")} />
+            <Field
+              label="Department"
+              value={member.departments?.join(", ")}
+            />
             <Field label="Status" value={member.status} />
             <Field label="Date Joined" value={formattedDate} />
             <Field
               label="Membership ID"
-              value={member.membershipId ?? `FSC-${String(member.id).padStart(4, "0")}`}
+              value={
+                member.membershipId ??
+                `FSC-${String(member.id).padStart(4, "0")}`
+              }
             />
           </Section>
 
           <Section title="Spiritual Information">
-            <Field label="Baptized" value={member.baptized ? "Yes" : "No"} />
+            <Field
+              label="Baptized"
+              value={member.baptized ? "Yes" : "No"}
+            />
           </Section>
         </div>
 
-        {/* {hasActions && ( */}
-          <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white px-5 py-4">
-            {onEdit && (
-              <Button variant="secondary" onClick={() => onEdit(member)} className="flex-1">
-                <Pencil className="h-3.5 w-3.5" />
-                Edit Member
-              </Button>
-            )}
-            {/* {onDelete && ( */}
-              <Button variant="danger" onClick={() => onDelete(member)} className="flex-1">
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete Member
-              </Button>
-            {/* )} */}
-            {/* {onRemoveFromDepartment && (
-              <Button
-                variant="danger"
-                onClick={() => onRemoveFromDepartment(member)}
-                className="flex-1"
-              >
-                <UserMinus className="h-3.5 w-3.5" />
-                Remove from Department
-              </Button>
-             )} */}
-          </div>
-        {/* )} */}
+        {/* Actions */}
+        <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white px-5 py-4">
+          {onEdit && (
+            <Button
+              variant="secondary"
+              onClick={() => onEdit(member)}
+              className="flex-1"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit Member
+            </Button>
+          )}
+
+          {onDelete && (
+            <Button
+              variant="danger"
+              onClick={() => onDelete(member)}
+              className="flex-1"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete Member
+            </Button>
+          )}
+
+          {onRemoveFromDepartment && (
+            <Button
+              variant="danger"
+              onClick={() => onRemoveFromDepartment(member)}
+              className="flex-1"
+            >
+              <UserMinus className="h-3.5 w-3.5" />
+              Remove from Department
+            </Button>
+          )}
+        </div>
       </div>
     </Drawer>
   );
@@ -135,6 +161,7 @@ function Section({ title, children }) {
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
         {title}
       </h3>
+
       <dl className="space-y-2.5">{children}</dl>
     </div>
   );
@@ -144,7 +171,10 @@ function Field({ label, value }) {
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
       <dt className="text-gray-500">{label}</dt>
-      <dd className="text-right font-medium text-gray-900">{value || "—"}</dd>
+      <dd className="text-right font-medium text-gray-900">
+        {value || "—"}
+      </dd>
     </div>
   );
 }
+

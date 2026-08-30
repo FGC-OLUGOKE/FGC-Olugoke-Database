@@ -12,14 +12,18 @@ import { useAuth } from "../../features/auth/AuthContext";
  * Global application header. Stays fixed across every page so
  * admins always have their bearings.
  */
+
 export default function Navbar({
   adminName = "Administrator",
   adminRole = "Church Admin",
   onMenuClick,
 }) {
   const navigate = useNavigate();
+
   const { logout } = useAuth();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const [showLogoutConfirm, setShowLogoutConfirm] =
+    useState(false);
 
   const initials = adminName
     .split(" ")
@@ -30,6 +34,7 @@ export default function Navbar({
 
   function handleConfirmLogout() {
     setShowLogoutConfirm(false);
+
     if (logout) {
       logout();
     } else {
@@ -37,6 +42,11 @@ export default function Navbar({
       sessionStorage.clear();
       navigate("/login");
     }
+  }
+
+  function handleViewProfile(close) {
+    close();
+    navigate("/profile");
   }
 
   return (
@@ -51,16 +61,21 @@ export default function Navbar({
               aria-label="Open menu"
               className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white hover:bg-white/10 md:hidden"
             >
-              <Menu className="h-5 w-5" strokeWidth={2} />
+              <Menu
+                className="h-5 w-5"
+                strokeWidth={2}
+              />
             </button>
 
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
               <img src={Logo} alt="Logo" />
             </div>
+
             <div className="min-w-0 leading-tight">
               <p className="truncate text-[15px] font-semibold text-white">
                 Foursquare Church
               </p>
+
               <p className="hidden truncate text-xs text-white/60 sm:block">
                 Member Management System
               </p>
@@ -73,7 +88,10 @@ export default function Navbar({
               <p className="truncate text-sm font-medium text-white">
                 {adminName}
               </p>
-              <p className="truncate text-xs text-white/60">{adminRole}</p>
+
+              <p className="truncate text-xs text-white/60">
+                {adminRole}
+              </p>
             </div>
 
             <DropdownMenu
@@ -95,15 +113,16 @@ export default function Navbar({
                     <p className="truncate text-sm font-semibold text-gray-900">
                       {adminName}
                     </p>
-                    <p className="truncate text-xs text-gray-500">{adminRole}</p>
+
+                    <p className="truncate text-xs text-gray-500">
+                      {adminRole}
+                    </p>
                   </div>
 
                   <DropdownMenuItem
                     icon={User}
                     label="View Profile"
-                    onClick={() => {
-                      close();
-                    }}
+                    onClick={() => handleViewProfile(close)}
                   />
 
                   <div className="my-1 border-t border-gray-100" />

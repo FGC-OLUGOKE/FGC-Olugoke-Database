@@ -98,7 +98,7 @@ export default function BirthdayDetailModal({ member, birthday, isOpen, onClose,
             <DetailRow label="Category" value={member.category} />
             <DetailRow
               label="Status"
-              value={<Badge tone={member.status === "Active" ? "success" : "neutral"}>{member.status}</Badge>}
+              value={<Badge tone={member.status === "Active" ? "active" : "inactive"}>{member.status}</Badge>}
             />
             <DetailRow label="Phone" value={member.phone || "—"} />
             <DetailRow label="Email" value={member.email || "—"} />

@@ -98,7 +98,7 @@ export default function BirthdayCard({ member, birthday, onView, onEdit }) {
           <Badge key={d} tone="info">{d}</Badge>
         ))}
         <Badge tone="neutral">{member.category}</Badge>
-        <Badge tone={member.status === "Active" ? "success" : "neutral"}>{member.status}</Badge>
+        <Badge tone={member.status === "Active" ? "active" : "inactive"}>{member.status}</Badge>
       </div>
     </div>
   );

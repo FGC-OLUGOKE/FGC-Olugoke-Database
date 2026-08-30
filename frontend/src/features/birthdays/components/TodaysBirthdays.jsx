@@ -38,7 +38,7 @@ export default function TodaysBirthdays({ entries, onSelect }) {
                     Turning {birthday.turningAge} · {member.category}
                   </p>
                 </div>
-                <Badge tone={member.status === "Active" ? "success" : "neutral"}>{member.status}</Badge>
+                <Badge tone={member.status === "Active" ? "active" : "inactive"}>{member.status}</Badge>
               </button>
             );
           })}

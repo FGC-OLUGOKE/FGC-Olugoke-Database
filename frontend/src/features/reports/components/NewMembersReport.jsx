@@ -100,7 +100,7 @@ export default function NewMembersReport({ newMembers, breakdown, period }) {
                   </p>
                 </div>
                 <span className="text-xs text-gray-400">{m.dateJoined}</span>
-                <Badge tone={m.status === "Active" ? "success" : "neutral"}>{m.status}</Badge>
+                <Badge tone={m.status === "Active" ? "active" : "inactive"}>{m.status}</Badge>
               </button>
             ))}
           </div>

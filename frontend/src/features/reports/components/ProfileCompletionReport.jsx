@@ -100,7 +100,7 @@ export default function ProfileCompletionReport({ completion, period }) {
                 <p className="text-xs text-gray-500">Missing: {missingFields.join(", ")}</p>
                 <div className="mt-1 flex gap-1.5">
                   <Badge tone="neutral">{m.category}</Badge>
-                  <Badge tone={m.status === "Active" ? "success" : "neutral"}>{m.status}</Badge>
+                  <Badge tone={m.status === "Active" ? "active" : "inactive"}>{m.status}</Badge>
                 </div>
               </div>
               <Button variant="secondary" onClick={() => navigate("/members")} className="text-xs">

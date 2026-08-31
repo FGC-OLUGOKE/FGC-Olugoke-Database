@@ -15,6 +15,15 @@ class Department(models.Model):
     def __str__(self):
         return self.name
 
+class Category(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+    department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.SET_NULL, related_name="categories")
+    class Meta:
+        unique_together = ('name', 'department')
+    
+    def __str__(self):
+        return self.name
+
 
 class AdminAccount(models.Model):
     """An application account scoped to the records its administrator manages."""
@@ -101,13 +110,13 @@ class AttendanceRecord(models.Model):
     youth = models.PositiveIntegerField(default=0)
     teenagers = models.PositiveIntegerField(default=0)
     children = models.PositiveIntegerField(default=0)
-    department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.CASCADE, related_name="attendance_records")
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="attendance_records")
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_records")
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="attendance_records")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ("date",)
-        constraints = [models.UniqueConstraint(fields=("date", "department"), name="one_attendance_record_per_department_and_date")]
 
 
 class ChurchEvent(models.Model):

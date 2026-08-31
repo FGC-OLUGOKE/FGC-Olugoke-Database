@@ -6,7 +6,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, ChurchEvent, Department, DepartmentReport, Member
+from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member
 from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer
 
 def account_for(user):
@@ -144,24 +144,18 @@ class DepartmentReportViewSet(viewsets.ModelViewSet):
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceRecordSerializer; permission_classes = (IsApplicationAdmin,)
     def get_queryset(self):
-        account = account_for(self.request.user); query = AttendanceRecord.objects.select_related("department", "recorded_by")
-        if account.role == AdminAccount.SUPER_ADMIN or account.role == AdminAccount.CATEGORY_ADMIN:
+        account = account_for(self.request.user); query = AttendanceRecord.objects.select_related("category", "recorded_by")
+        if account.role == AdminAccount.SUPER_ADMIN:
             return query
+        if account.role == AdminAccount.CATEGORY_ADMIN:
+            return query.filter(category__name=account.category)
         return query.filter(department=account.department)
     def perform_create(self, serializer):
         account = account_for(self.request.user)
-        date = serializer.validated_data["date"]
-        department = account.department if account.role == AdminAccount.DEPARTMENT_ADMIN else serializer.validated_data.get("department")
-        existing = AttendanceRecord.objects.filter(date=date, department=department).first()
-        if existing:
-            for field in ("adults", "youth", "teenagers", "children"):
-                setattr(existing, field, serializer.validated_data.get(field, getattr(existing, field)))
-            existing.recorded_by = self.request.user
-            existing.save(update_fields=("adults", "youth", "teenagers", "children", "recorded_by"))
-            serializer.instance = existing
-            log_activity(self.request.user, f"Updated attendance for {existing.date:%b %d}", department)
-            return
-        record = serializer.save(recorded_by=self.request.user, department=department)
+        category_name = account.category if account.role == AdminAccount.CATEGORY_ADMIN else "General"
+        category = Category.objects.get_or_create(name=category_name)[0]
+        department = serializer.validated_data.get("department") or account.department
+        record = serializer.save(recorded_by=self.request.user, category=category, department=department)
         log_activity(self.request.user, f"Recorded attendance for {record.date:%b %d}", department)
 
 class ChurchEventViewSet(viewsets.ModelViewSet):

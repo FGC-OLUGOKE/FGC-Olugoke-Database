@@ -131,6 +131,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         model = AttendanceRecord
         fields = ("id", "date", "week", "adults", "youth", "teenagers", "children", "total", "department")
         read_only_fields = ("week", "total")
+        validators = []
 
     def get_week(self, obj):
         return obj.date.strftime("%b %d")

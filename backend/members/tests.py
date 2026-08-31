@@ -94,5 +94,6 @@ class AccessControlTests(APITestCase):
 
         response = self.client.get("/api/attendance/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["youth"], 8)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]["youth"], 5)
+        self.assertEqual(response.data[1]["youth"], 8)

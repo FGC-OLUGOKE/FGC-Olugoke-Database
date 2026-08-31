@@ -52,6 +52,7 @@ class AdminAccount(models.Model):
 
 class Member(models.Model):
     """Church member fields match the frontend form (via the API serializer)."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="member_profile")
     first_name = models.CharField(max_length=128)
     last_name = models.CharField(max_length=128)
     gender = models.CharField(max_length=16, choices=(("Male", "Male"), ("Female", "Female")))

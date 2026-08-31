@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from datetime import date
 from django.utils import timezone
 from django.db.models import Count
@@ -116,6 +116,87 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         account = self.get_object()
         if account.role == AdminAccount.SUPER_ADMIN: return Response({"detail": "The Super Admin account cannot be removed."}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
+    @action(detail=False, methods=("post",))
+    def promote_member(self, request):
+        member_id = request.data.get("member_id")
+        role = request.data.get("role")
+        department_id = request.data.get("department_id")
+        category = request.data.get("category")
+        password = request.data.get("password")
+        
+        if not member_id or not role or not password:
+            return Response({"detail": "member_id, role, and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            member = Member.objects.get(pk=member_id)
+        except Member.DoesNotExist:
+            return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if member.user:
+            return Response({"detail": "This member already has an admin account."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        User = get_user_model()
+        username = member.email or f"{member.first_name.lower()}.{member.last_name.lower()}@member"
+        
+        try:
+            user = User.objects.create_user(
+                username=username,
+                email=member.email or username,
+                first_name=member.first_name,
+                last_name=member.last_name,
+                password=password
+            )
+        except Exception as e:
+            return Response({"detail": f"Failed to create user: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        admin_data = {"role": role}
+        if role == AdminAccount.DEPARTMENT_ADMIN and department_id:
+            try:
+                admin_data["department"] = Department.objects.get(pk=department_id)
+            except Department.DoesNotExist:
+                user.delete()
+                return Response({"detail": "Department not found."}, status=status.HTTP_400_BAD_REQUEST)
+        elif role == AdminAccount.CATEGORY_ADMIN and category:
+            admin_data["category"] = category
+        
+        try:
+            admin_account = AdminAccount.objects.create(user=user, **admin_data)
+            member.user = user
+            member.save(update_fields=("user",))
+            log_activity(request.user, f"Promoted {member.first_name} {member.last_name} to {role}")
+            return Response(AdminAccountSerializer(admin_account).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            user.delete()
+            return Response({"detail": f"Failed to create admin account: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=("post",))
+    def demote_admin(self, request):
+        admin_id = request.data.get("admin_id")
+        
+        if not admin_id:
+            return Response({"detail": "admin_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            admin_account = AdminAccount.objects.get(pk=admin_id)
+        except AdminAccount.DoesNotExist:
+            return Response({"detail": "Admin account not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if admin_account.role == AdminAccount.SUPER_ADMIN:
+            return Response({"detail": "Cannot demote Super Admin."}, status=status.HTTP_403_FORBIDDEN)
+        
+        user = admin_account.user
+        member = Member.objects.filter(user=user).first()
+        
+        if member:
+            member.user = None
+            member.save(update_fields=("user",))
+        
+        admin_name = f"{user.first_name} {user.last_name}"
+        admin_account.delete()
+        user.delete()
+        
+        log_activity(request.user, f"Demoted {admin_name} to regular member")
+        return Response({"detail": "Admin successfully demoted to regular member."}, status=status.HTTP_200_OK)
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
     serializer_class = AnnouncementSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)

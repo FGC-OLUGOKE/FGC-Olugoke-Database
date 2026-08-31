@@ -5,3 +5,5 @@ export const updateMember = (id, data) => apiRequest(`/members/${id}/`, { method
 export const deleteMember = (id) => apiRequest(`/members/${id}/`, { method: "DELETE" });
 export const assignMemberToDepartment = (memberId, departmentName) => apiRequest(`/members/${memberId}/departments/`, { method: "PATCH", body: JSON.stringify({ add: departmentName }) });
 export const removeMemberFromDepartment = (memberId, departmentName) => apiRequest(`/members/${memberId}/departments/`, { method: "PATCH", body: JSON.stringify({ remove: departmentName }) });
+export const promoteMemberToAdmin = (data) => apiRequest("/admin-accounts/promote_member/", { method: "POST", body: JSON.stringify(data) });
+export const demoteAdminToMember = (data) => apiRequest("/admin-accounts/demote_admin/", { method: "POST", body: JSON.stringify(data) });

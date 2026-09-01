@@ -23,10 +23,14 @@ class MemberSerializer(serializers.ModelSerializer):
     dateJoined = serializers.DateField(source="date_joined", required=False, allow_null=True)
     cellGroup = serializers.CharField(source="cell_group", required=False, allow_blank=True)
     serviceUnit = serializers.CharField(source="service_unit", required=False, allow_blank=True)
+    isAdmin = serializers.SerializerMethodField()
     class Meta:
         model = Member
-        fields = ("id", "membershipId", "photoUrl", "firstName", "lastName", "gender", "dateOfBirth", "maritalStatus", "occupation", "phone", "email", "address", "category", "departments", "status", "dateJoined", "baptized", "worker", "cellGroup", "serviceUnit", "created_at", "updated_at")
-        read_only_fields = ("created_at", "updated_at")
+        fields = ("id", "membershipId", "photoUrl", "firstName", "lastName", "gender", "dateOfBirth", "maritalStatus", "occupation", "phone", "email", "address", "category", "departments", "status", "dateJoined", "baptized", "worker", "cellGroup", "serviceUnit", "created_at", "updated_at", "isAdmin")
+        read_only_fields = ("created_at", "updated_at", "isAdmin")
+    
+    def get_isAdmin(self, obj):
+        return bool(obj.user and hasattr(obj.user, 'admin_account'))
 
 
 class AdminAccountSerializer(serializers.ModelSerializer):

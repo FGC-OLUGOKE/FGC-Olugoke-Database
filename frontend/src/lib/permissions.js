@@ -96,6 +96,10 @@ export function canManageUsers(user) {
   return isSuperAdmin(user);
 }
 
+export function canPromoteDemoteMembers(user) {
+  return isSuperAdmin(user);
+}
+
 /**
  * Which nav paths this role is allowed to see.
  * null means no restriction (Super Admin sees everything).

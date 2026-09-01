@@ -16,6 +16,8 @@ import {
   deleteMember,
   assignMemberToDepartment,
   removeMemberFromDepartment,
+  promoteMemberToAdmin,
+  demoteAdminToMember,
 } from "./api";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -26,8 +28,10 @@ import {
   isDepartmentAdmin,
   isCategoryAdmin,
   getRoleLabel,
+  canPromoteDemoteMembers,
 } from "../../lib/permissions";
 import { submitApprovalRequest } from "../approvals/api";
+import { getDepartments } from "../departments/api";
 
 /**
  * MembersPage
@@ -63,14 +67,21 @@ export default function MembersPage() {
   const [memberPendingDelete, setMemberPendingDelete] = useState(null);
   const [memberPendingRemoval, setMemberPendingRemoval] = useState(null);
   const [isAssignDrawerOpen, setIsAssignDrawerOpen] = useState(false);
+  const [memberPendingPromote, setMemberPendingPromote] = useState(null);
+  const [memberPendingDemote, setMemberPendingDemote] = useState(null);
+  const [departments, setDepartments] = useState([]);
+  const [promoteForm, setPromoteForm] = useState({ role: "department_admin", department_id: "", category: "", password: "" });
 
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
 
-    getMembers()
-      .then((data) => {
-        if (isMounted) setMembers(data);
+    Promise.all([getMembers(), getDepartments()])
+      .then(([membersData, departmentsData]) => {
+        if (isMounted) {
+          setMembers(membersData);
+          setDepartments(departmentsData);
+        }
       })
       .catch(() => {
         if (isMounted) toast.error("Couldn't load members. Try refreshing.");
@@ -284,10 +295,73 @@ export default function MembersPage() {
     }
   }
 
+  function handlePromoteToAdmin(member) {
+    setMemberPendingPromote(member);
+    setPromoteForm({ role: "department_admin", department_id: "", category: "", password: "" });
+    setIsDrawerOpen(false);
+  }
+
+  function handleCancelPromote() {
+    setMemberPendingPromote(null);
+    setPromoteForm({ role: "department_admin", department_id: "", category: "", password: "" });
+  }
+
+  async function handleConfirmPromote() {
+    try {
+      await promoteMemberToAdmin({
+        member_id: memberPendingPromote.id,
+        role: promoteForm.role,
+        department_id: promoteForm.role === "department_admin" ? promoteForm.department_id : null,
+        category: promoteForm.role === "category_admin" ? promoteForm.category : null,
+        password: promoteForm.password,
+      });
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === memberPendingPromote.id ? { ...m, isAdmin: true } : m
+        ),
+      );
+      toast.success(
+        `${memberPendingPromote.firstName} ${memberPendingPromote.lastName} promoted to ${promoteForm.role}`,
+      );
+      setMemberPendingPromote(null);
+      setPromoteForm({ role: "department_admin", department_id: "", category: "", password: "" });
+    } catch {
+      toast.error("Something went wrong promoting this member.");
+    }
+  }
+
+  function handleDemoteToMember(member) {
+    setMemberPendingDemote(member);
+    setIsDrawerOpen(false);
+  }
+
+  function handleCancelDemote() {
+    setMemberPendingDemote(null);
+  }
+
+  async function handleConfirmDemote() {
+    try {
+      await demoteAdminToMember({ admin_id: memberPendingDemote.id });
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === memberPendingDemote.id ? { ...m, isAdmin: false } : m
+        ),
+      );
+      toast.success(
+        `${memberPendingDemote.firstName} ${memberPendingDemote.lastName} demoted to regular member`,
+      );
+      setMemberPendingDemote(null);
+    } catch {
+      toast.error("Something went wrong demoting this admin.");
+    }
+  }
+
   const showAddButton = canCreateMember(user);
   const showAssignButton = isDepartmentAdmin(user);
   const showEditAction = allowEditDirectly || allowEditRequest;
   const showDeleteAction = allowDeleteDirectly || allowDeleteRequest;
+  const showPromoteButton = canPromoteDemoteMembers(user);
+  const showDemoteButton = canPromoteDemoteMembers(user);
 
   return (
     <div className="space-y-6">
@@ -352,6 +426,12 @@ export default function MembersPage() {
         onRemoveFromDepartment={
           showAssignButton ? handleRequestRemoveFromDepartment : undefined
         }
+        onPromoteToAdmin={
+          showPromoteButton && !selectedMember?.isAdmin ? handlePromoteToAdmin : undefined
+        }
+        onDemoteToMember={
+          showDemoteButton && selectedMember?.isAdmin ? handleDemoteToMember : undefined
+        }
       />
 
       {showAddButton && (
@@ -406,6 +486,94 @@ export default function MembersPage() {
         confirmLabel="Remove"
         onConfirm={handleConfirmRemoval}
         onCancel={handleCancelRemoval}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(memberPendingPromote)}
+        title="Promote member to admin?"
+        description={
+          memberPendingPromote ? (
+            <div className="space-y-4">
+              <p>This will promote {memberPendingPromote.firstName} {memberPendingPromote.lastName} to an admin account.</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Admin Role</label>
+                  <select
+                    value={promoteForm.role}
+                    onChange={(e) => setPromoteForm({ ...promoteForm, role: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option value="department_admin">Department Admin</option>
+                    <option value="category_admin">Category Admin</option>
+                  </select>
+                </div>
+                {promoteForm.role === "department_admin" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Department</label>
+                    <select
+                      value={promoteForm.department_id}
+                      onChange={(e) => setPromoteForm({ ...promoteForm, department_id: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      required
+                    >
+                      <option value="">Select a department</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {promoteForm.role === "category_admin" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Category</label>
+                    <select
+                      value={promoteForm.category}
+                      onChange={(e) => setPromoteForm({ ...promoteForm, category: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      required
+                    >
+                      <option value="">Select a category</option>
+                      <option value="Children">Children</option>
+                      <option value="Teenager">Teenager</option>
+                      <option value="Youth">Youth</option>
+                      <option value="Adult">Adult</option>
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <input
+                    type="password"
+                    value={promoteForm.password}
+                    onChange={(e) => setPromoteForm({ ...promoteForm, password: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    placeholder="Enter password for admin account"
+                    required
+                    minLength={8}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : ""
+        }
+        confirmLabel="Promote to Admin"
+        onConfirm={handleConfirmPromote}
+        onCancel={handleCancelPromote}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(memberPendingDemote)}
+        title="Remove admin status?"
+        description={
+          memberPendingDemote
+            ? `This will remove admin status from ${memberPendingDemote.firstName} ${memberPendingDemote.lastName}. They will become a regular member and will no longer have admin privileges.`
+            : ""
+        }
+        confirmLabel="Remove Admin Status"
+        onConfirm={handleConfirmDemote}
+        onCancel={handleCancelDemote}
       />
     </div>
   );

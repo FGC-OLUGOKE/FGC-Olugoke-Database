@@ -1,4 +1,4 @@
-import { Pencil, Trash2, UserMinus, X } from "lucide-react";
+import { Pencil, Trash2, UserMinus, X, Shield, ShieldOff } from "lucide-react";
 
 import Drawer from "../../../components/ui/Drawer";
 import Badge from "../../../components/ui/Badge";
@@ -18,6 +18,8 @@ import Avatar from "../../../components/ui/Avatar";
  * - onEdit                  (fn, optional)  (member) => void
  * - onDelete                (fn, optional)  (member) => void
  * - onRemoveFromDepartment  (fn, optional)  (member) => void
+ * - onPromoteToAdmin        (fn, optional)  (member) => void
+ * - onDemoteToMember        (fn, optional)  (member) => void
  */
 
 export default function MemberDetailsDrawer({
@@ -27,6 +29,8 @@ export default function MemberDetailsDrawer({
   onEdit,
   onDelete,
   onRemoveFromDepartment,
+  onPromoteToAdmin,
+  onDemoteToMember,
 }) {
   if (!member) return null;
 
@@ -147,6 +151,28 @@ export default function MemberDetailsDrawer({
             >
               <UserMinus className="h-3.5 w-3.5" />
               Remove from Department
+            </Button>
+          )}
+
+          {onPromoteToAdmin && (
+            <Button
+              variant="primary"
+              onClick={() => onPromoteToAdmin(member)}
+              className="flex-1"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              Make Admin
+            </Button>
+          )}
+
+          {onDemoteToMember && (
+            <Button
+              variant="warning"
+              onClick={() => onDemoteToMember(member)}
+              className="flex-1"
+            >
+              <ShieldOff className="h-3.5 w-3.5" />
+              Remove Admin
             </Button>
           )}
         </div>

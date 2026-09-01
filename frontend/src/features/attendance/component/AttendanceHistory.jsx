@@ -1,12 +1,12 @@
-
 import { useMemo, useState } from "react";
 
 import {
   CalendarDays,
   ChevronDown,
-  Search,
-  X,
   ClipboardList,
+  Search,
+  Users,
+  X,
 } from "lucide-react";
 
 import Badge from "../../../components/ui/Badge";
@@ -25,14 +25,12 @@ const columns = [
 
 const QUICK_FILTERS = [
   { value: "", label: "All records" },
-
   { value: "month-0", label: "This month" },
   { value: "month-1", label: "Last month" },
   { value: "month-2", label: "2 months ago" },
   { value: "month-3", label: "3 months ago" },
   { value: "month-6", label: "6 months ago" },
   { value: "month-12", label: "12 months ago" },
-
   { value: "year-0", label: "This year" },
   { value: "year-1", label: "Last year" },
   { value: "year-2", label: "2 years ago" },
@@ -41,11 +39,15 @@ const QUICK_FILTERS = [
 ];
 
 function formatDate(value) {
-  if (!value) return "—";
+  if (!value) {
+    return "—";
+  }
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
 
   return date.toLocaleDateString("en-US", {
     month: "short",
@@ -73,14 +75,20 @@ function getDateYearsAgo(years) {
 }
 
 export default function AttendanceHistory({
-  records,
+  records = [],
   categoryKey,
+  type = "church-service",
+  onSelectSession,
 }) {
   const [quickFilter, setQuickFilter] = useState("");
+
   const [eventFilter, setEventFilter] = useState("");
 
-  const [showCustomDate, setShowCustomDate] = useState(false);
+  const [showCustomDate, setShowCustomDate] =
+    useState(false);
+
   const [fromDate, setFromDate] = useState("");
+
   const [toDate, setToDate] = useState("");
 
   const visibleColumns = categoryKey
@@ -94,7 +102,9 @@ export default function AttendanceHistory({
 
   const filteredRecords = useMemo(() => {
     return records.filter((record) => {
-      if (!record.date) return false;
+      if (!record.date) {
+        return false;
+      }
 
       const recordDate = new Date(record.date);
 
@@ -105,25 +115,43 @@ export default function AttendanceHistory({
       recordDate.setHours(0, 0, 0, 0);
 
       /*
-       * EVENT NAME FILTER
+       * EVENT / CLASS SEARCH
        */
       if (eventFilter.trim()) {
-        const eventName = (
-          record.eventName || ""
-        ).toLowerCase();
-
         const searchTerm = eventFilter
           .trim()
           .toLowerCase();
 
-        if (!eventName.includes(searchTerm)) {
-          return false;
+        if (type === "sunday-school") {
+          const searchableText = [
+            record.className,
+            record.name,
+            ...(record.classes || []).map(
+              (item) => item.className,
+            ),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          if (!searchableText.includes(searchTerm)) {
+            return false;
+          }
+        } else {
+          const eventName = (
+            record.eventName || ""
+          ).toLowerCase();
+
+          if (!eventName.includes(searchTerm)) {
+            return false;
+          }
         }
       }
 
       /*
        * CUSTOM DATE FILTER
        */
+
       if (fromDate) {
         const startDate = new Date(
           `${fromDate}T00:00:00`,
@@ -147,14 +175,14 @@ export default function AttendanceHistory({
       /*
        * QUICK MONTH FILTER
        */
+
       if (quickFilter.startsWith("month-")) {
         const monthsAgo = Number(
           quickFilter.replace("month-", ""),
         );
 
-        const targetDate = getDateMonthsAgo(
-          monthsAgo,
-        );
+        const targetDate =
+          getDateMonthsAgo(monthsAgo);
 
         if (
           recordDate.getMonth() !==
@@ -169,14 +197,14 @@ export default function AttendanceHistory({
       /*
        * QUICK YEAR FILTER
        */
+
       if (quickFilter.startsWith("year-")) {
         const yearsAgo = Number(
           quickFilter.replace("year-", ""),
         );
 
-        const targetDate = getDateYearsAgo(
-          yearsAgo,
-        );
+        const targetDate =
+          getDateYearsAgo(yearsAgo);
 
         if (
           recordDate.getFullYear() !==
@@ -194,6 +222,7 @@ export default function AttendanceHistory({
     eventFilter,
     fromDate,
     toDate,
+    type,
   ]);
 
   function selectQuickFilter(value) {
@@ -220,14 +249,15 @@ export default function AttendanceHistory({
     Boolean(fromDate) ||
     Boolean(toDate);
 
+  const isSundaySchool =
+    type === "sunday-school";
+
   return (
     <div className="space-y-4">
-
       {/* FILTER BAR */}
+
       <div className="rounded-lg border border-gray-200 bg-white p-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
-
-          {/* QUICK DATE FILTER */}
           <DropdownMenu
             width={220}
             trigger={
@@ -267,52 +297,45 @@ export default function AttendanceHistory({
                   Months
                 </div>
 
-                {QUICK_FILTERS
-                  .filter((filter) =>
-                    filter.value.startsWith(
-                      "month-",
-                    ),
-                  )
-                  .map((filter) => (
-                    <DropdownMenuItem
-                      key={filter.value}
-                      label={filter.label}
-                      onClick={() => {
-                        selectQuickFilter(
-                          filter.value,
-                        );
-                        close();
-                      }}
-                    />
-                  ))}
+                {QUICK_FILTERS.filter((filter) =>
+                  filter.value.startsWith("month-"),
+                ).map((filter) => (
+                  <DropdownMenuItem
+                    key={filter.value}
+                    label={filter.label}
+                    onClick={() => {
+                      selectQuickFilter(
+                        filter.value,
+                      );
+                      close();
+                    }}
+                  />
+                ))}
 
                 <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                   Years
                 </div>
 
-                {QUICK_FILTERS
-                  .filter((filter) =>
-                    filter.value.startsWith(
-                      "year-",
-                    ),
-                  )
-                  .map((filter) => (
-                    <DropdownMenuItem
-                      key={filter.value}
-                      label={filter.label}
-                      onClick={() => {
-                        selectQuickFilter(
-                          filter.value,
-                        );
-                        close();
-                      }}
-                    />
-                  ))}
+                {QUICK_FILTERS.filter((filter) =>
+                  filter.value.startsWith("year-"),
+                ).map((filter) => (
+                  <DropdownMenuItem
+                    key={filter.value}
+                    label={filter.label}
+                    onClick={() => {
+                      selectQuickFilter(
+                        filter.value,
+                      );
+                      close();
+                    }}
+                  />
+                ))}
               </>
             )}
           </DropdownMenu>
 
-          {/* EVENT SEARCH */}
+          {/* SEARCH */}
+
           <div className="relative flex-1">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -321,30 +344,29 @@ export default function AttendanceHistory({
 
             <Input
               type="text"
-              placeholder="Search event name..."
+              placeholder={
+                isSundaySchool
+                  ? "Search class..."
+                  : "Search event name..."
+              }
               value={eventFilter}
               onChange={(event) =>
-                setEventFilter(
-                  event.target.value,
-                )
+                setEventFilter(event.target.value)
               }
               className="pl-9"
             />
           </div>
 
           {/* CUSTOM DATE */}
+
           <button
             type="button"
             onClick={() => {
-              setShowCustomDate(
-                (previous) => !previous,
-              );
+              setShowCustomDate((previous) => !previous);
               setQuickFilter("");
             }}
             className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-sm transition ${
-              showCustomDate ||
-              fromDate ||
-              toDate
+              showCustomDate || fromDate || toDate
                 ? "border-[#154d78] bg-[#154d78]/5 text-[#154d78]"
                 : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
             }`}
@@ -359,7 +381,6 @@ export default function AttendanceHistory({
             </span>
           </button>
 
-          {/* CLEAR FILTERS */}
           {hasFilters && (
             <button
               type="button"
@@ -377,18 +398,16 @@ export default function AttendanceHistory({
         </div>
 
         {/* CUSTOM DATE RANGE */}
+
         {showCustomDate && (
           <div className="mt-3 flex flex-col gap-3 border-t border-gray-100 pt-3 sm:flex-row sm:items-end">
-
             <div className="w-full sm:max-w-[180px]">
               <Input
                 label="From"
                 type="date"
                 value={fromDate}
                 onChange={(event) =>
-                  setFromDate(
-                    event.target.value,
-                  )
+                  setFromDate(event.target.value)
                 }
               />
             </div>
@@ -399,17 +418,13 @@ export default function AttendanceHistory({
                 type="date"
                 value={toDate}
                 onChange={(event) =>
-                  setToDate(
-                    event.target.value,
-                  )
+                  setToDate(event.target.value)
                 }
               />
             </div>
-
           </div>
         )}
 
-        {/* RESULT COUNT */}
         {hasFilters && (
           <div className="mt-3 border-t border-gray-100 pt-3">
             <p className="text-xs text-gray-400">
@@ -424,96 +439,216 @@ export default function AttendanceHistory({
       </div>
 
       {/* RESULTS */}
+
       {filteredRecords.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
-          <table className="min-w-[520px] w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3">
-                  Date
-                </th>
+        isSundaySchool ? (
+          /*
+           * ------------------------------------------
+           * SUNDAY SCHOOL HISTORY
+           * ------------------------------------------
+           */
 
-                <th className="px-4 py-3">
-                  Event
-                </th>
+          <div className="space-y-3">
+            {filteredRecords.map((record) => {
+              const classes =
+                record.classes || [];
 
-                {visibleColumns.map(
-                  ([, label]) => (
-                    <th
-                      key={label}
-                      className="px-4 py-3 text-center"
-                    >
-                      {label}
+              const totalMembers =
+                classes.reduce(
+                  (sum, item) =>
+                    sum +
+                    Number(
+                      item.memberCount,
+                    ),
+                  0,
+                );
+
+              const totalPresent =
+                classes.reduce(
+                  (sum, item) =>
+                    sum +
+                    Number(
+                      item.presentCount,
+                    ),
+                  0,
+                );
+
+              return (
+                <button
+                  key={
+                    record.id ??
+                    `${record.date}-session`
+                  }
+                  type="button"
+                  onClick={() =>
+                    onSelectSession?.(record)
+                  }
+                  className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left transition hover:border-[#4a2969]/30 hover:bg-gray-50/50"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4a2969]/10">
+                        <ClipboardList
+                          className="h-5 w-5 text-[#4a2969]"
+                          strokeWidth={2}
+                        />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          Sunday School
+                        </p>
+
+                        <p className="mt-0.5 text-xs text-gray-400">
+                          {formatDate(record.date)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="info">
+                        {classes.length}{" "}
+                        {classes.length === 1
+                          ? "class"
+                          : "classes"}
+                      </Badge>
+
+                      <Badge tone="success">
+                        {totalPresent}
+                        {totalMembers
+                          ? ` / ${totalMembers}`
+                          : ""}{" "}
+                        present
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {classes.length > 0 && (
+                    <div className="mt-4 border-t border-gray-100 pt-3">
+                      <div className="flex flex-wrap gap-2">
+                        {classes.map(
+                          (classItem) => (
+                            <span
+                              key={
+                                classItem.classId
+                              }
+                              className="rounded-md bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
+                            >
+                              {
+                                classItem.className
+                              }
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          /*
+           * ------------------------------------------
+           * CHURCH SERVICE HISTORY
+           * ------------------------------------------
+           */
+
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="min-w-[520px] w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3">
+                    Date
+                  </th>
+
+                  <th className="px-4 py-3">
+                    Event
+                  </th>
+
+                  {visibleColumns.map(
+                    ([, label]) => (
+                      <th
+                        key={label}
+                        className="px-4 py-3 text-center"
+                      >
+                        {label}
+                      </th>
+                    ),
+                  )}
+
+                  {!categoryKey && (
+                    <th className="px-4 py-3 text-center">
+                      Total
                     </th>
+                  )}
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {filteredRecords.map(
+                  (record) => (
+                    <tr
+                      key={`${record.date}-${record.id ?? "attendance"}`}
+                      className="hover:bg-gray-50/60"
+                    >
+                      <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
+                        {formatDate(record.date)}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-3 text-gray-700">
+                        {record.eventName || "—"}
+                      </td>
+
+                      {visibleColumns.map(
+                        ([key, label]) => (
+                          <td
+                            key={label}
+                            className="px-4 py-3 text-center text-gray-700"
+                          >
+                            {Number(
+                              record[key],
+                            ) || 0}
+                          </td>
+                        ),
+                      )}
+
+                      {!categoryKey && (
+                        <td className="px-4 py-3 text-center">
+                          <Badge tone="info">
+                            {Number(
+                              record.total,
+                            ) || 0}
+                          </Badge>
+                        </td>
+                      )}
+                    </tr>
                   ),
                 )}
-
-                {!categoryKey && (
-                  <th className="px-4 py-3 text-center">
-                    Total
-                  </th>
-                )}
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {filteredRecords.map(
-                (record) => (
-                  <tr
-                    key={`${record.date}-${record.id ?? "attendance"}`}
-                    className="hover:bg-gray-50/60"
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
-                      {formatDate(
-                        record.date,
-                      )}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-3 text-gray-700">
-                      {record.eventName ||
-                        "—"}
-                    </td>
-
-                    {visibleColumns.map(
-                      ([key, label]) => (
-                        <td
-                          key={label}
-                          className="px-4 py-3 text-center text-gray-700"
-                        >
-                          {Number(
-                            record[key],
-                          ) || 0}
-                        </td>
-                      ),
-                    )}
-
-                    {!categoryKey && (
-                      <td className="px-4 py-3 text-center">
-                        <Badge tone="info">
-                          {Number(
-                            record.total,
-                          ) || 0}
-                        </Badge>
-                      </td>
-                    )}
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        )
       ) : (
         <EmptyState
-          icon={ClipboardList}
+          icon={
+            isSundaySchool
+              ? ClipboardList
+              : Users
+          }
           title={
             hasFilters
               ? "No attendance records found"
-              : "No attendance history"
+              : isSundaySchool
+                ? "No Sunday School history"
+                : "No attendance history"
           }
           description={
             hasFilters
               ? "No attendance records match the selected filters."
-              : "Attendance records will appear here once they are recorded."
+              : isSundaySchool
+                ? "Sunday School sessions will appear here once they are created."
+                : "Attendance records will appear here once they are recorded."
           }
         />
       )}

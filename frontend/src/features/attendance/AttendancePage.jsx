@@ -1,19 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
+
 import { useAuth } from "../auth/AuthContext";
+
 import { CalendarDays, ClipboardCheck } from "lucide-react";
+
 import SectionCard from "../../components/ui/SectionCard";
 import Button from "../../components/ui/Button";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
 import { useToast } from "../../components/ui/ToastProvider";
+
 import {
   getAttendanceHistory,
   recordAttendance,
 } from "./api";
+
 import {
   isCategoryAdmin,
   isSuperAdmin,
 } from "../../lib/permissions";
+
 import AttendanceStats from "./component/AttendanceStats";
 import AttendanceHistory from "./component/AttendanceHistory";
 import AttendanceForm from "./component/AttendanceForm";
@@ -25,11 +31,22 @@ export default function AttendancePage() {
   const [records, setRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isRecordDrawerOpen, setIsRecordDrawerOpen] = useState(false);
+  const [isRecordDrawerOpen, setIsRecordDrawerOpen] =
+    useState(false);
   const [error, setError] = useState("");
 
-  const canRecord =
-    isSuperAdmin(user) || isCategoryAdmin(user);
+  /*
+   * --------------------------------------------------
+   * PERMISSIONS
+   * --------------------------------------------------
+   *
+   * Only Super Admin can CREATE an attendance session.
+   *
+   * Category admins are scoped to their own category.
+   * They can view attendance related to their category,
+   * but they cannot create a church attendance session.
+   */
+  const canRecord = isSuperAdmin(user);
 
   const isScopedRecorder = isCategoryAdmin(user);
 
@@ -44,6 +61,11 @@ export default function AttendancePage() {
     return fieldByCategory[user?.scope] || null;
   }, [user]);
 
+  /*
+   * --------------------------------------------------
+   * LOAD ATTENDANCE HISTORY
+   * --------------------------------------------------
+   */
   useEffect(() => {
     let mounted = true;
 
@@ -53,7 +75,9 @@ export default function AttendancePage() {
     getAttendanceHistory()
       .then((data) => {
         if (mounted) {
-          setRecords(Array.isArray(data) ? data : []);
+          setRecords(
+            Array.isArray(data) ? data : [],
+          );
         }
       })
       .catch(() => {
@@ -74,6 +98,14 @@ export default function AttendancePage() {
     };
   }, []);
 
+  /*
+   * --------------------------------------------------
+   * SAVE ATTENDANCE
+   * --------------------------------------------------
+   *
+   * This is only reachable by Super Admin because
+   * category admins cannot open AttendanceForm.
+   */
   async function handleSaveAttendance(payload) {
     setIsSaving(true);
     setError("");
@@ -83,13 +115,16 @@ export default function AttendancePage() {
 
       setRecords((previous) => {
         return [...previous, saved].sort(
-          (a, b) => new Date(a.date) - new Date(b.date),
+          (a, b) =>
+            new Date(a.date) - new Date(b.date),
         );
       });
 
       setIsRecordDrawerOpen(false);
 
-      toast.success("Attendance recorded successfully.");
+      toast.success(
+        "Attendance recorded successfully.",
+      );
     } catch (err) {
       console.error(err);
 
@@ -103,21 +138,36 @@ export default function AttendancePage() {
     }
   }
 
+  /*
+   * --------------------------------------------------
+   * SORT RECORDS
+   * --------------------------------------------------
+   */
   const sortedRecords = useMemo(
     () =>
       [...records].sort(
-        (a, b) => new Date(b.date) - new Date(a.date),
+        (a, b) =>
+          new Date(b.date) - new Date(a.date),
       ),
     [records],
   );
 
+  /*
+   * --------------------------------------------------
+   * LOADING
+   * --------------------------------------------------
+   */
   if (isLoading) {
-    return <LoadingState label="Loading attendance..." />;
+    return (
+      <LoadingState label="Loading attendance..." />
+    );
   }
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* --------------------------------------------
+          PAGE HEADER
+      --------------------------------------------- */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -132,11 +182,14 @@ export default function AttendancePage() {
           </div>
 
           <p className="mt-1 text-sm text-gray-500">
-            Record and review weekly church service attendance by
-            category.
+            Record and review weekly church service
+            attendance by category.
           </p>
         </div>
 
+        {/* ------------------------------------------
+            ONLY SUPER ADMIN CAN CREATE SESSION
+        ------------------------------------------- */}
         {canRecord && (
           <Button
             type="button"
@@ -151,42 +204,57 @@ export default function AttendancePage() {
         )}
       </div>
 
+      {/* --------------------------------------------
+          ERROR
+      --------------------------------------------- */}
       {error && (
         <div className="rounded-lg border border-[#9e263b]/20 bg-[#9e263b]/5 px-4 py-3 text-sm text-[#9e263b]">
           {error}
         </div>
       )}
 
-      {/* Attendance Statistics */}
+      {/* --------------------------------------------
+          ATTENDANCE STATISTICS
+      --------------------------------------------- */}
       <AttendanceStats
         records={records}
         categoryKey={
-          isScopedRecorder ? scopedCategoryKey : null
+          isScopedRecorder
+            ? scopedCategoryKey
+            : null
         }
         categoryLabel={
-          isScopedRecorder ? user.scope : null
+          isScopedRecorder
+            ? user?.scope
+            : null
         }
       />
 
-      {/* Category Admin Information */}
+      {/* --------------------------------------------
+          CATEGORY ADMIN INFORMATION
+      --------------------------------------------- */}
       {isScopedRecorder && (
-        <SectionCard title={`${user.scope} Attendance`}>
+        <SectionCard
+          title={`${user.scope} Attendance`}
+        >
           <div className="rounded-lg border border-[#154d78]/15 bg-[#154d78]/5 px-4 py-3 text-sm text-gray-600">
             <p className="font-medium text-gray-900">
               Category-scoped attendance view
             </p>
 
             <p className="mt-1">
-              Attendance figures shown here are limited to your
-              assigned category, and the attendance recorder allows
-              you to submit counts for{" "}
-              {user?.scope?.toLowerCase()} attendance.
+              Attendance figures shown here are
+              limited to your assigned category.
+              You cannot create or configure an
+              attendance session.
             </p>
           </div>
         </SectionCard>
       )}
 
-      {/* Attendance History */}
+      {/* --------------------------------------------
+          ATTENDANCE HISTORY
+      --------------------------------------------- */}
       <SectionCard title="Attendance History">
         {sortedRecords.length === 0 ? (
           <EmptyState
@@ -198,20 +266,32 @@ export default function AttendancePage() {
           <AttendanceHistory
             records={sortedRecords}
             categoryKey={
-              isScopedRecorder ? scopedCategoryKey : null
+              isScopedRecorder
+                ? scopedCategoryKey
+                : null
             }
           />
         )}
       </SectionCard>
 
-      {/* Record Attendance Drawer */}
-      <AttendanceForm
-        isOpen={isRecordDrawerOpen}
-        onClose={() => setIsRecordDrawerOpen(false)}
-        onSave={handleSaveAttendance}
-        user={user}
-        isSaving={isSaving}
-      />
+      {/* --------------------------------------------
+          RECORD ATTENDANCE DRAWER
+          
+          IMPORTANT:
+          Category admins cannot even mount/open
+          this form.
+      --------------------------------------------- */}
+      {isSuperAdmin(user) && (
+        <AttendanceForm
+          isOpen={isRecordDrawerOpen}
+          onClose={() =>
+            setIsRecordDrawerOpen(false)
+          }
+          onSave={handleSaveAttendance}
+          user={user}
+          isSaving={isSaving}
+        />
+      )}
     </div>
   );
 }

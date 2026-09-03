@@ -11,7 +11,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         departments = [
             Department.objects.get_or_create(name=name)[0]
-            for name in ("Choir", "Ushering", "Media", "Prayer")
+            for name in ("Choir", "Ushering", "Media", "Prayer", "Children Church", "Evangelism")
         ]
         categories = ("Children", "Teenager", "Youth", "Adult")
         created = 0

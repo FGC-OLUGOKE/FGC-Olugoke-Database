@@ -2,10 +2,12 @@ from django.contrib.auth import authenticate, get_user_model
 from datetime import date
 from django.utils import timezone
 from django.db.models import Count
+from django.db import transaction
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member
 from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer
 
@@ -41,7 +43,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         if account.role == AdminAccount.DEPARTMENT_ADMIN:
             return queryset.filter(pk=account.department_id)
         if account.role == AdminAccount.CATEGORY_ADMIN:
-            return queryset.none()
+            return queryset.filter(members__category=account.category).distinct()
         return queryset
     def get_permissions(self): return [IsApplicationAdmin(), SuperAdminOnly()] if self.action not in ("list", "retrieve") else [IsApplicationAdmin()]
 
@@ -243,9 +245,17 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
 
 class DepartmentReportViewSet(viewsets.ModelViewSet):
     serializer_class = DepartmentReportSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsApplicationAdmin()]
+        return [IsApplicationAdmin(), NonCategoryAdmin()]
     def get_queryset(self):
         account = account_for(self.request.user); query = DepartmentReport.objects.select_related("department", "submitted_by")
-        return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department)
+        if account.role == AdminAccount.SUPER_ADMIN:
+            return query
+        if account.role == AdminAccount.CATEGORY_ADMIN:
+            return query.filter(department__members__category=account.category).distinct()
+        return query.filter(department=account.department)
     def perform_create(self, serializer):
         account = account_for(self.request.user)
         if account.role == AdminAccount.DEPARTMENT_ADMIN: serializer.save(submitted_by=self.request.user, department=account.department)
@@ -285,14 +295,20 @@ class ChurchEventViewSet(viewsets.ModelViewSet):
         name, department = instance.name, instance.department; instance.delete(); log_activity(self.request.user, f"Deleted event: {name}", department)
 
 class ApprovalRequestViewSet(viewsets.ModelViewSet):
-    serializer_class = ApprovalRequestSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
+    serializer_class = ApprovalRequestSerializer; permission_classes = (IsApplicationAdmin,)
+    def get_permissions(self):
+        if self.action in ("update", "partial_update", "destroy"):
+            return [IsApplicationAdmin(), SuperAdminOnly()]
+        return [IsApplicationAdmin()]
     def get_queryset(self):
         account = account_for(self.request.user); query = ApprovalRequest.objects.select_related("member", "requested_by", "requested_by__admin_account", "requested_by__admin_account__department")
         return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(requested_by=self.request.user)
     def perform_create(self, serializer):
         account = account_for(self.request.user); member = serializer.validated_data["member"]
+        if account.role == AdminAccount.CATEGORY_ADMIN and member.category != account.category:
+            raise PermissionDenied("You may only request changes for members in your category.")
         if account.role == AdminAccount.DEPARTMENT_ADMIN and not member.departments.filter(pk=account.department_id).exists():
-            raise permissions.PermissionDenied("You may only request changes for members in your department.")
+            raise PermissionDenied("You may only request changes for members in your department.")
         request = serializer.save(requested_by=self.request.user)
         log_activity(self.request.user, f"Submitted {request.type} request for {member}", account.department)
     def partial_update(self, request, *args, **kwargs):
@@ -300,7 +316,19 @@ class ApprovalRequestViewSet(viewsets.ModelViewSet):
         approval = self.get_object(); decision = request.data.get("status")
         if approval.status != ApprovalRequest.PENDING or decision not in (ApprovalRequest.APPROVED, ApprovalRequest.REJECTED):
             return Response({"detail": "Only pending requests can be approved or rejected."}, status=status.HTTP_400_BAD_REQUEST)
-        approval.status, approval.reviewed_by, approval.reviewed_at = decision, request.user, timezone.now(); approval.save(update_fields=("status", "reviewed_by", "reviewed_at"))
+        with transaction.atomic():
+            if decision == ApprovalRequest.APPROVED:
+                if approval.type == ApprovalRequest.EDIT:
+                    member_serializer = MemberSerializer(approval.member, data=approval.changes, partial=True)
+                    member_serializer.is_valid(raise_exception=True)
+                    member_serializer.save()
+                else:
+                    member = approval.member
+                    member_name = str(member)
+                    member.delete()
+                    approval.member = None
+                    log_activity(request.user, f"Approved deletion request for {member_name}")
+            approval.status, approval.reviewed_by, approval.reviewed_at = decision, request.user, timezone.now(); approval.save(update_fields=("status", "reviewed_by", "reviewed_at"))
         return Response(ApprovalRequestSerializer(approval).data)
 
 @api_view(("POST",))

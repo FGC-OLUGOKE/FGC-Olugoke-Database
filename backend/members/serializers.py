@@ -153,18 +153,19 @@ class ChurchEventSerializer(serializers.ModelSerializer):
 
 
 class ApprovalRequestSerializer(serializers.ModelSerializer):
-    memberId = serializers.PrimaryKeyRelatedField(source="member", queryset=Member.objects.all(), write_only=True)
+    memberId = serializers.PrimaryKeyRelatedField(source="member", queryset=Member.objects.all())
     memberName = serializers.SerializerMethodField()
     requestedBy = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    reviewedAt = serializers.DateTimeField(source="reviewed_at", read_only=True)
 
     class Meta:
         model = ApprovalRequest
-        fields = ("id", "type", "memberId", "memberName", "requestedBy", "changes", "reason", "status", "createdAt")
+        fields = ("id", "type", "memberId", "memberName", "requestedBy", "changes", "reason", "status", "createdAt", "reviewedAt")
         read_only_fields = ("status",)
 
     def get_memberName(self, obj):
-        return f"{obj.member.first_name} {obj.member.last_name}"
+        return f"{obj.member.first_name} {obj.member.last_name}" if obj.member else "Deleted member"
 
     def get_requestedBy(self, obj):
         account = getattr(obj.requested_by, "admin_account", None)

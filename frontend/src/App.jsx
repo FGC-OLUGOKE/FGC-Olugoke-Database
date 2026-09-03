@@ -82,7 +82,7 @@ export default function App() {
             <Route
               path="approvals"
               element={
-                isSuperAdmin(user) ? (
+                isSuperAdmin(user) || isCategoryAdmin(user) ? (
                   <ApprovalRequestsPage />
                 ) : (
                   <Navigate to="/dashboard" replace />

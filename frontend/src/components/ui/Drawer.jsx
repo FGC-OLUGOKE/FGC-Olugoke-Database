@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import useEscapeKey from "../../hooks/useEscapeKey";
@@ -48,16 +48,21 @@ export default function Drawer({
 }) {
   const [shouldRender, setShouldRender] = useState(false);
   const [visible, setVisible] = useState(false);
+  const previousOverflow = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
+      previousOverflow.current = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       const raf = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(raf);
+      return () => {
+        cancelAnimationFrame(raf);
+        document.body.style.overflow = previousOverflow.current ?? "";
+        previousOverflow.current = null;
+      };
     }
     setVisible(false);
-    document.body.style.overflow = "";
     const timeout = setTimeout(() => setShouldRender(false), 200);
     return () => clearTimeout(timeout);
   }, [isOpen]);

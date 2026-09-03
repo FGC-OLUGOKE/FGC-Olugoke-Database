@@ -6,7 +6,11 @@ import MemberDetailsDrawer from "./components/MemberDetailsDrawer";
 import MemberForm from "./components/MemberForm";
 import AssignMemberDrawer from "./components/AssignMemberDrawer";
 import Button from "../../components/ui/Button";
+import Badge from "../../components/ui/Badge";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import Drawer from "../../components/ui/Drawer";
+import Input from "../../components/ui/Input";
+import Select from "../../components/ui/Select";
 import LoadingState from "../../components/ui/LoadingState";
 import { useToast } from "../../components/ui/ToastProvider";
 import {
@@ -50,22 +54,17 @@ import { getDepartments } from "../departments/api";
 export default function MembersPage() {
   const toast = useToast();
   const { user } = useAuth();
-
   const [members, setMembers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [department, setDepartment] = useState("All Departments");
   const [status, setStatus] = useState("All Status");
   const [sort, setSort] = useState("az");
-
   const [selectedMember, setSelectedMember] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  const [formMember, setFormMember] = useState(null); // null = "Add" mode
+  const [formMember, setFormMember] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-
   const [memberPendingDelete, setMemberPendingDelete] = useState(null);
   const [memberPendingRemoval, setMemberPendingRemoval] = useState(null);
   const [isAssignDrawerOpen, setIsAssignDrawerOpen] = useState(false);
@@ -73,11 +72,12 @@ export default function MembersPage() {
   const [memberPendingDemote, setMemberPendingDemote] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [promoteForm, setPromoteForm] = useState({ role: "department_admin", department_id: "", category: "", password: "" });
+  const [requestReview, setRequestReview] = useState(null);
+  const [requestReason, setRequestReason] = useState("");
 
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
-
     Promise.all([getMembers(), getDepartments()])
       .then(([membersData, departmentsData]) => {
         if (isMounted) {
@@ -91,11 +91,37 @@ export default function MembersPage() {
       .finally(() => {
         if (isMounted) setIsLoading(false);
       });
+    return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    const refreshMembers = async () => {
+      try {
+        const [membersData, departmentsData] = await Promise.all([
+          getMembers(),
+          getDepartments(),
+        ]);
+        if (isMounted) {
+          setMembers(membersData);
+          setDepartments(departmentsData);
+        }
+      } catch {
+        // Keep the current data visible if a background refresh fails.
+      }
+    };
+    const handleMembersUpdated = () => refreshMembers();
+    const handleWindowFocus = () => refreshMembers();
+    window.addEventListener("members-updated", handleMembersUpdated);
+    window.addEventListener("focus", handleWindowFocus);
+    const interval = window.setInterval(refreshMembers, 15000);
     return () => {
       isMounted = false;
+      window.removeEventListener("members-updated", handleMembersUpdated);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const scopedMembers = useMemo(
@@ -192,13 +218,10 @@ export default function MembersPage() {
             setIsFormOpen(false);
             return;
           }
-          await submitApprovalRequest({
-            type: "edit",
-            memberId: formMember.id,
-            memberName: `${formMember.firstName} ${formMember.lastName}`,
-            changes,
-          });
-          toast.success("Edit request sent to Super Admin for approval");
+          setRequestReason("");
+          setRequestReview({ member: formMember, changes, type: "edit" });
+          setIsFormOpen(false);
+          return;
         }
       } else {
         const created = await createMember(formData);
@@ -208,6 +231,24 @@ export default function MembersPage() {
       setIsFormOpen(false);
     } catch {
       toast.error("Something went wrong saving this member.");
+    }
+  }
+
+  async function handleSendRequest() {
+    if (!requestReview || !requestReason.trim()) return;
+    try {
+      await submitApprovalRequest({
+        type: requestReview.type,
+        memberId: requestReview.member.id,
+        memberName: `${requestReview.member.firstName} ${requestReview.member.lastName}`,
+        changes: requestReview.changes,
+        reason: requestReason.trim(),
+      });
+      setRequestReview(null);
+      setRequestReason("");
+      toast.success(`${requestReview.type === "delete" ? "Deletion" : "Edit"} request sent to Super Admin for approval`);
+    } catch (error) {
+      toast.error(error.message || "Something went wrong sending this request.");
     }
   }
 
@@ -229,13 +270,10 @@ export default function MembersPage() {
           `${memberPendingDelete.firstName} ${memberPendingDelete.lastName} was deleted`,
         );
       } else if (allowDeleteRequest) {
-        await submitApprovalRequest({
-          type: "delete",
-          memberId: memberPendingDelete.id,
-          memberName: `${memberPendingDelete.firstName} ${memberPendingDelete.lastName}`,
-          changes: {},
-        });
-        toast.success("Deletion request sent to Super Admin for approval");
+        setRequestReason("");
+        setRequestReview({ member: memberPendingDelete, changes: {}, type: "delete" });
+        setMemberPendingDelete(null);
+        return;
       }
     } catch {
       toast.error("Something went wrong processing this member action.");
@@ -444,10 +482,20 @@ export default function MembersPage() {
           onClose={handleCloseForm}
           onSave={handleSaveMember}
           titleOverride={undefined}
-          submitLabel={"Save Member"}
           lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
+          departmentOptions={departments.map((department) => department.name)}
+          submitLabel={isCategoryAdmin(user) && formMember ? "Send Request" : "Save Member"}
         />
       )}
+
+      <MemberRequestReviewDrawer
+        review={requestReview}
+        reason={requestReason}
+        isOpen={Boolean(requestReview)}
+        onClose={() => setRequestReview(null)}
+        onReasonChange={setRequestReason}
+        onSend={handleSendRequest}
+      />
 
       {showAssignButton && (
         <AssignMemberDrawer
@@ -491,77 +539,12 @@ export default function MembersPage() {
         onCancel={handleCancelRemoval}
       />
 
-      <ConfirmDialog
+      <PromoteAdminDrawer
+        member={memberPendingPromote}
+        form={promoteForm}
+        departments={departments}
         isOpen={Boolean(memberPendingPromote)}
-        title="Promote member to admin?"
-        description={
-          memberPendingPromote ? (
-            <div className="space-y-4">
-              <p>This will promote {memberPendingPromote.firstName} {memberPendingPromote.lastName} to an admin account.</p>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Admin Role</label>
-                  <select
-                    value={promoteForm.role}
-                    onChange={(e) => setPromoteForm({ ...promoteForm, role: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  >
-                    <option value="department_admin">Department Admin</option>
-                    <option value="category_admin">Category Admin</option>
-                  </select>
-                </div>
-                {promoteForm.role === "department_admin" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Department</label>
-                    <select
-                      value={promoteForm.department_id}
-                      onChange={(e) => setPromoteForm({ ...promoteForm, department_id: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      required
-                    >
-                      <option value="">Select a department</option>
-                      {departments.map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                {promoteForm.role === "category_admin" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Category</label>
-                    <select
-                      value={promoteForm.category}
-                      onChange={(e) => setPromoteForm({ ...promoteForm, category: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      required
-                    >
-                      <option value="">Select a category</option>
-                      <option value="Children">Children</option>
-                      <option value="Teenager">Teenager</option>
-                      <option value="Youth">Youth</option>
-                      <option value="Adult">Adult</option>
-                    </select>
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
-                  <input
-                    type="password"
-                    value={promoteForm.password}
-                    onChange={(e) => setPromoteForm({ ...promoteForm, password: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="Enter password for admin account"
-                    required
-                    minLength={8}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : ""
-        }
-        confirmLabel="Promote to Admin"
+        onChange={(field, value) => setPromoteForm((current) => ({ ...current, [field]: value }))}
         onConfirm={handleConfirmPromote}
         onCancel={handleCancelPromote}
       />
@@ -579,5 +562,174 @@ export default function MembersPage() {
         onCancel={handleCancelDemote}
       />
     </div>
+  );
+}
+
+function MemberRequestReviewDrawer({ review, reason, isOpen, onClose, onReasonChange, onSend }) {
+  if (!review) return null;
+  const fields = Object.entries(review.changes || {});
+
+  return (
+    <Drawer
+      isOpen={isOpen}
+      onClose={onClose}
+      title={review.type === "delete" ? "Review Deletion Request" : "Review Edit Request"}
+      widthClass="md:max-w-lg"
+      desktopModal
+    >
+      <div className="flex h-full flex-col">
+        <div className="flex-1 space-y-6 overflow-y-auto p-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Member</p>
+            <h2 className="mt-1 text-lg font-semibold text-gray-900">
+              {review.member.firstName} {review.member.lastName}
+            </h2>
+          </div>
+
+          {review.type === "delete" ? (
+            <div className="rounded-lg border border-[#9e263b]/20 bg-[#9e263b]/5 p-4 text-sm text-[#821f31]">
+              This member will be submitted for deletion. The member will remain until a Super Admin approves the request.
+            </div>
+          ) : (
+            <section>
+              <h3 className="text-sm font-semibold text-gray-900">Changes you are submitting</h3>
+              <div className="mt-3 overflow-hidden rounded-lg border border-gray-200">
+                {fields.map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-2 gap-4 border-b border-gray-100 px-4 py-3 last:border-b-0">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">{formatRequestField(key)}</p>
+                      <p className="mt-1 text-xs text-gray-400">Before</p>
+                      <p className="break-words text-sm text-gray-700">{formatRequestValue(review.member[key])}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-[#154d78]">After</p>
+                      <p className="mt-1 text-sm font-medium text-gray-900">{formatRequestValue(value)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <label className="block">
+            <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700">
+              Reason <span className="text-[#9e263b]">*</span>
+            </span>
+            <textarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              rows={4}
+              placeholder="Explain why this request is needed"
+              className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#154d78] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
+            />
+          </label>
+        </div>
+        <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white p-5">
+          <Button variant="secondary" onClick={onClose}>Back</Button>
+          <Button variant="primary" onClick={onSend} disabled={!reason.trim()}>
+            Send Request
+          </Button>
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
+function formatRequestField(key) {
+  return key.replace(/([A-Z])/g, " $1").replace(/^./, (value) => value.toUpperCase());
+}
+
+function formatRequestValue(value) {
+  if (value === null || value === undefined || value === "") return "Not provided";
+  if (Array.isArray(value)) return value.join(", ") || "None";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function PromoteAdminDrawer({ member, form, departments, isOpen, onChange, onConfirm, onCancel }) {
+  if (!member) return null;
+
+  const isDepartmentRole = form.role === "department_admin";
+  const canSubmit = form.password.length >= 8 &&
+    (isDepartmentRole ? Boolean(form.department_id) : Boolean(form.category));
+
+  return (
+    <Drawer
+      isOpen={isOpen}
+      onClose={onCancel}
+      title="Create Admin Account"
+      widthClass="md:max-w-lg"
+      desktopModal
+    >
+      <div className="flex h-full flex-col">
+        <div className="flex-1 space-y-6 overflow-y-auto p-5 md:p-6">
+          <div className="rounded-xl border border-[#154d78]/15 bg-[#154d78]/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#154d78]">Selected member</p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{member.firstName} {member.lastName}</h2>
+                <p className="mt-1 text-sm text-gray-500">{member.email || "No email on member record"}</p>
+              </div>
+              <Badge tone="info">New admin</Badge>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Account permissions</h3>
+            <p className="mt-1 text-sm text-gray-500">Choose the role and scope this member will manage.</p>
+          </div>
+
+          <Select
+            label="Admin role"
+            options={[
+              { value: "department_admin", label: "Department Admin" },
+              { value: "category_admin", label: "Category Admin" },
+            ]}
+            value={form.role}
+            onChange={(event) => onChange("role", event.target.value)}
+          />
+
+          {isDepartmentRole ? (
+            <Select
+              label="Assigned department"
+              placeholder="Select a department"
+              options={departments.map((department) => ({ value: String(department.id), label: department.name }))}
+              value={String(form.department_id || "")}
+              onChange={(event) => onChange("department_id", event.target.value)}
+              required
+            />
+          ) : (
+            <Select
+              label="Assigned category"
+              placeholder="Select a category"
+              options={["Children", "Teenager", "Youth", "Adult"]}
+              value={form.category}
+              onChange={(event) => onChange("category", event.target.value)}
+              required
+            />
+          )}
+
+          <div>
+            <Input
+              label="Temporary password"
+              type="password"
+              value={form.password}
+              onChange={(event) => onChange("password", event.target.value)}
+              placeholder="At least 8 characters"
+              minLength={8}
+              required
+            />
+            <p className="mt-2 text-xs text-gray-400">Share this password securely with the new administrator.</p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white p-5">
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" onClick={onConfirm} disabled={!canSubmit}>
+            Create Admin Account
+          </Button>
+        </div>
+      </div>
+    </Drawer>
   );
 }

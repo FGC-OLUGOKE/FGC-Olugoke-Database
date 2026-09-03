@@ -141,7 +141,7 @@ class ApprovalRequest(models.Model):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
-    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="approval_requests")
+    member = models.ForeignKey(Member, null=True, on_delete=models.SET_NULL, related_name="approval_requests")
     type = models.CharField(max_length=16, choices=((EDIT, "Edit"), (DELETE, "Delete")))
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="approval_requests")
     changes = models.JSONField(default=dict, blank=True)

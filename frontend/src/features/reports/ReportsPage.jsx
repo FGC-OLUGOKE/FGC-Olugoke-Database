@@ -10,7 +10,7 @@ import NewMembersReport from "./components/NewMembersReport";
 import MemberStatusReport from "./components/MemberStatusReport";
 import ProfileCompletionReport from "./components/ProfileCompletionReport";
 import BirthdayReport from "./components/BirthdayReport";
-import EventsReport from "./components/EventsReport";
+// import EventsReport from "./components/EventsReport";
 import KeyInsightsSection from "./components/KeyInsightsSection";
 import QuickReportActions from "./components/QuickReportActions";
 import LoadingState from "../../components/ui/LoadingState";
@@ -589,7 +589,7 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <BirthdayReport stats={birthdayStats} />
-        <EventsReport stats={eventStats} events={upcomingEvents} />
+        {/* <EventsReport stats={eventStats} events={upcomingEvents} /> */}
       </div>
 
       <KeyInsightsSection insights={keyInsights} />

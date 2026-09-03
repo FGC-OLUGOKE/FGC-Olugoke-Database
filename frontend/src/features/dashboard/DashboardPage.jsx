@@ -67,7 +67,7 @@ export default function DashboardPage() {
         setMembers(data.members);
         setDepartments(data.departments);
         setGrowth(data.growth);
-        setEvents(data.events);
+        // setEvents(data.events);
         setActivity(data.activity);
         // console.log("Attendance data:", data.attendance);
       })

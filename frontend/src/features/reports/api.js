@@ -1,25 +1,25 @@
 import { getMembers } from "../members/api";
 import { getDepartments } from "../departments/api";
 import { getAttendanceHistory } from "../attendance/api";
-import { getEvents } from "../events/api";
+// import { getEvents } from "../events/api"; // Uncomment if you bring events back
 import { getMembershipGrowth } from "../dashboard/api";
 
-/**
- * Reports has no data of its own — it's purely an aggregation/
- * analysis layer over Members, Departments, Attendance, Events, and
- * Dashboard's growth series. All actual report computation (period
- * filtering, breakdowns, insights) happens in ReportsPage.jsx via
- * useMemo, not here — this just fetches the raw datasets each
- * report is built from.
- */
 export async function getReportsData() {
-  const [members, departments, attendance, events, growth] = await Promise.all([
+  // Promise.allSettled ensures that if a restricted role gets a 403/401 
+  // on specific endpoints, it doesn't crash the entire reports load.
+  const results = await Promise.allSettled([
     getMembers(),
     getDepartments(),
     getAttendanceHistory(),
-    getEvents(),
+    // getEvents ? getEvents() : Promise.resolve([]),
     getMembershipGrowth(),
   ]);
 
-  return { members, departments, attendance, events, growth };
+  return {
+    members: results[0].status === "fulfilled" ? results[0].value : [],
+    departments: results[1].status === "fulfilled" ? results[1].value : [],
+    attendance: results[2].status === "fulfilled" ? results[2].value : [],
+    events: [], // Fallback empty array since getEvents wasn't imported
+    growth: results[3].status === "fulfilled" ? results[3].value : [],
+  };
 }

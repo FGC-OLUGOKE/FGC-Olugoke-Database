@@ -100,6 +100,7 @@ export default function MemberForm({
   submitLabel = "Save Member",
   titleOverride,
   lockedCategory,
+  departmentOptions,
 }) {
   const isEditing = Boolean(member);
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -251,7 +252,7 @@ export default function MemberForm({
             )}
             <MultiSelect
               label="Departments"
-              options={FORM_DEPARTMENTS}
+              options={departmentOptions?.length ? departmentOptions : FORM_DEPARTMENTS}
               values={formData.departments}
               onChange={(next) => update("departments", next)}
             />

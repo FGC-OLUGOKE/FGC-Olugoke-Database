@@ -74,17 +74,36 @@ class MemberViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         data = request.data.copy()
-        if account_for(request.user).role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.CATEGORY_ADMIN) and "departments" in request.data:
+        account = account_for(request.user)
+        
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.CATEGORY_ADMIN) and "departments" in request.data:
             data.pop("departments")
-        if account_for(request.user).role == AdminAccount.CATEGORY_ADMIN:
-            data["category"] = account_for(request.user).category
+        if account.role == AdminAccount.CATEGORY_ADMIN:
+            data["category"] = account.category
+        
         instance = self.get_object()
+        
+        # Additional scope validation for updates
+        if account.role == AdminAccount.CATEGORY_ADMIN and instance.category != account.category:
+            return Response({"detail": "You can only update members in your category."}, status=status.HTTP_403_FORBIDDEN)
+        if account.role == AdminAccount.DEPARTMENT_ADMIN and not instance.departments.filter(pk=account.department_id).exists():
+            return Response({"detail": "You can only update members in your department."}, status=status.HTTP_403_FORBIDDEN)
+        
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
     def partial_update(self, request, *args, **kwargs): return self.update(request, *args, **kwargs)
     def destroy(self, request, *args, **kwargs):
+        account = account_for(request.user)
+        instance = self.get_object()
+        
+        # Scope validation for delete
+        if account.role == AdminAccount.CATEGORY_ADMIN and instance.category != account.category:
+            return Response({"detail": "You can only delete members in your category."}, status=status.HTTP_403_FORBIDDEN)
+        if account.role == AdminAccount.DEPARTMENT_ADMIN and not instance.departments.filter(pk=account.department_id).exists():
+            return Response({"detail": "You can only delete members in your department."}, status=status.HTTP_403_FORBIDDEN)
+        
         return super().destroy(request, *args, **kwargs)
     def perform_update(self, serializer):
         member = serializer.save()
@@ -99,6 +118,13 @@ class MemberViewSet(viewsets.ModelViewSet):
         member = Member.objects.prefetch_related("departments").filter(pk=pk).first()
         if not member: return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
         if bool(add) == bool(remove): return Response({"detail": "Provide exactly one of 'add' or 'remove'."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Scope validation for department assignment
+        if account.role == AdminAccount.CATEGORY_ADMIN and member.category != account.category:
+            return Response({"detail": "You can only manage members in your category."}, status=status.HTTP_403_FORBIDDEN)
+        if account.role == AdminAccount.DEPARTMENT_ADMIN and not member.departments.filter(pk=account.department_id).exists():
+            return Response({"detail": "You can only manage members in your department."}, status=status.HTTP_403_FORBIDDEN)
+        
         try: department = Department.objects.get(name=add or remove)
         except Department.DoesNotExist: return Response({"department": "Unknown department."}, status=status.HTTP_400_BAD_REQUEST)
         if account.role == AdminAccount.DEPARTMENT_ADMIN and department.pk != account.department_id: return Response({"detail": "You may only manage your assigned department."}, status=status.HTTP_403_FORBIDDEN)
@@ -134,6 +160,11 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         
         if member.user:
             return Response({"detail": "This member already has an admin account."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Scope validation - only Super Admin can promote members
+        account = account_for(request.user)
+        if account.role != AdminAccount.SUPER_ADMIN:
+            return Response({"detail": "Only Super Admin can promote members to admin."}, status=status.HTTP_403_FORBIDDEN)
         
         User = get_user_model()
         username = member.email or f"{member.first_name.lower()}.{member.last_name.lower()}@member"

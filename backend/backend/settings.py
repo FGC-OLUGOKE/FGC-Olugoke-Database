@@ -1,9 +1,14 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = "django-insecure-change-me"
-DEBUG = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "::1", "testserver"]
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-change-me")
+DEBUG = os.getenv("DEBUG", "True") == "True"
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,::1,testserver").split(",")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -43,12 +48,28 @@ TEMPLATES = [
     },
 ]
 WSGI_APPLICATION = "backend.wsgi.application"
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+
+# Database configuration - supports both SQLite (local) and Supabase (production)
+if os.getenv("DATABASE_URL"):
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.config(os.getenv("DATABASE_URL"), conn_max_age=600, ssl_require=True)
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+VERCEL = os.getenv("VERCEL", "false").lower() == "true"
+SUPABASE_BUCKET_NAME = os.getenv("SUPABASE_BUCKET_NAME", "")
+
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -70,7 +91,7 @@ USE_L10N = True
 USE_TZ = True
 STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "True") == "True"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.TokenAuthentication",

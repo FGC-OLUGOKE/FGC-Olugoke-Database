@@ -11,6 +11,7 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Drawer from "../../components/ui/Drawer";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
+import FloatingActionButton from "../../components/ui/FloatingActionButton";
 import LoadingState from "../../components/ui/LoadingState";
 import { useToast } from "../../components/ui/ToastProvider";
 import {
@@ -433,6 +434,14 @@ export default function MembersPage() {
           </Button>
         )}
       </div>
+
+      {showAddButton && (
+        <FloatingActionButton
+          label="New Member"
+          storageKey="members-create"
+          onClick={handleAddNew}
+        />
+      )}
 
       {isLoading ? (
         <LoadingState label="Loading members..." />

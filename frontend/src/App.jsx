@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./features/auth/AuthContext";
 import LoginPage from "./features/auth/LoginPage";
+import ForgotPasswordPage from "./features/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./features/auth/ResetPasswordPage";
 import Layout from "./components/layout/Layout";
 import ComingSoon from "./components/layout/ComingSoon";
 import { NAV_ITEMS } from "./components/layout/navigation";
@@ -20,7 +22,12 @@ export default function App() {
 
   if (isLoading) return null;
 
-  if (!user) return <LoginPage />;
+  if (!user) {
+    const path = window.location.pathname;
+    if (path === "/forgot-password") return <ForgotPasswordPage />;
+    if (path.startsWith("/reset-password/")) return <ResetPasswordPage />;
+    return <LoginPage />;
+  }
 
   return (
     <ToastProvider>

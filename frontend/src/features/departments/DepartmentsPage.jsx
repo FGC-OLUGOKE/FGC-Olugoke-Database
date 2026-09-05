@@ -21,6 +21,7 @@ import {
 } from "./api";
 
 import { getMembers } from "../members/api";
+import FloatingActionButton from "../../components/ui/FloatingActionButton";
 
 export default function DepartmentsPage() {
   const toast = useToast();
@@ -298,6 +299,12 @@ export default function DepartmentsPage() {
           + New Department
         </Button>
       </div>
+
+      <FloatingActionButton
+        label="New Department"
+        storageKey="departments-create"
+        onClick={handleAddNew}
+      />
 
       {isLoading ? (
         <LoadingState label="Loading departments..." />

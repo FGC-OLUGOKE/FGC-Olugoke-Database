@@ -44,11 +44,6 @@ export default function QuickReportActions({ user, onAddMember }) {
       icon: ClipboardCheck,
       onClick: () => navigate("/attendance"),
     },
-    isSuperAdmin(user) && {
-      label: "View Events",
-      icon: CalendarDays,
-      onClick: () => navigate("/events"),
-    },
     {
       label: "View Incomplete Profiles",
       icon: ShieldAlert,

@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
         migrations.RunSQL(
             sql="""
                 CREATE TABLE IF NOT EXISTS members_category (
-                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL NOT NULL PRIMARY KEY,
                     name VARCHAR(120) NOT NULL UNIQUE,
                     department_id BIGINT NULL REFERENCES members_department(id)
                         DEFERRABLE INITIALLY DEFERRED

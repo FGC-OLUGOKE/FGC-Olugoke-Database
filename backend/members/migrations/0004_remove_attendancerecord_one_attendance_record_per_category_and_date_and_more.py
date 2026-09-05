@@ -5,6 +5,20 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def remove_constraint_if_exists(apps, schema_editor):
+    # Try to remove the constraint, but don't fail if it doesn't exist
+    # This handles the case where the table was rebuilt in migration 0003
+    try:
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute("""
+                ALTER TABLE members_attendancerecord
+                DROP CONSTRAINT IF EXISTS one_attendance_record_per_category_and_date
+            """)
+    except Exception:
+        # Constraint doesn't exist, which is expected after table rebuild
+        pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -13,10 +27,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveConstraint(
-            model_name='attendancerecord',
-            name='one_attendance_record_per_category_and_date',
-        ),
+        migrations.RunPython(remove_constraint_if_exists, migrations.RunPython.noop),
         migrations.AddField(
             model_name='member',
             name='user',

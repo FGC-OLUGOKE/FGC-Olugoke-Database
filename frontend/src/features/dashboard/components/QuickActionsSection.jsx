@@ -23,11 +23,6 @@ export default function QuickActionsSection({ user, onAddMember }) {
       icon: ClipboardCheck,
       onClick: () => navigate("/attendance"),
     },
-    isSuperAdmin(user) && {
-      label: "Add Event",
-      icon: CalendarPlus,
-      onClick: () => navigate("/events"),
-    },
     { label: "View Members", icon: Users, onClick: () => navigate("/members") },
     !isDepartmentAdmin(user) && {
       label: "View Birthdays",

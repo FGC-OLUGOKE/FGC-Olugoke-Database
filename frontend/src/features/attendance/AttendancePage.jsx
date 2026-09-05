@@ -8,6 +8,7 @@ import SectionCard from "../../components/ui/SectionCard";
 import Button from "../../components/ui/Button";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
+import FloatingActionButton from "../../components/ui/FloatingActionButton";
 import { useToast } from "../../components/ui/ToastProvider";
 
 import {
@@ -203,6 +204,17 @@ export default function AttendancePage() {
           </Button>
         )}
       </div>
+
+      {canRecord && (
+        <FloatingActionButton
+          label="Record Attendance"
+          storageKey="attendance-create"
+          onClick={() => {
+            setError("");
+            setIsRecordDrawerOpen(true);
+          }}
+        />
+      )}
 
       {/* --------------------------------------------
           ERROR

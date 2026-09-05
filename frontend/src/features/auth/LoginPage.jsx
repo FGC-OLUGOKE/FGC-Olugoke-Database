@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "./AuthContext";
-import { Lock, Mail, Loader2, AlertCircle } from "lucide-react";
+import { Lock, Mail, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import Logo from "../../assets/logo.svg";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -104,21 +105,39 @@ export default function LoginPage() {
                   </div>
                   <input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
-                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
+                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-10 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute inset-y-0 right-0 flex w-10 cursor-pointer items-center justify-center text-gray-400 transition-colors hover:text-gray-700 focus:outline-none focus:ring-0"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
+              </div>
+
+              <div className="text-right">
+                <a href="/forgot-password" className="text-sm font-medium text-[#154d78] hover:underline">
+                  Forgot password?
+                </a>
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-[#154d78] py-2.5 px-4 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#113e61] focus:outline-none focus:ring-2 focus:ring-[#154d78] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#154d78] py-2.5 px-4 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#113e61] focus:outline-none focus:ring-2 focus:ring-[#154d78] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>
@@ -130,13 +149,6 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-          </div>
-
-          {/* Card Footer / API Info */}
-          <div className="border-t border-gray-100 bg-gray-50/80 px-8 py-4 text-center">
-            <p className="text-xs text-gray-400 font-mono">
-              Backend API: http://127.0.0.1:8000/api
-            </p>
           </div>
         </div>
       </div>

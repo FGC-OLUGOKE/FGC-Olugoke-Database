@@ -26,6 +26,34 @@ class AccessControlTests(APITestCase):
     def authenticate(self, token):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
 
+    def test_logout_invalidates_the_current_token(self):
+        self.authenticate(self.super_token)
+
+        response = self.client.post("/api/auth/logout/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Token.objects.filter(key=self.super_token).exists())
+
+        response = self.client.get("/api/me/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_password_reset_reports_unknown_email(self):
+        response = self.client.post(
+            "/api/auth/password-reset/request/",
+            {"email": "missing@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data["detail"], "No active admin account exists for that email.")
+
+    def test_password_reset_confirms_existing_admin_email(self):
+        response = self.client.post(
+            "/api/auth/password-reset/request/",
+            {"email": "super@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["detail"], "A password reset link has been sent to your email.")
+
     def test_department_admin_only_sees_and_manages_own_department(self):
         self.authenticate(self.staff_token)
         response = self.client.get("/api/members/")

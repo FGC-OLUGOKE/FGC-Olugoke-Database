@@ -1,6 +1,12 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.conf import settings
 from datetime import date
+from datetime import timedelta
+import hashlib
+import secrets
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.contrib.auth.password_validation import validate_password
 from django.db.models import Count
 from django.db import transaction
 from rest_framework import permissions, status, viewsets
@@ -8,7 +14,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
-from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member
+from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member, PasswordResetToken
 from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer
 
 def account_for(user):
@@ -342,6 +348,45 @@ def login(request):
     if not user or not account_for(user): return Response({"detail": "Invalid credentials or inactive admin account."}, status=status.HTTP_401_UNAUTHORIZED)
     token, _ = Token.objects.get_or_create(user=user)
     return Response({"token": token.key, "user": AdminAccountSerializer(account_for(user)).data})
+
+@api_view(("POST",))
+@permission_classes((permissions.AllowAny,))
+def request_password_reset(request):
+    email = str(request.data.get("email", "")).strip().lower()
+    user = get_user_model().objects.filter(email__iexact=email, is_active=True, admin_account__isnull=False).first()
+    if not user:
+        return Response({"detail": "No active admin account exists for that email."}, status=status.HTTP_404_NOT_FOUND)
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
+    raw_token = secrets.token_urlsafe(48)
+    PasswordResetToken.objects.create(
+        user=user,
+        token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+        expires_at=timezone.now() + timedelta(minutes=30),
+    )
+    reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password/{raw_token}"
+    send_mail("Reset your FGC Olugoke password", f"Open this link to reset your password:\n\n{reset_url}\n\nThis link expires in 30 minutes.", settings.DEFAULT_FROM_EMAIL, [user.email])
+    return Response({"detail": "A password reset link has been sent to your email."})
+
+@api_view(("POST",))
+@permission_classes((permissions.AllowAny,))
+def confirm_password_reset(request, token):
+    password = request.data.get("password", "")
+    confirmation = request.data.get("confirmPassword", "")
+    if password != confirmation:
+        return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+    reset = PasswordResetToken.objects.select_related("user").filter(token_hash=hashlib.sha256(token.encode()).hexdigest(), used_at__isnull=True, expires_at__gt=timezone.now()).first()
+    if not reset:
+        return Response({"detail": "This password reset link is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        validate_password(password, reset.user)
+    except Exception as error:
+        return Response({"detail": error.messages}, status=status.HTTP_400_BAD_REQUEST)
+    reset.user.set_password(password)
+    reset.user.save(update_fields=("password",))
+    Token.objects.filter(user=reset.user).delete()
+    reset.used_at = timezone.now()
+    reset.save(update_fields=("used_at",))
+    return Response({"detail": "Password reset successfully. Please sign in again."})
 
 @api_view(("POST",))
 @permission_classes((IsApplicationAdmin,))

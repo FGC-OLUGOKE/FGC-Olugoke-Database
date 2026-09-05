@@ -425,3 +425,15 @@ def activity_log(request):
     if account.role == AdminAccount.CATEGORY_ADMIN: return Response([])
     if account.role != AdminAccount.SUPER_ADMIN: query = query.filter(department=account.department)
     return Response(ActivityLogSerializer(query[:50], many=True).data)
+
+@api_view(("GET",))
+@permission_classes((permissions.AllowAny,))
+def health(request):
+    """Health check endpoint for Vercel monitoring."""
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return Response({"status": "healthy", "database": "connected"}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"status": "unhealthy", "database": "disconnected", "error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

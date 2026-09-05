@@ -37,7 +37,7 @@
     }
   ],
   "env": {
-    "DJANGO_SETTINGS_MODULE": "config.settings",
+    "DJANGO_SETTINGS_MODULE": "backend.settings",
     "PYTHON_VERSION": "3.12",
     "VITE_API_BASE_URL": "/api"
   },

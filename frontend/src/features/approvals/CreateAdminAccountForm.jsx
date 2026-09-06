@@ -60,6 +60,7 @@ export default function CreateAdminAccountForm({
   const isEditing = Boolean(account);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -95,8 +96,9 @@ export default function CreateAdminAccountForm({
     });
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (isSubmitting) return;
     const validationErrors = validate({ ...formData, isEditing });
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -109,7 +111,12 @@ export default function CreateAdminAccountForm({
       scope: formData.scope,
     };
     if (formData.password) accountData.password = formData.password;
-    onSave(accountData);
+    setIsSubmitting(true);
+    try {
+      await onSave(accountData);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const isCategoryRole = formData.roleLabel === "Category Admin";
@@ -168,10 +175,10 @@ export default function CreateAdminAccountForm({
         </div>
 
         <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" isLoading={isSubmitting} loadingLabel={isEditing ? "Saving..." : "Creating..."}>
             {isEditing ? "Save Changes" : "Create Account"}
           </Button>
         </div>

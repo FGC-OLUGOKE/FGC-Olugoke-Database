@@ -105,6 +105,7 @@ export default function MemberForm({
   const isEditing = Boolean(member);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -126,8 +127,9 @@ export default function MemberForm({
     });
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (isSubmitting) return;
     const validationErrors = validate(formData);
 
     if (Object.keys(validationErrors).length > 0) {
@@ -135,7 +137,16 @@ export default function MemberForm({
       return;
     }
 
-    onSave?.({ ...formData, worker: formData.departments.length > 0 });
+    setIsSubmitting(true);
+    try {
+      await onSave?.({
+        ...formData,
+        dateJoined: formData.dateJoined || null,
+        worker: formData.departments.length > 0,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const age = formData.dateOfBirth ? getCurrentAge(formData.dateOfBirth) : null;
@@ -296,10 +307,10 @@ export default function MemberForm({
         </div>
 
         <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.06)] md:px-8">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" isLoading={isSubmitting} loadingLabel={isEditing ? "Saving..." : "Adding..."}>
             {submitLabel}
           </Button>
         </div>

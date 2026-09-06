@@ -222,6 +222,7 @@ export default function SundaySchoolClassAttendance({
   }
 
   async function handleSave() {
+    if (isSaving) return;
     /*
      * Don't allow saving while some members haven't
      * been given an attendance status.
@@ -508,6 +509,8 @@ export default function SundaySchoolClassAttendance({
           type="button"
           onClick={handleSave}
           disabled={isSaving || !members.length}
+          isLoading={isSaving}
+          loadingLabel="Saving..."
         >
           <Check
             className="h-4 w-4"

@@ -482,6 +482,7 @@ export default function AttendanceForm({
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (isSaving) return;
 
     if (activeTab === "attendance") {
       const validationError = validateChurchAttendance();
@@ -972,7 +973,8 @@ export default function AttendanceForm({
 
             <Button
               type="submit"
-              disabled={isSaving}
+              isLoading={isSaving}
+              loadingLabel="Saving..."
             >
               <Save
                 className="h-4 w-4"

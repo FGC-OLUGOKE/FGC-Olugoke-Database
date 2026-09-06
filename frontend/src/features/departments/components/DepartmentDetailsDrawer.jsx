@@ -126,7 +126,7 @@ export default function DepartmentDetailsDrawer({
   }
 
   async function handleAddMembers() {
-    if (!department || selectedMembers.length === 0) return;
+    if (!department || selectedMembers.length === 0 || isSavingMembers) return;
 
     setIsSavingMembers(true);
 
@@ -157,7 +157,7 @@ export default function DepartmentDetailsDrawer({
   }
 
   async function handleRemoveMember() {
-    if (!department || !memberPendingRemove) return;
+    if (!department || !memberPendingRemove || isRemovingMember) return;
 
     setIsRemovingMember(true);
 
@@ -185,7 +185,7 @@ export default function DepartmentDetailsDrawer({
   }
 
   async function handleSaveLeader() {
-    if (!department) return;
+    if (!department || isSavingLeader) return;
 
     if (selectedLeader === (department.leader || "")) {
       return;

@@ -13,6 +13,7 @@ export default function LoginPage() {
 
   async function submit(event) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError("");
     try {

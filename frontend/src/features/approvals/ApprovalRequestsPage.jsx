@@ -140,6 +140,7 @@ export default function ApprovalRequestsPage() {
   }, [user]);
 
   async function handleReview(request, decision) {
+    if (reviewingRequestId === request.id) return;
     setReviewingRequestId(request.id);
     try {
       const reviewedRequest = await reviewApprovalRequest(request.id, decision);

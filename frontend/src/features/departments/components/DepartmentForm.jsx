@@ -50,6 +50,7 @@ export default function DepartmentForm({
   onClose,
   onSave,
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = Boolean(department);
 
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -86,8 +87,9 @@ export default function DepartmentForm({
     });
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (isSubmitting) return;
 
     const validationErrors = validate(formData);
 
@@ -96,7 +98,12 @@ export default function DepartmentForm({
       return;
     }
 
-    onSave?.(formData);
+    setIsSubmitting(true);
+    try {
+      await onSave?.(formData);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const departmentMembers = useMemo(() => {
@@ -282,11 +289,12 @@ export default function DepartmentForm({
               type="button"
               variant="secondary"
               onClick={onClose}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
 
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" isLoading={isSubmitting} loadingLabel={isEditing ? "Saving..." : "Creating..."}>
               {isEditing
                 ? "Save Changes"
                 : "Create Department"}

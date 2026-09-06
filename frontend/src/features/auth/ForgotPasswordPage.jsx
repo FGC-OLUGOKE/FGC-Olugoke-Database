@@ -12,6 +12,7 @@ export default function ForgotPasswordPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError("");
     try {
@@ -39,7 +40,7 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             {error && <p className="rounded-lg bg-[#9e263b]/5 p-3 text-sm text-[#9e263b]">{error}</p>}
             <Input label="Email address" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-            <Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting ? "Sending..." : "Send reset link"}</Button>
+            <Button type="submit" isLoading={isSubmitting} loadingLabel="Sending..." className="w-full">Send reset link</Button>
           </form>
         )}
       </div>

@@ -14,6 +14,7 @@ export default function ResetPasswordPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError("");
     try {
@@ -37,7 +38,7 @@ export default function ResetPasswordPage() {
             {error && <p className="rounded-lg bg-[#9e263b]/5 p-3 text-sm text-[#9e263b]">{error}</p>}
             <Input label="New password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required />
             <Input label="Confirm new password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} required />
-            <Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting ? "Saving..." : "Reset password"}</Button>
+            <Button type="submit" isLoading={isSubmitting} loadingLabel="Saving..." className="w-full">Reset password</Button>
           </form>
         )}
       </div>

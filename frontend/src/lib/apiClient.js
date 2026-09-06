@@ -2,10 +2,18 @@
 // value must not override this fallback.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 const TOKEN_KEY = "fgcAuthToken";
+const pendingRequests = new Map();
 export function getToken() { return window.localStorage.getItem(TOKEN_KEY); }
 export function setToken(token) { window.localStorage.setItem(TOKEN_KEY, token); }
 export function clearToken() { window.localStorage.removeItem(TOKEN_KEY); }
 export async function apiRequest(path, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+  const requestKey = `${method}:${path}:${options.body || ""}`;
+  if (method !== "GET" && pendingRequests.has(requestKey)) {
+    return pendingRequests.get(requestKey);
+  }
+
+  const request = (async () => {
   const headers = { ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers };
   const token = getToken();
   if (token) headers.Authorization = `Token ${token}`;
@@ -20,4 +28,12 @@ export async function apiRequest(path, options = {}) {
     throw error;
   }
   return data;
+  })();
+
+  if (method !== "GET") pendingRequests.set(requestKey, request);
+  try {
+    return await request;
+  } finally {
+    if (method !== "GET") pendingRequests.delete(requestKey);
+  }
 }

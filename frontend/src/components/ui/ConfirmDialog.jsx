@@ -33,13 +33,27 @@ export default function ConfirmDialog({
   title,
   description,
   confirmLabel = "Delete",
+  loadingLabel = "Processing...",
   cancelLabel = "Cancel",
   confirmVariant = "danger",
+  isLoading = false,
   onConfirm,
   onCancel,
 }) {
   const [shouldRender, setShouldRender] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isLoading || isSubmitting;
+
+  async function handleConfirm() {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onConfirm?.();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -54,14 +68,14 @@ export default function ConfirmDialog({
     return () => clearTimeout(timeout);
   }, [isOpen]);
 
-  useEscapeKey(() => onCancel?.(), isOpen);
+  useEscapeKey(() => !isBusy && onCancel?.(), isOpen);
 
   if (!shouldRender) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
-        onClick={onCancel}
+        onClick={!isBusy ? onCancel : undefined}
         aria-hidden="true"
         className={`absolute inset-0 bg-gray-900/40 transition-opacity duration-150 ${
           visible ? "opacity-100" : "opacity-0"
@@ -84,10 +98,10 @@ export default function ConfirmDialog({
         )}
 
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel} disabled={isBusy}>
             {cancelLabel}
           </Button>
-          <Button variant={confirmVariant} onClick={onConfirm}>
+          <Button variant={confirmVariant} onClick={handleConfirm} isLoading={isBusy} loadingLabel={loadingLabel}>
             {confirmLabel}
           </Button>
         </div>

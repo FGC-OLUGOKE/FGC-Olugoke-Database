@@ -108,6 +108,7 @@ export default function AttendancePage() {
    * category admins cannot open AttendanceForm.
    */
   async function handleSaveAttendance(payload) {
+    if (isSaving) return;
     setIsSaving(true);
     setError("");
 

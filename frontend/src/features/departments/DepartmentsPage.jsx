@@ -294,7 +294,7 @@ export default function DepartmentsPage() {
         <Button
           variant="primary"
           onClick={handleAddNew}
-          className="!hidden md:inline-flex sm:w-auto"
+          className="hidden md:inline-flex sm:w-auto"
         >
           + New Department
         </Button>

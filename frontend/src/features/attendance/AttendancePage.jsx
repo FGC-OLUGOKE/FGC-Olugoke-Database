@@ -194,7 +194,7 @@ export default function AttendancePage() {
         {canRecord && (
           <Button
             type="button"
-            className="!hidden md:inline-flex sm:w-auto"
+            className="hidden md:inline-flex sm:w-auto"
             onClick={() => {
               setError("");
               setIsRecordDrawerOpen(true);

@@ -4,8 +4,10 @@ Every feature module has its own `api.js` (for example,
 `src/features/members/api.js`). These modules call the Django REST API through
 `src/lib/apiClient.js`; components do not contain direct fetch calls.
 
-The default API URL is `http://127.0.0.1:8000/api`. Set `VITE_API_URL` when the
-backend runs at another address.
+The default API URL is `/api`. The Vite development server proxies that path
+to Django at `http://127.0.0.1:8000`; on Vercel it is served by this project's
+same-origin `/api` route. Set `VITE_API_BASE_URL` only when the backend runs at
+another address.
 
 ## Where each dataset lives
 

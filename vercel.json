@@ -32,6 +32,14 @@
       "dest": "/frontend/index.html"
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "/frontend/assets/$1"
+    },
+    {
+      "src": "/logo.svg",
+      "dest": "/frontend/logo.svg"
+    },
+    {
       "src": "/(.*)",
       "dest": "/frontend/index.html"
     }

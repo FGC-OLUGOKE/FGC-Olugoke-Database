@@ -15,6 +15,14 @@ def env_list(name, default=""):
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,::1,testserver")
 
+# Vercel assigns a distinct hostname to each production/preview deployment.
+# It is made available to serverless functions as VERCEL_URL, without a scheme.
+# Adding that exact hostname keeps Django's host-header protection in place while
+# allowing requests made through the active Vercel deployment.
+vercel_url = os.getenv("VERCEL_URL", "").strip()
+if vercel_url and vercel_url not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(vercel_url)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

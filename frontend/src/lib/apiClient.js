@@ -1,6 +1,6 @@
-// Use Vercel's same-origin Django route in production.  Vite embeds this
-// value at build time, while the local dev server proxies `/api` to Django.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
+// Use the same-origin Django route by default. A blank Vercel environment
+// value must not override this fallback.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 const TOKEN_KEY = "fgcAuthToken";
 export function getToken() { return window.localStorage.getItem(TOKEN_KEY); }
 export function setToken(token) { window.localStorage.setItem(TOKEN_KEY, token); }

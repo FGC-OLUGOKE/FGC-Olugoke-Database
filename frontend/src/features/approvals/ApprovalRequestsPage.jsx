@@ -286,7 +286,7 @@ export default function ApprovalRequestsPage() {
   }
 
   if (isLoading) {
-    return <LoadingState label="Loading approval requests..." />;
+    return <LoadingState label="Loading requests..." />;
   }
 
   return (

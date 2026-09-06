@@ -10,12 +10,12 @@ import Button from "../../../components/ui/Button";
  * on their assigned [category/department]," not just have its data
  * quietly filtered with no visual signal that it's filtered at all.
  */
-export default function DashboardHeader({ adminFirstName = "Pastor", scopeLabel, showAddMember = true, onAddMember }) {
+export default function DashboardHeader({ scopeLabel, showAddMember = true, onAddMember }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">
-          {scopeLabel ? `${scopeLabel} Dashboard` : `Welcome back, ${adminFirstName}`}
+          {scopeLabel ? `${scopeLabel} Dashboard` : `Welcome back`}
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           {scopeLabel
@@ -23,11 +23,11 @@ export default function DashboardHeader({ adminFirstName = "Pastor", scopeLabel,
             : "Here's what's happening across the church today."}
         </p>
       </div>
-      {showAddMember && (
+      {/* {showAddMember && (
         <Button variant="primary" onClick={onAddMember} className="sm:w-auto">
           + Add Member
         </Button>
-      )}
+      )} */}
     </div>
   );
 }

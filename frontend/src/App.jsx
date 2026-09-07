@@ -13,6 +13,7 @@ import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import ReportsPage from "./features/reports/ReportsPage";
 import ApprovalRequestsPage from "./features/approvals/ApprovalRequestsPage";
 import AttendancePage from "./features/attendance/AttendancePage";
+import LogsPage from "./features/activity-logs/LogsPage.jsx";
 import ProfilePage from "./features/profile/ProfilePage";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { isSuperAdmin, isCategoryAdmin } from "./lib/permissions";
@@ -84,6 +85,11 @@ export default function App() {
             <Route
               path="reports"
               element={<ReportsPage />}
+            />
+
+            <Route
+              path="logs"
+              element={<LogsPage />}
             />
 
             <Route

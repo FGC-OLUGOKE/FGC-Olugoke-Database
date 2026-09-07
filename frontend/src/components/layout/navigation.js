@@ -20,6 +20,7 @@ export const NAV_ITEMS = [
   { label: "Reports", path: "reports", icon: BarChart3, implemented: true },
   { label: "Approval Requests", path: "approvals", icon: ClipboardCheck, implemented: true },
   { label: "Admin Accounts", path: "admin", icon: Settings, implemented: true },
+  { label: "Logs", path: "logs", icon: CalendarDays, implemented: true },
   // { label: "Events", path: "events", icon: CalendarDays, implemented: false },
   // { label: "Workers", path: "workers", icon: HardHat, implemented: false },
   // { label: "Cell Groups", path: "cell-groups", icon: UsersRound, implemented: false },

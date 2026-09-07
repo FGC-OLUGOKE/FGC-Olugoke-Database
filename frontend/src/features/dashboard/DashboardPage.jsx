@@ -115,29 +115,36 @@ export default function DashboardPage() {
   const needsAttention = useMemo(() => {
     const alerts = [];
 
-    const incompleteProfiles = scopedMembers.filter(
-      (m) => !m.occupation?.trim(),
-    );
-    if (incompleteProfiles.length > 0) {
-      alerts.push({
-        title: `${incompleteProfiles.length} member${incompleteProfiles.length === 1 ? "" : "s"} with incomplete profiles`,
-        description: `${incompleteProfiles
-          .map((m) => `${m.firstName} ${m.lastName}`)
-          .join(", ")} — missing occupation details.`,
-      });
-    }
+    scopedMembers.forEach((member) => {
+      const missingFields = [
+        !member.photoUrl && "Photo",
+        !member.phone?.trim() && "Phone Number",
+        !member.email?.trim() && "Email",
+        !member.address?.trim() && "Address",
+        !member.occupation?.trim() && "Occupation",
+        !member.departments?.length && "Department",
+      ].filter(Boolean);
 
-    const inactiveMembers = scopedMembers.filter(
-      (m) => m.status === "Inactive",
-    );
-    if (inactiveMembers.length > 0) {
-      alerts.push({
-        title: `${inactiveMembers.length} member${inactiveMembers.length === 1 ? "" : "s"} may need follow-up`,
-        description: `${inactiveMembers
-          .map((m) => `${m.firstName} ${m.lastName}`)
-          .join(", ")} marked Inactive.`,
+      if (missingFields.length > 0) {
+        alerts.push({
+          id: `profile-${member.id}`,
+          type: "profile",
+          title: `${member.firstName} ${member.lastName}`,
+          missingFields,
+        });
+      }
+    });
+
+    scopedMembers
+      .filter((member) => member.status === "Inactive")
+      .forEach((member) => {
+        alerts.push({
+          id: `inactive-${member.id}`,
+          type: "inactive",
+          title: `${member.firstName} ${member.lastName}`,
+          description: "Member status: Inactive.",
+        });
       });
-    }
 
     if (isSuperAdmin(user)) {
       const now = new Date();
@@ -151,6 +158,7 @@ export default function DashboardPage() {
       });
       if (soonConvention) {
         alerts.push({
+          id: `event-${soonConvention.id}`,
           title: `${soonConvention.name} is coming up`,
           description: `Scheduled for ${new Date(
             soonConvention.date,

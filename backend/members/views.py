@@ -3,6 +3,7 @@ from django.conf import settings
 from datetime import date
 from datetime import timedelta
 import hashlib
+import logging
 import secrets
 from django.utils import timezone
 from django.core.mail import send_mail
@@ -16,6 +17,8 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member, PasswordResetToken
 from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer
+
+logger = logging.getLogger(__name__)
 
 def account_for(user):
     try: return user.admin_account
@@ -146,10 +149,34 @@ class MemberViewSet(viewsets.ModelViewSet):
 class AdminAccountViewSet(viewsets.ModelViewSet):
     serializer_class = AdminAccountSerializer; permission_classes = (SuperAdminOnly,)
     queryset = AdminAccount.objects.select_related("user", "department")
+    # The serializer deliberately exposes the login user's ID.  Use that same
+    # ID for detail routes so PATCH/DELETE operate on the account selected by
+    # the client, even when User and AdminAccount primary keys differ.
+    lookup_field = "user_id"
+
     def destroy(self, request, *args, **kwargs):
         account = self.get_object()
         if account.role == AdminAccount.SUPER_ADMIN: return Response({"detail": "The Super Admin account cannot be removed."}, status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, *args, **kwargs)
+        user = account.user
+        admin_name = user.get_full_name() or user.email
+
+        with transaction.atomic():
+            # A promoted member must be eligible to be promoted again after
+            # their admin access is removed.
+            Member.objects.filter(user=user).update(user=None)
+            account.delete()
+
+            # Keep the user row for protected audit records (announcements,
+            # reports, approvals, etc.), but retire its credentials and free
+            # the previous email/username for a future admin account.
+            user.username = f"deleted-admin-{user.pk}"
+            user.email = f"deleted-admin-{user.pk}@deleted.invalid"
+            user.is_active = False
+            user.set_unusable_password()
+            user.save(update_fields=("username", "email", "is_active", "password"))
+
+        log_activity(request.user, f"Removed admin access for {admin_name}")
+        return Response(status=status.HTTP_204_NO_CONTENT)
     @action(detail=False, methods=("post",))
     def promote_member(self, request):
         member_id = request.data.get("member_id")
@@ -356,15 +383,22 @@ def request_password_reset(request):
     user = get_user_model().objects.filter(email__iexact=email, is_active=True, admin_account__isnull=False).first()
     if not user:
         return Response({"detail": "No active admin account exists for that email."}, status=status.HTTP_404_NOT_FOUND)
-    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
     raw_token = secrets.token_urlsafe(48)
-    PasswordResetToken.objects.create(
+    reset = PasswordResetToken.objects.create(
         user=user,
         token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
         expires_at=timezone.now() + timedelta(minutes=30),
     )
     reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password/{raw_token}"
-    send_mail("Reset your FGC Olugoke password", f"Open this link to reset your password:\n\n{reset_url}\n\nThis link expires in 30 minutes.", settings.DEFAULT_FROM_EMAIL, [user.email])
+    try:
+        send_mail("Reset your FGC Olugoke password", f"Open this link to reset your password:\n\n{reset_url}\n\nThis link expires in 30 minutes.", settings.DEFAULT_FROM_EMAIL, [user.email])
+    except Exception:
+        # Keep any previously sent reset link usable when the provider rejects
+        # this delivery attempt, and retain the technical reason in server logs.
+        reset.delete()
+        logger.exception("Unable to send password-reset email")
+        return Response({"detail": "We could not send the password-reset email. Please check the mail configuration and try again."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).exclude(pk=reset.pk).update(used_at=timezone.now())
     return Response({"detail": "A password reset link has been sent to your email."})
 
 @api_view(("POST",))
@@ -389,8 +423,14 @@ def confirm_password_reset(request, token):
     return Response({"detail": "Password reset successfully. Please sign in again."})
 
 @api_view(("POST",))
-@permission_classes((IsApplicationAdmin,))
-def logout(request): Token.objects.filter(user=request.user).delete(); return Response(status=status.HTTP_204_NO_CONTENT)
+@permission_classes((permissions.AllowAny,))
+def logout(request):
+    # Logout is intentionally idempotent: a locally stored token may already
+    # have expired or been revoked, but the user should still be able to leave
+    # the application without receiving a 401 response.
+    if request.user.is_authenticated:
+        Token.objects.filter(user=request.user).delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(("GET",))
 @permission_classes((IsApplicationAdmin,))

@@ -220,8 +220,8 @@ export default function ApprovalRequestsPage() {
 
       setIsAccountFormOpen(false);
       setEditingAccount(null);
-    } catch {
-      toast.error("Something went wrong saving this account.");
+    } catch (error) {
+      toast.error(error.message || "Something went wrong saving this account.");
     }
   }
 
@@ -261,8 +261,8 @@ export default function ApprovalRequestsPage() {
       toast.success(
         `${accountPendingRemoval.name}'s admin access was removed`,
       );
-    } catch {
-      toast.error("Something went wrong removing this account.");
+    } catch (error) {
+      toast.error(error.message || "Something went wrong removing this account.");
     } finally {
       setAccountPendingRemoval(null);
     }
@@ -463,7 +463,7 @@ export default function ApprovalRequestsPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenAdmin(admin)}
-                    className="flex w-full items-center justify-between gap-3 rounded-lg py-3 text-left transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#d6b447] focus:ring-inset first:pt-3 last:pb-3"
+                    className="flex w-full items-center justify-between gap-3 rounded-lg py-3 text-left transition hover:bg-gray-50 focus:outline-none cursor-pointer focus:ring-0 first:pt-3 last:pb-3"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-gray-900">

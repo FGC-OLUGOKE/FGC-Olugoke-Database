@@ -32,11 +32,11 @@ export default function Navbar({
     .map((part) => part[0]?.toUpperCase())
     .join("");
 
-  function handleConfirmLogout() {
+  async function handleConfirmLogout() {
     setShowLogoutConfirm(false);
 
     if (logout) {
-      logout();
+      await logout();
     } else {
       localStorage.clear();
       sessionStorage.clear();

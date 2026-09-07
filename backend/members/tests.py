@@ -36,6 +36,10 @@ class AccessControlTests(APITestCase):
         response = self.client.get("/api/me/")
         self.assertEqual(response.status_code, 401)
 
+    def test_logout_succeeds_when_the_token_is_already_missing(self):
+        response = self.client.post("/api/auth/logout/")
+        self.assertEqual(response.status_code, 204)
+
     def test_password_reset_reports_unknown_email(self):
         response = self.client.post(
             "/api/auth/password-reset/request/",
@@ -74,8 +78,36 @@ class AccessControlTests(APITestCase):
     def test_super_admin_cannot_remove_staff_department_assignment(self):
         self.authenticate(self.super_token)
         staff_account = AdminAccount.objects.get(user__email="choir@example.com")
-        response = self.client.patch(f"/api/users/{staff_account.id}/", {"departmentId": None}, format="json")
+        response = self.client.patch(f"/api/users/{staff_account.user_id}/", {"departmentId": None}, format="json")
         self.assertEqual(response.status_code, 400)
+
+    def test_deleting_admin_releases_email_and_uses_the_serialized_user_id(self):
+        self.authenticate(self.super_token)
+        User = get_user_model()
+        # Ensure the user and AdminAccount IDs differ; this mirrors a real
+        # database where not every user is an application admin.
+        User.objects.create_user(username="member-only@example.com", email="member-only@example.com", password="secure-pass")
+
+        created = self.client.post(
+            "/api/users/",
+            {"name": "Media Lead", "email": "lead@example.com", "password": "another-secure-password", "departmentId": self.media.id},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        account = AdminAccount.objects.get(user__email="lead@example.com")
+        self.assertNotEqual(created.data["id"], account.pk)
+
+        deleted = self.client.delete(f"/api/users/{created.data['id']}/")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(AdminAccount.objects.filter(user_id=created.data["id"]).exists())
+        self.assertFalse(User.objects.get(pk=created.data["id"]).is_active)
+
+        recreated = self.client.post(
+            "/api/users/",
+            {"name": "New Media Lead", "email": "lead@example.com", "password": "another-secure-password", "departmentId": self.media.id},
+            format="json",
+        )
+        self.assertEqual(recreated.status_code, 201, recreated.data)
 
     def test_category_admin_only_sees_and_creates_members_in_own_category(self):
         self.choir_member.category = "Youth"

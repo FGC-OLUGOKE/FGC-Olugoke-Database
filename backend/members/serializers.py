@@ -63,6 +63,15 @@ class AdminAccountSerializer(serializers.ModelSerializer):
         return obj.user.get_full_name() or obj.user.email
     def get_scope(self, obj):
         return obj.department.name if obj.department_id else obj.category
+    def validate_email(self, value):
+        email = value.strip().lower()
+        User = get_user_model()
+        existing = User.objects.filter(username__iexact=email)
+        if self.instance:
+            existing = existing.exclude(pk=self.instance.user_id)
+        if existing.exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return email
     def validate(self, attrs):
         role = attrs.get("role", self.instance.role if self.instance else AdminAccount.DEPARTMENT_ADMIN)
         department = attrs.get("department", self.instance.department if self.instance else None)

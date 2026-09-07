@@ -37,9 +37,15 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => { 
-    await logoutRequest(); 
-    setUser(null); 
-    setAllUsers([]); 
+    try {
+      await logoutRequest();
+    } catch {
+      // Logging out locally must still work if the token was already revoked
+      // or the server cannot be reached.
+    } finally {
+      setUser(null); 
+      setAllUsers([]); 
+    }
   }, []);
 
   return <AuthContext.Provider value={{ user, allUsers, isLoading, login, logout, refresh }}>{children}</AuthContext.Provider>;

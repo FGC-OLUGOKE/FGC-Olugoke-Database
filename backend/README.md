@@ -74,6 +74,26 @@ Authorization: Token <token>
 Use `GET /api/me/` to retrieve the current account and
 `POST /api/auth/logout/` to revoke its token.
 
+
+- `POST /api/auth/password-reset/` - body `{"email": "..."}`. Emails a reset code to the
+  matching active user. Always returns 200 so the response does not reveal whether an
+  account exists.
+- `POST /api/auth/password-reset/confirm/` - body `{"code": "...", "new_password": "..."}`.
+  The code is the `<uid>.<token>` string from the email; it is single use and the new
+  password runs through `AUTH_PASSWORD_VALIDATORS`.
+
+Email is configured through environment variables, defaulting to the console backend for
+local development:
+
+- `EMAIL_BACKEND` (default `django.core.mail.backends.console.EmailBackend`)
+- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`
+- `DEFAULT_FROM_EMAIL`
+- `PASSWORD_RESET_URL` - frontend page named in the email where the code is entered
+  (default `http://localhost:5173/reset-password`)
+
+Run the tests with `python manage.py test members`.
+
+
 ## API endpoints
 
 All endpoints below are prefixed with `/api/` and require an authenticated

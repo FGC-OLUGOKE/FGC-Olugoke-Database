@@ -1,5 +1,11 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from datetime import date
 from datetime import timedelta
 import hashlib
@@ -16,7 +22,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member, PasswordResetToken
-from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer
+from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -477,3 +483,43 @@ def health(request):
         return Response({"status": "healthy", "database": "connected"}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"status": "unhealthy", "database": "disconnected", "error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        for user in get_user_model().objects.filter(email__iexact=email, is_active=True):
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            send_mail(
+                subject="Reset your FGC-Olugoke password",
+                message=(
+                    f"Hello {user.get_username()},\n\n"
+                    f"Go to {settings.PASSWORD_RESET_URL} and enter this reset code "
+                    "to choose a new password. "
+                    "Ignore this email if you did not request a reset.\n\n"
+                    f"{uid}.{token}\n"
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+        return Response(
+            {"detail": "If an account exists for that email, a reset code has been sent."},
+            status=status.HTTP_200_OK,
+        )
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "Password has been reset."}, status=status.HTTP_200_OK)
+        

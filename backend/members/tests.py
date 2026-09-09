@@ -348,3 +348,86 @@ class AccessControlTests(APITestCase):
         self.assertEqual(approve_delete.status_code, 200, approve_delete.data)
         self.assertEqual(approve_delete.data["status"], ApprovalRequest.APPROVED)
         self.assertFalse(Member.objects.filter(pk=delete_member.id).exists())
+
+
+from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class PasswordResetEmailTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="member1",
+            email="member1@example.com",
+            password="OldPassw0rd!",
+        )
+
+    def request_reset(self, email):
+        return self.client.post(
+            reverse("password-reset"),
+            {"email": email},
+            content_type="application/json",
+        )
+
+    def reset_code(self):
+        return mail.outbox[0].body.strip().splitlines()[-1].strip()
+
+    def test_reset_email_sent_to_registered_user(self):
+        response = self.request_reset("member1@example.com")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["member1@example.com"])
+        self.assertIn(".", self.reset_code())
+        self.assertNotIn("?", mail.outbox[0].body)
+
+    def test_unknown_email_sends_nothing_but_returns_200(self):
+        response = self.request_reset("nobody@example.com")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_emailed_code_resets_password(self):
+        self.request_reset("member1@example.com")
+
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {"code": self.reset_code(), "new_password": "BrandNewPassw0rd!"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("BrandNewPassw0rd!"))
+
+    def test_code_is_single_use(self):
+        self.request_reset("member1@example.com")
+        payload = {"code": self.reset_code(), "new_password": "BrandNewPassw0rd!"}
+
+        self.client.post(
+            reverse("password-reset-confirm"), payload, content_type="application/json"
+        )
+        response = self.client.post(
+            reverse("password-reset-confirm"), payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_weak_password_is_rejected(self):
+        self.request_reset("member1@example.com")
+
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {"code": self.reset_code(), "new_password": "123"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("OldPassw0rd!"))
+
+    def test_malformed_code_is_rejected(self):
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {"code": "not-a-code", "new_password": "BrandNewPassw0rd!"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)

@@ -1,4 +1,9 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, ChurchEvent, Department, DepartmentReport, Member
 
@@ -32,6 +37,40 @@ class MemberSerializer(serializers.ModelSerializer):
     def get_isAdmin(self, obj):
         return bool(obj.user and hasattr(obj.user, 'admin_account'))
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        uid, separator, token = attrs["code"].strip().partition(".")
+        if not separator:
+            raise serializers.ValidationError({"code": "Invalid reset code."})
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = get_user_model().objects.get(pk=user_id)
+        except (ValueError, TypeError, get_user_model().DoesNotExist):
+            raise serializers.ValidationError({"code": "Invalid reset code."})
+
+        if not default_token_generator.check_token(user, token):
+            raise serializers.ValidationError({"code": "Invalid or expired reset code."})
+
+        try:
+            validate_password(attrs["new_password"], user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"new_password": list(exc.messages)})
+
+        attrs["user"] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data["user"]
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return user
 
 class AdminAccountSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="user.id", read_only=True)

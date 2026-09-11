@@ -67,6 +67,7 @@ class Member(models.Model):
     category = models.CharField(max_length=32, choices=AdminAccount.CATEGORY_CHOICES)
     departments = models.ManyToManyField(Department, blank=True, related_name="members")
     status = models.CharField(max_length=32, blank=True)
+    date_of_membership = models.DateField(null=True, blank=True)
     date_joined = models.DateField(null=True, blank=True)
     baptized = models.BooleanField(default=False)
     worker = models.BooleanField(default=False)

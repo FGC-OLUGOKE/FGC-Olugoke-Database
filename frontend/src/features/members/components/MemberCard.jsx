@@ -30,7 +30,7 @@ export default function MemberCard({ member, onView }) {
           </p>
           <p className="truncate text-xs text-gray-500">{member.email}</p>
         </div>
-        <Badge tone={member.status === "Active" ? "success" : "neutral"}>{member.status}</Badge>
+        <Badge tone={member.status === "Active" ? "active" : "inactive"}>{member.status}</Badge>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">

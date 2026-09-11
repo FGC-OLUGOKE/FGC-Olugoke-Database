@@ -26,7 +26,10 @@ export default function App() {
   if (!user) {
     const path = window.location.pathname;
     if (path === "/forgot-password") return <ForgotPasswordPage />;
-    if (path.startsWith("/reset-password/")) return <ResetPasswordPage />;
+    if (path.startsWith("/reset-password/")) {
+      const token = decodeURIComponent(path.slice("/reset-password/".length));
+      return <ResetPasswordPage token={token} />;
+    }
     return <LoginPage />;
   }
 

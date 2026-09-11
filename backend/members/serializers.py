@@ -80,7 +80,7 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     scope = serializers.SerializerMethodField()
     departmentId = serializers.PrimaryKeyRelatedField(source="department", queryset=Department.objects.all(), write_only=True, required=False, allow_null=True)
     departmentIds = serializers.PrimaryKeyRelatedField(source="departments", queryset=Department.objects.all(), many=True, write_only=True, required=False)
-    departments = serializers.SlugRelatedField(many=True, read_only=True, slug_field="name")
+    departments = serializers.SerializerMethodField()
     category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, write_only=True, required=False, allow_null=True)
     password = serializers.CharField(source="user.password", write_only=True, required=False, min_length=8)
     class Meta:
@@ -105,6 +105,12 @@ class AdminAccountSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.email
+
+    def get_departments(self, obj):
+        if obj.role != AdminAccount.PASTORATE:
+            return []
+        return [department.name for department in obj.departments.all()]
+
     def get_scope(self, obj):
         if obj.role == AdminAccount.PASTORATE:
             return [department.name for department in obj.departments.all()]

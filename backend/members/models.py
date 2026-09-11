@@ -30,12 +30,21 @@ class AdminAccount(models.Model):
     SUPER_ADMIN = "super_admin"
     CATEGORY_ADMIN = "category_admin"
     DEPARTMENT_ADMIN = "department_admin"
+    MANAGING_DEPARTMENTS = "managing_departments"
+    PASTORATE = "pastorate"
     CATEGORY_CHOICES = (("Children", "Children"), ("Teenager", "Teenager"), ("Youth", "Youth"), ("Adult", "Adult"))
-    ROLE_CHOICES = ((SUPER_ADMIN, "Super Admin"), (CATEGORY_ADMIN, "Category Admin"), (DEPARTMENT_ADMIN, "Departmental Admin"))
+    ROLE_CHOICES = (
+        (SUPER_ADMIN, "Super Admin"),
+        (CATEGORY_ADMIN, "Category Admin"),
+        (DEPARTMENT_ADMIN, "Departmental Admin"),
+        (MANAGING_DEPARTMENTS, "Managing Departments"),
+        (PASTORATE, "Pastorate"),
+    )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="admin_account")
     role = models.CharField(max_length=32, choices=ROLE_CHOICES)
     category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, null=True, blank=True)
     department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name="admins")
+    departments = models.ManyToManyField(Department, blank=True, related_name="pastorate_admins")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -48,6 +57,8 @@ class AdminAccount(models.Model):
             raise ValidationError({"category": "A Category Admin must be assigned to one category."})
         if self.role == self.DEPARTMENT_ADMIN and not self.department_id:
             raise ValidationError({"department": "A Departmental Admin must be assigned to one department."})
+        if self.role in (self.SUPER_ADMIN, self.MANAGING_DEPARTMENTS, self.PASTORATE) and (self.department_id or self.category):
+            raise ValidationError("This admin role cannot have a single department or category scope.")
 
 
 class Member(models.Model):

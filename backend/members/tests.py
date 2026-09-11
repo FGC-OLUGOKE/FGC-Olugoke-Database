@@ -75,6 +75,57 @@ class AccessControlTests(APITestCase):
         self.assertEqual(response.data["role"], "department_admin")
         self.assertEqual(response.data["scope"], "Media")
 
+    def test_super_admin_can_create_managing_departments_and_pastorate_accounts(self):
+        self.authenticate(self.super_token)
+
+        managing = self.client.post(
+            "/api/users/",
+            {"name": "Managing Lead", "email": "managing@example.com", "password": "another-secure-password", "role": AdminAccount.MANAGING_DEPARTMENTS},
+            format="json",
+        )
+        self.assertEqual(managing.status_code, 201, managing.data)
+        self.assertEqual(managing.data["role"], AdminAccount.MANAGING_DEPARTMENTS)
+        self.assertEqual(managing.data["scope"], None)
+
+        pastorate = self.client.post(
+            "/api/users/",
+            {
+                "name": "Pastorate Lead",
+                "email": "pastorate@example.com",
+                "password": "another-secure-password",
+                "role": AdminAccount.PASTORATE,
+                "departmentIds": [self.choir.id, self.media.id],
+            },
+            format="json",
+        )
+        self.assertEqual(pastorate.status_code, 201, pastorate.data)
+        self.assertEqual(pastorate.data["role"], AdminAccount.PASTORATE)
+        self.assertEqual(set(pastorate.data["departments"]), {self.choir.name, self.media.name})
+
+    def test_managing_departments_reads_all_but_cannot_write_and_pastorate_manages_assigned_departments(self):
+        User = get_user_model()
+        managing_user = User.objects.create_user(username="managing@example.com", email="managing@example.com", password="secure-pass")
+        AdminAccount.objects.create(user=managing_user, role=AdminAccount.MANAGING_DEPARTMENTS)
+        managing_token = Token.objects.create(user=managing_user).key
+
+        pastorate_user = User.objects.create_user(username="pastorate@example.com", email="pastorate@example.com", password="secure-pass")
+        pastorate_account = AdminAccount.objects.create(user=pastorate_user, role=AdminAccount.PASTORATE)
+        pastorate_account.departments.add(self.choir)
+        pastorate_token = Token.objects.create(user=pastorate_user).key
+
+        self.authenticate(managing_token)
+        members = self.client.get("/api/members/")
+        self.assertEqual(members.status_code, 200)
+        self.assertEqual({member["id"] for member in members.data}, {self.choir_member.id, self.media_member.id})
+        self.assertEqual(self.client.patch(f"/api/members/{self.choir_member.id}/", {"status": "Active"}, format="json").status_code, 403)
+
+        self.authenticate(pastorate_token)
+        members = self.client.get("/api/members/")
+        self.assertEqual(members.status_code, 200)
+        self.assertEqual({member["id"] for member in members.data}, {self.choir_member.id, self.media_member.id})
+        self.assertEqual(self.client.patch(f"/api/members/{self.choir_member.id}/", {"status": "Active"}, format="json").status_code, 200)
+        self.assertEqual(self.client.patch(f"/api/members/{self.media_member.id}/", {"status": "Active"}, format="json").status_code, 403)
+
     def test_super_admin_can_promote_member_and_demote_admin_back_to_member(self):
         self.authenticate(self.super_token)
         User = get_user_model()

@@ -1,4 +1,3 @@
-
 import { Pencil, UserX, X } from "lucide-react";
 
 import Drawer from "../../components/ui/Drawer";
@@ -38,7 +37,11 @@ export default function AdminDetailsDrawer({
       ? "Category Admin"
       : admin.role === "department_admin"
         ? "Departmental Admin"
-        : "Super Admin";
+        : admin.role === "managing_departments"
+          ? "Managing Departments"
+          : admin.role === "pastorate"
+            ? "Pastorate"
+            : "Super Admin";
 
   const status = admin.status || "Active";
 
@@ -72,14 +75,10 @@ export default function AdminDetailsDrawer({
                 {admin.name}
               </p>
 
-              <p className="text-sm text-gray-500">
-                {roleLabel}
-              </p>
+              <p className="text-sm text-gray-500">{roleLabel}</p>
             </div>
 
-            <Badge
-              tone={status === "Active" ? "active" : "inactive"}
-            >
+            <Badge tone={status === "Active" ? "active" : "inactive"}>
               {status}
             </Badge>
           </div>
@@ -89,7 +88,14 @@ export default function AdminDetailsDrawer({
             <Field label="Full Name" value={admin.name} />
             <Field label="Email" value={admin.email} />
             <Field label="Role" value={roleLabel} />
-            <Field label="Scope" value={admin.scope} />
+            <Field
+              label="Scope"
+              value={
+                Array.isArray(admin.scope)
+                  ? admin.scope.join(", ")
+                  : admin.scope
+              }
+            />
             <Field label="Status" value={status} />
           </Section>
 
@@ -105,7 +111,9 @@ export default function AdminDetailsDrawer({
               value={
                 isSuperAdmin
                   ? "Entire Church Database"
-                  : admin.scope
+                  : Array.isArray(admin.scope)
+                    ? admin.scope.join(", ")
+                    : admin.scope
               }
             />
           </Section>
@@ -116,9 +124,7 @@ export default function AdminDetailsDrawer({
               label="Account Created"
               value={
                 admin.createdAt
-                  ? new Date(
-                      admin.createdAt,
-                    ).toLocaleDateString("en-US", {
+                  ? new Date(admin.createdAt).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -131,9 +137,7 @@ export default function AdminDetailsDrawer({
               label="Last Login"
               value={
                 admin.lastLogin
-                  ? new Date(
-                      admin.lastLogin,
-                    ).toLocaleDateString("en-US", {
+                  ? new Date(admin.lastLogin).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -192,9 +196,7 @@ function Field({ label, value }) {
     <div className="flex items-center justify-between gap-4 text-sm">
       <dt className="text-gray-500">{label}</dt>
 
-      <dd className="text-right font-medium text-gray-900">
-        {value || "—"}
-      </dd>
+      <dd className="text-right font-medium text-gray-900">{value || "—"}</dd>
     </div>
   );
 }

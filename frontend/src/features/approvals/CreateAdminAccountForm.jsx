@@ -5,11 +5,19 @@ import Select from "../../components/ui/Select";
 import SegmentedControl from "../../components/ui/SegmentedControl";
 import Button from "../../components/ui/Button";
 import { FORM_CATEGORIES, FORM_DEPARTMENTS } from "../members/constants";
+import MultiSelect from "../../components/ui/MultiSelect";
 
-const ROLE_OPTIONS = ["Category Admin", "Departmental Admin"];
+const ROLE_OPTIONS = [
+  "Category Admin",
+  "Departmental Admin",
+  "Managing Departments",
+  "Pastorate",
+];
 const ROLE_VALUES = {
   "Category Admin": "category_admin",
   "Departmental Admin": "department_admin",
+  "Managing Departments": "managing_departments",
+  Pastorate: "pastorate",
 };
 
 const EMPTY_FORM = {
@@ -30,11 +38,16 @@ function validate(data) {
   } else if (!EMAIL_PATTERN.test(data.email.trim())) {
     errors.email = "Enter a valid email address";
   }
-  if (!data.scope) {
-    errors.scope = `Please select a ${data.roleLabel === "Category Admin" ? "category" : "department"}`;
+  if (
+    data.roleLabel !== "Managing Departments" &&
+    (!data.scope || data.scope.length === 0)
+  ) {
+    errors.scope = `Please select ${data.roleLabel === "Category Admin" ? "a category" : "at least one department"}`;
   }
-  if (!data.password && !data.isEditing) errors.password = "Password is required";
-  if (data.password && data.password.length < 8) errors.password = "Password must be at least 8 characters";
+  if (!data.password && !data.isEditing)
+    errors.password = "Password is required";
+  if (data.password && data.password.length < 8)
+    errors.password = "Password must be at least 8 characters";
   return errors;
 }
 
@@ -72,7 +85,11 @@ export default function CreateAdminAccountForm({
               roleLabel:
                 account.role === "category_admin"
                   ? "Category Admin"
-                  : "Departmental Admin",
+                  : account.role === "managing_departments"
+                    ? "Managing Departments"
+                    : account.role === "pastorate"
+                      ? "Pastorate"
+                      : "Departmental Admin",
               scope: account.scope ?? "",
               password: "",
             }
@@ -86,7 +103,9 @@ export default function CreateAdminAccountForm({
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === "roleLabel" ? { scope: "" } : {}),
+      ...(field === "roleLabel"
+        ? { scope: value === "Pastorate" ? [] : "" }
+        : {}),
     }));
     setErrors((prev) => {
       if (!prev[field]) return prev;
@@ -120,6 +139,8 @@ export default function CreateAdminAccountForm({
   }
 
   const isCategoryRole = formData.roleLabel === "Category Admin";
+  const isReadOnlyRole = formData.roleLabel === "Managing Departments";
+  const isPastorateRole = formData.roleLabel === "Pastorate";
   const scopeOptions = isCategoryRole ? FORM_CATEGORIES : FORM_DEPARTMENTS;
   const scopeLabel = isCategoryRole ? "Category" : "Department";
 
@@ -163,22 +184,46 @@ export default function CreateAdminAccountForm({
             value={formData.roleLabel}
             onChange={(value) => update("roleLabel", value)}
           />
-          <Select
-            label={scopeLabel}
-            required
-            placeholder={`Select ${scopeLabel}`}
-            options={scopeOptions}
-            value={formData.scope}
-            error={errors.scope}
-            onChange={(e) => update("scope", e.target.value)}
-          />
+          {!isReadOnlyRole && !isPastorateRole && (
+            <Select
+              label={scopeLabel}
+              required
+              placeholder={`Select ${scopeLabel}`}
+              options={scopeOptions}
+              value={formData.scope}
+              error={errors.scope}
+              onChange={(e) => update("scope", e.target.value)}
+            />
+          )}
+
+          {isPastorateRole && (
+            <MultiSelect
+              label="Assigned departments"
+              options={FORM_DEPARTMENTS}
+              values={Array.isArray(formData.scope) ? formData.scope : []}
+              onChange={(value) => update("scope", value)}
+              required
+              error={errors.scope}
+            />
+          )}
+
+          {isReadOnlyRole && (
+            <p className="text-sm text-gray-500">
+              This role can view all church information but cannot change it.
+            </p>
+          )}
         </div>
 
         <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
           <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit" isLoading={isSubmitting} loadingLabel={isEditing ? "Saving..." : "Creating..."}>
+          <Button
+            variant="primary"
+            type="submit"
+            isLoading={isSubmitting}
+            loadingLabel={isEditing ? "Saving..." : "Creating..."}
+          >
             {isEditing ? "Save Changes" : "Create Account"}
           </Button>
         </div>

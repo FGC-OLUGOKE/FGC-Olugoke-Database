@@ -39,7 +39,7 @@ import {
   canDeleteMemberDirectly,
   canRequestMemberEdit,
   canRequestMemberDelete,
-  isDepartmentAdmin,
+  canAssignMembersToDepartment,
   isCategoryAdmin,
   getRoleLabel,
   canPromoteDemoteMembers,
@@ -594,7 +594,7 @@ export default function MembersPage() {
 
   const showAddButton = canCreateMember(user);
 
-  const showAssignButton = isDepartmentAdmin(user);
+  const showAssignButton = canAssignMembersToDepartment(user);
 
   const showEditAction = allowEditDirectly || allowEditRequest;
 

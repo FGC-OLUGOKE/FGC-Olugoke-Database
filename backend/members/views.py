@@ -38,6 +38,18 @@ def is_category_admin(user):
     account = account_for(user)
     return bool(account and account.role == AdminAccount.CATEGORY_ADMIN)
 
+def is_read_only_admin(user):
+    account = account_for(user)
+    return bool(account and account.role == AdminAccount.MANAGING_DEPARTMENTS)
+
+def assigned_departments(account):
+    if account.role == AdminAccount.DEPARTMENT_ADMIN:
+        return Department.objects.filter(pk=account.department_id)
+    return account.departments.all()
+
+def can_manage_department(account, department):
+    return account.role == AdminAccount.SUPER_ADMIN or assigned_departments(account).filter(pk=getattr(department, "pk", department)).exists()
+
 def log_activity(user, description, department=None):
     ActivityLog.objects.create(admin=user, description=description, department=department)
 
@@ -50,11 +62,17 @@ class SuperAdminOnly(permissions.BasePermission):
 class NonCategoryAdmin(permissions.BasePermission):
     def has_permission(self, request, view): return not is_category_admin(request.user)
 
+class ReadOnlyManagingAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.method in permissions.SAFE_METHODS or not is_read_only_admin(request.user)
+
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all(); serializer_class = DepartmentSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user)
         queryset = Department.objects.annotate(member_count=Count("members"))
+        if account.role in (AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE):
+            return queryset
         if account.role == AdminAccount.DEPARTMENT_ADMIN:
             return queryset.filter(pk=account.department_id)
         if account.role == AdminAccount.CATEGORY_ADMIN:
@@ -64,21 +82,23 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 
 class MemberViewSet(viewsets.ModelViewSet):
     serializer_class = MemberSerializer; permission_classes = (IsApplicationAdmin,)
+    def get_permissions(self):
+        return [IsApplicationAdmin(), ReadOnlyManagingAdmin()]
     def get_queryset(self):
         queryset = Member.objects.prefetch_related("departments").all(); account = account_for(self.request.user)
-        if account.role == AdminAccount.SUPER_ADMIN:
+        if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE):
             return queryset
         if account.role == AdminAccount.CATEGORY_ADMIN:
             return queryset.filter(category=account.category)
-        return queryset.filter(departments=account.department).distinct()
+        return queryset.filter(departments__in=assigned_departments(account)).distinct()
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
     def perform_create(self, serializer):
         account = account_for(self.request.user)
-        if account.role == AdminAccount.DEPARTMENT_ADMIN:
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE):
             serializer.validated_data.pop("departments", None)
             member = serializer.save()
-            member.departments.add(account.department)
+            member.departments.add(*assigned_departments(account))
         elif account.role == AdminAccount.CATEGORY_ADMIN:
             serializer.validated_data["category"] = account.category
             serializer.validated_data.pop("departments", None)
@@ -93,7 +113,7 @@ class MemberViewSet(viewsets.ModelViewSet):
         data = request.data.copy()
         account = account_for(request.user)
         
-        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.CATEGORY_ADMIN) and "departments" in request.data:
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE, AdminAccount.CATEGORY_ADMIN) and "departments" in request.data:
             data.pop("departments")
         if account.role == AdminAccount.CATEGORY_ADMIN:
             data["category"] = account.category
@@ -103,7 +123,7 @@ class MemberViewSet(viewsets.ModelViewSet):
         # Additional scope validation for updates
         if account.role == AdminAccount.CATEGORY_ADMIN and instance.category != account.category:
             return Response({"detail": "You can only update members in your category."}, status=status.HTTP_403_FORBIDDEN)
-        if account.role == AdminAccount.DEPARTMENT_ADMIN and not instance.departments.filter(pk=account.department_id).exists():
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not instance.departments.filter(pk__in=assigned_departments(account)).exists():
             return Response({"detail": "You can only update members in your department."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = self.get_serializer(instance, data=data, partial=partial)
@@ -118,7 +138,7 @@ class MemberViewSet(viewsets.ModelViewSet):
         # Scope validation for delete
         if account.role == AdminAccount.CATEGORY_ADMIN and instance.category != account.category:
             return Response({"detail": "You can only delete members in your category."}, status=status.HTTP_403_FORBIDDEN)
-        if account.role == AdminAccount.DEPARTMENT_ADMIN and not instance.departments.filter(pk=account.department_id).exists():
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not instance.departments.filter(pk__in=assigned_departments(account)).exists():
             return Response({"detail": "You can only delete members in your department."}, status=status.HTTP_403_FORBIDDEN)
         
         return super().destroy(request, *args, **kwargs)
@@ -139,12 +159,12 @@ class MemberViewSet(viewsets.ModelViewSet):
         # Scope validation for department assignment
         if account.role == AdminAccount.CATEGORY_ADMIN and member.category != account.category:
             return Response({"detail": "You can only manage members in your category."}, status=status.HTTP_403_FORBIDDEN)
-        if account.role == AdminAccount.DEPARTMENT_ADMIN and not member.departments.filter(pk=account.department_id).exists():
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not member.departments.filter(pk__in=assigned_departments(account)).exists():
             return Response({"detail": "You can only manage members in your department."}, status=status.HTTP_403_FORBIDDEN)
         
         try: department = Department.objects.get(name=add or remove)
         except Department.DoesNotExist: return Response({"department": "Unknown department."}, status=status.HTTP_400_BAD_REQUEST)
-        if account.role == AdminAccount.DEPARTMENT_ADMIN and department.pk != account.department_id: return Response({"detail": "You may only manage your assigned department."}, status=status.HTTP_403_FORBIDDEN)
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not can_manage_department(account, department): return Response({"detail": "You may only manage your assigned departments."}, status=status.HTTP_403_FORBIDDEN)
         if account.role == AdminAccount.CATEGORY_ADMIN: return Response({"detail": "Category Admins cannot manage department assignments."}, status=status.HTTP_403_FORBIDDEN)
         (member.departments.add if add else member.departments.remove)(department)
         member.worker = member.departments.exists()
@@ -271,61 +291,79 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         return Response({"detail": "Admin successfully demoted to regular member."}, status=status.HTTP_200_OK)
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
-    serializer_class = AnnouncementSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
+    serializer_class = AnnouncementSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin, ReadOnlyManagingAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = Announcement.objects.select_related("department", "author")
-        return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department)
+        if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS):
+            return query
+        if account.role == AdminAccount.PASTORATE and self.action in ("list", "retrieve"):
+            return query
+        return query.filter(department__in=assigned_departments(account))
     def perform_create(self, serializer):
         account = account_for(self.request.user); department = serializer.validated_data.get("department")
-        if account.role == AdminAccount.DEPARTMENT_ADMIN:
-            if department and department != account.department: raise permissions.PermissionDenied("You may only post for your department.")
-            serializer.save(author=self.request.user, department=account.department)
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE):
+            if not department or not can_manage_department(account, department): raise permissions.PermissionDenied("You may only post for an assigned department.")
+            serializer.save(author=self.request.user, department=department)
         else: serializer.save(author=self.request.user)
 
 class DepartmentReportViewSet(viewsets.ModelViewSet):
-    serializer_class = DepartmentReportSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
+    serializer_class = DepartmentReportSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin, ReadOnlyManagingAdmin)
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             return [IsApplicationAdmin()]
-        return [IsApplicationAdmin(), NonCategoryAdmin()]
+        return [IsApplicationAdmin(), NonCategoryAdmin(), ReadOnlyManagingAdmin()]
     def get_queryset(self):
         account = account_for(self.request.user); query = DepartmentReport.objects.select_related("department", "submitted_by")
-        if account.role == AdminAccount.SUPER_ADMIN:
+        if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS):
+            return query
+        if account.role == AdminAccount.PASTORATE and self.action in ("list", "retrieve"):
             return query
         if account.role == AdminAccount.CATEGORY_ADMIN:
             return query.filter(department__members__category=account.category).distinct()
-        return query.filter(department=account.department)
+            return query.filter(department__in=assigned_departments(account))
     def perform_create(self, serializer):
         account = account_for(self.request.user)
-        if account.role == AdminAccount.DEPARTMENT_ADMIN: serializer.save(submitted_by=self.request.user, department=account.department)
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE):
+            department = serializer.validated_data.get("department")
+            if not department or not can_manage_department(account, department): raise permissions.PermissionDenied("You may only submit reports for an assigned department.")
+            serializer.save(submitted_by=self.request.user, department=department)
         else:
             if not serializer.validated_data.get("department"): raise permissions.PermissionDenied("A department is required.")
             serializer.save(submitted_by=self.request.user)
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
-    serializer_class = AttendanceRecordSerializer; permission_classes = (IsApplicationAdmin,)
+    serializer_class = AttendanceRecordSerializer; permission_classes = (IsApplicationAdmin, ReadOnlyManagingAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = AttendanceRecord.objects.select_related("category", "recorded_by")
-        if account.role == AdminAccount.SUPER_ADMIN:
+        if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS):
+            return query
+        if account.role == AdminAccount.PASTORATE and self.action in ("list", "retrieve"):
             return query
         if account.role == AdminAccount.CATEGORY_ADMIN:
             return query.filter(category__name=account.category)
-        return query.filter(department=account.department)
+        return query.filter(department__in=assigned_departments(account))
     def perform_create(self, serializer):
         account = account_for(self.request.user)
         category_name = account.category if account.role == AdminAccount.CATEGORY_ADMIN else "General"
         category = Category.objects.get_or_create(name=category_name)[0]
-        department = serializer.validated_data.get("department") or account.department
+        department = serializer.validated_data.get("department") or (assigned_departments(account).first() if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) else None)
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not can_manage_department(account, department): raise permissions.PermissionDenied("You may only record attendance for an assigned department.")
         record = serializer.save(recorded_by=self.request.user, category=category, department=department)
         log_activity(self.request.user, f"Recorded attendance for {record.date:%b %d}", department)
 
 class ChurchEventViewSet(viewsets.ModelViewSet):
-    serializer_class = ChurchEventSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
+    serializer_class = ChurchEventSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin, ReadOnlyManagingAdmin)
     def get_queryset(self):
         account = account_for(self.request.user); query = ChurchEvent.objects.select_related("department", "created_by")
-        return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(department=account.department) | query.filter(department__isnull=True)
+        if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS):
+            return query
+        if account.role == AdminAccount.PASTORATE and self.action in ("list", "retrieve"):
+            return query
+        return query.filter(department__in=assigned_departments(account))
     def perform_create(self, serializer):
-        account = account_for(self.request.user); department = account.department if account.role == AdminAccount.DEPARTMENT_ADMIN else serializer.validated_data.get("department")
+        account = account_for(self.request.user); department = serializer.validated_data.get("department")
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE):
+            if not department or not can_manage_department(account, department): raise permissions.PermissionDenied("You may only create events for an assigned department.")
         event = serializer.save(created_by=self.request.user, department=department)
         log_activity(self.request.user, f"Created event: {event.name}", department)
     def perform_update(self, serializer):
@@ -338,16 +376,16 @@ class ApprovalRequestViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("update", "partial_update", "destroy"):
             return [IsApplicationAdmin(), SuperAdminOnly()]
-        return [IsApplicationAdmin()]
+        return [IsApplicationAdmin(), ReadOnlyManagingAdmin()]
     def get_queryset(self):
         account = account_for(self.request.user); query = ApprovalRequest.objects.select_related("member", "requested_by", "requested_by__admin_account", "requested_by__admin_account__department")
-        return query if account.role == AdminAccount.SUPER_ADMIN else query.filter(requested_by=self.request.user)
+        return query if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE) else query.filter(requested_by=self.request.user)
     def perform_create(self, serializer):
         account = account_for(self.request.user); member = serializer.validated_data["member"]
         if account.role == AdminAccount.CATEGORY_ADMIN and member.category != account.category:
             raise PermissionDenied("You may only request changes for members in your category.")
-        if account.role == AdminAccount.DEPARTMENT_ADMIN and not member.departments.filter(pk=account.department_id).exists():
-            raise PermissionDenied("You may only request changes for members in your department.")
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not member.departments.filter(pk__in=assigned_departments(account)).exists():
+            raise PermissionDenied("You may only request changes for members in your assigned departments.")
         request = serializer.save(requested_by=self.request.user)
         log_activity(self.request.user, f"Submitted {request.type} request for {member}", account.department)
     def partial_update(self, request, *args, **kwargs):
@@ -451,8 +489,10 @@ def membership_growth(request):
         members = Member.objects.all()
     elif account.role == AdminAccount.CATEGORY_ADMIN:
         members = Member.objects.filter(category=account.category)
+    elif account.role in (AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE):
+        members = Member.objects.all()
     else:
-        members = Member.objects.filter(departments=account.department).distinct()
+        members = Member.objects.filter(departments__in=assigned_departments(account)).distinct()
     today = date.today(); months = []
     for offset in range(7, -1, -1):
         month_number = today.month - offset; year = today.year
@@ -469,7 +509,7 @@ def membership_growth(request):
 def activity_log(request):
     account = account_for(request.user); query = ActivityLog.objects.select_related("admin", "department")
     if account.role == AdminAccount.CATEGORY_ADMIN: return Response([])
-    if account.role != AdminAccount.SUPER_ADMIN: query = query.filter(department=account.department)
+    if account.role not in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE): query = query.filter(department__in=assigned_departments(account))
     return Response(ActivityLogSerializer(query[:50], many=True).data)
 
 @api_view(("GET",))

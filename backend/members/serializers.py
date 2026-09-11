@@ -79,11 +79,13 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email")
     scope = serializers.SerializerMethodField()
     departmentId = serializers.PrimaryKeyRelatedField(source="department", queryset=Department.objects.all(), write_only=True, required=False, allow_null=True)
+    departmentIds = serializers.PrimaryKeyRelatedField(source="departments", queryset=Department.objects.all(), many=True, write_only=True, required=False)
+    departments = serializers.SlugRelatedField(many=True, read_only=True, slug_field="name")
     category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, write_only=True, required=False, allow_null=True)
     password = serializers.CharField(source="user.password", write_only=True, required=False, min_length=8)
     class Meta:
         model = AdminAccount
-        fields = ("id", "name", "email", "role", "scope", "departmentId", "category", "password")
+        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "category", "password")
         read_only_fields = ()
 
     def to_internal_value(self, data):
@@ -98,10 +100,14 @@ class AdminAccountSerializer(serializers.ModelSerializer):
                 data["departmentId"] = department.pk
             elif role == AdminAccount.CATEGORY_ADMIN:
                 data["category"] = scope
+            elif role == AdminAccount.PASTORATE:
+                data["departmentIds"] = [department.pk for department in Department.objects.filter(name__in=scope if isinstance(scope, list) else [scope])]
         return super().to_internal_value(data)
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.email
     def get_scope(self, obj):
+        if obj.role == AdminAccount.PASTORATE:
+            return [department.name for department in obj.departments.all()]
         return obj.department.name if obj.department_id else obj.category
     def validate_email(self, value):
         email = value.strip().lower()
@@ -122,7 +128,7 @@ class AdminAccountSerializer(serializers.ModelSerializer):
         elif role == AdminAccount.DEPARTMENT_ADMIN:
             category = None
             attrs["category"] = None
-        elif role == AdminAccount.SUPER_ADMIN:
+        elif role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE):
             department = None
             category = None
             attrs["department"] = None
@@ -137,9 +143,14 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"departmentId": "A Category Admin cannot be assigned to a department."})
         if role == AdminAccount.DEPARTMENT_ADMIN and category:
             raise serializers.ValidationError({"category": "A Departmental Admin cannot be assigned to a category."})
+        if role == AdminAccount.MANAGING_DEPARTMENTS and attrs.get("departments"):
+            raise serializers.ValidationError({"departmentIds": "Managing Departments accounts are read-only and cannot be assigned departments."})
+        if role == AdminAccount.PASTORATE and not attrs.get("departments", self.instance.departments.all() if self.instance else []):
+            raise serializers.ValidationError({"departmentIds": "A Pastorate account must be assigned at least one department."})
         return attrs
     def create(self, validated_data):
         user_data = validated_data.pop("user")
+        departments = validated_data.pop("departments", [])
         role = validated_data.pop("role", AdminAccount.DEPARTMENT_ADMIN)
         name = self.initial_data.get("name", "").strip()
         password = user_data.pop("password", None)
@@ -147,7 +158,9 @@ class AdminAccountSerializer(serializers.ModelSerializer):
         if not password: raise serializers.ValidationError({"password": "Password is required."})
         parts = name.split(maxsplit=1); User = get_user_model()
         user = User.objects.create_user(username=user_data["email"], email=user_data["email"], first_name=parts[0], last_name=parts[1] if len(parts) > 1 else "", password=password)
-        return AdminAccount.objects.create(user=user, role=role, **validated_data)
+        account = AdminAccount.objects.create(user=user, role=role, **validated_data)
+        account.departments.set(departments)
+        return account
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {}); name = self.initial_data.get("name")
         if name is not None:

@@ -249,7 +249,7 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
             return Response({"detail": "admin_id is required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            admin_account = AdminAccount.objects.get(pk=admin_id)
+            admin_account = AdminAccount.objects.get(user_id=admin_id)
         except AdminAccount.DoesNotExist:
             return Response({"detail": "Admin account not found."}, status=status.HTTP_404_NOT_FOUND)
         

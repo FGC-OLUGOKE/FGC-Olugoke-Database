@@ -75,6 +75,48 @@ class AccessControlTests(APITestCase):
         self.assertEqual(response.data["role"], "department_admin")
         self.assertEqual(response.data["scope"], "Media")
 
+    def test_super_admin_can_promote_member_and_demote_admin_back_to_member(self):
+        self.authenticate(self.super_token)
+        User = get_user_model()
+        User.objects.create_user(
+            username="member-only@example.com",
+            email="member-only@example.com",
+            password="secure-pass",
+        )
+
+        promoted = self.client.post(
+            "/api/users/promote_member/",
+            {
+                "member_id": self.choir_member.id,
+                "role": AdminAccount.DEPARTMENT_ADMIN,
+                "department_id": self.choir.id,
+                "password": "another-secure-password",
+            },
+            format="json",
+        )
+        self.assertEqual(promoted.status_code, 201, promoted.data)
+        self.assertEqual(promoted.data["role"], AdminAccount.DEPARTMENT_ADMIN)
+        self.assertEqual(promoted.data["scope"], self.choir.name)
+        self.assertNotEqual(promoted.data["id"], AdminAccount.objects.get(user__email="ada.choir@member").pk)
+
+        self.choir_member.refresh_from_db()
+        self.assertIsNotNone(self.choir_member.user_id)
+        admin_user_id = self.choir_member.user_id
+        self.assertTrue(AdminAccount.objects.filter(user_id=admin_user_id).exists())
+
+        demoted = self.client.post(
+            "/api/users/demote_admin/",
+            {"admin_id": promoted.data["id"]},
+            format="json",
+        )
+        self.assertEqual(demoted.status_code, 200, demoted.data)
+        self.assertEqual(demoted.data["detail"], "Admin successfully demoted to regular member.")
+
+        self.choir_member.refresh_from_db()
+        self.assertIsNone(self.choir_member.user_id)
+        self.assertFalse(AdminAccount.objects.filter(user_id=admin_user_id).exists())
+        self.assertFalse(get_user_model().objects.filter(pk=admin_user_id).exists())
+
     def test_super_admin_cannot_remove_staff_department_assignment(self):
         self.authenticate(self.super_token)
         staff_account = AdminAccount.objects.get(user__email="choir@example.com")

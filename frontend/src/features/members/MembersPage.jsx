@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Eye,
-  EyeOff,
-  Inbox,
-} from "lucide-react";
+import { Eye, EyeOff, Inbox } from "lucide-react";
 
 import SearchBar from "./components/SearchBar";
 import StatsCards from "./components/StatsCards";
@@ -61,34 +57,25 @@ export default function MembersPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [department, setDepartment] =
-    useState("All Departments");
+  const [department, setDepartment] = useState("All Departments");
   const [status, setStatus] = useState("All Status");
   const [sort, setSort] = useState("az");
 
-  const [selectedMember, setSelectedMember] =
-    useState(null);
-  const [isDrawerOpen, setIsDrawerOpen] =
-    useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const [formMember, setFormMember] = useState(null);
-  const [isFormOpen, setIsFormOpen] =
-    useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const [memberPendingDelete, setMemberPendingDelete] =
-    useState(null);
+  const [memberPendingDelete, setMemberPendingDelete] = useState(null);
 
-  const [memberPendingRemoval, setMemberPendingRemoval] =
-    useState(null);
+  const [memberPendingRemoval, setMemberPendingRemoval] = useState(null);
 
-  const [isAssignDrawerOpen, setIsAssignDrawerOpen] =
-    useState(false);
+  const [isAssignDrawerOpen, setIsAssignDrawerOpen] = useState(false);
 
-  const [memberPendingPromote, setMemberPendingPromote] =
-    useState(null);
+  const [memberPendingPromote, setMemberPendingPromote] = useState(null);
 
-  const [memberPendingDemote, setMemberPendingDemote] =
-    useState(null);
+  const [memberPendingDemote, setMemberPendingDemote] = useState(null);
 
   const [departments, setDepartments] = useState([]);
 
@@ -109,11 +96,10 @@ export default function MembersPage() {
       try {
         setLoading(true);
 
-        const [membersData, departmentsData] =
-          await Promise.all([
-            getMembers(),
-            getDepartments(),
-          ]);
+        const [membersData, departmentsData] = await Promise.all([
+          getMembers(),
+          getDepartments(),
+        ]);
 
         if (!isMounted) return;
 
@@ -122,8 +108,7 @@ export default function MembersPage() {
       } catch (error) {
         if (isMounted) {
           toast.error(
-            error?.message ||
-              "Couldn't load members. Try refreshing.",
+            error?.message || "Couldn't load members. Try refreshing.",
           );
         }
       } finally {
@@ -145,11 +130,10 @@ export default function MembersPage() {
 
     async function refreshMembers() {
       try {
-        const [membersData, departmentsData] =
-          await Promise.all([
-            getMembers(),
-            getDepartments(),
-          ]);
+        const [membersData, departmentsData] = await Promise.all([
+          getMembers(),
+          getDepartments(),
+        ]);
 
         if (!isMounted) return;
 
@@ -168,33 +152,18 @@ export default function MembersPage() {
       refreshMembers();
     };
 
-    window.addEventListener(
-      "members-updated",
-      handleMembersUpdated,
-    );
+    window.addEventListener("members-updated", handleMembersUpdated);
 
-    window.addEventListener(
-      "focus",
-      handleWindowFocus,
-    );
+    window.addEventListener("focus", handleWindowFocus);
 
-    const interval = window.setInterval(
-      refreshMembers,
-      15000,
-    );
+    const interval = window.setInterval(refreshMembers, 15000);
 
     return () => {
       isMounted = false;
 
-      window.removeEventListener(
-        "members-updated",
-        handleMembersUpdated,
-      );
+      window.removeEventListener("members-updated", handleMembersUpdated);
 
-      window.removeEventListener(
-        "focus",
-        handleWindowFocus,
-      );
+      window.removeEventListener("focus", handleWindowFocus);
 
       window.clearInterval(interval);
     };
@@ -208,18 +177,13 @@ export default function MembersPage() {
     const query = search.trim().toLowerCase();
 
     let result = scopedMembers.filter((member) => {
-      const fullName =
-        `${member.firstName || ""} ${
-          member.lastName || ""
-        }`.toLowerCase();
+      const fullName = `${member.firstName || ""} ${
+        member.lastName || ""
+      }`.toLowerCase();
 
-      const email = (
-        member.email || ""
-      ).toLowerCase();
+      const email = (member.email || "").toLowerCase();
 
-      const phone = (
-        member.phone || ""
-      ).toLowerCase();
+      const phone = (member.phone || "").toLowerCase();
 
       const matchesSearch =
         !query ||
@@ -228,40 +192,27 @@ export default function MembersPage() {
         phone.includes(query);
 
       const matchesCategory =
-        category === "All" ||
-        member.category === category;
+        category === "All" || member.category === category;
 
-      const memberDepartments =
-        Array.isArray(member.departments)
-          ? member.departments
-          : [];
+      const memberDepartments = Array.isArray(member.departments)
+        ? member.departments
+        : [];
 
       const matchesDepartment =
         department === "All Departments" ||
         memberDepartments.includes(department);
 
-      const matchesStatus =
-        status === "All Status" ||
-        member.status === status;
+      const matchesStatus = status === "All Status" || member.status === status;
 
       return (
-        matchesSearch &&
-        matchesCategory &&
-        matchesDepartment &&
-        matchesStatus
+        matchesSearch && matchesCategory && matchesDepartment && matchesStatus
       );
     });
 
     result = [...result].sort((a, b) => {
-      const nameA =
-        `${a.firstName || ""} ${
-          a.lastName || ""
-        }`.toLowerCase();
+      const nameA = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
 
-      const nameB =
-        `${b.firstName || ""} ${
-          b.lastName || ""
-        }`.toLowerCase();
+      const nameB = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
 
       switch (sort) {
         case "az":
@@ -271,16 +222,10 @@ export default function MembersPage() {
           return nameB.localeCompare(nameA);
 
         case "newest":
-          return (
-            new Date(b.dateJoined || 0) -
-            new Date(a.dateJoined || 0)
-          );
+          return new Date(b.dateJoined || 0) - new Date(a.dateJoined || 0);
 
         case "oldest":
-          return (
-            new Date(a.dateJoined || 0) -
-            new Date(b.dateJoined || 0)
-          );
+          return new Date(a.dateJoined || 0) - new Date(b.dateJoined || 0);
 
         default:
           return 0;
@@ -288,14 +233,7 @@ export default function MembersPage() {
     });
 
     return result;
-  }, [
-    scopedMembers,
-    search,
-    category,
-    department,
-    status,
-    sort,
-  ]);
+  }, [scopedMembers, search, category, department, status, sort]);
 
   function handleView(member) {
     setSelectedMember(member);
@@ -322,26 +260,19 @@ export default function MembersPage() {
     setFormMember(null);
   }
 
-  const allowEditDirectly =
-    canEditMemberDirectly(user);
+  const allowEditDirectly = canEditMemberDirectly(user);
 
-  const allowDeleteDirectly =
-    canDeleteMemberDirectly(user);
+  const allowDeleteDirectly = canDeleteMemberDirectly(user);
 
-  const allowEditRequest =
-    canRequestMemberEdit(user);
+  const allowEditRequest = canRequestMemberEdit(user);
 
-  const allowDeleteRequest =
-    canRequestMemberDelete(user);
+  const allowDeleteRequest = canRequestMemberDelete(user);
 
   async function handleSaveMember(formData) {
     try {
       if (formMember) {
         if (allowEditDirectly) {
-          const updatedMember = await updateMember(
-            formMember.id,
-            formData,
-          );
+          const updatedMember = await updateMember(formMember.id, formData);
 
           setMembers((previous) =>
             previous.map((member) =>
@@ -368,8 +299,7 @@ export default function MembersPage() {
         if (allowEditRequest) {
           const changes = Object.fromEntries(
             Object.entries(formData).filter(
-              ([key, value]) =>
-                value !== formMember[key],
+              ([key, value]) => value !== formMember[key],
             ),
           );
 
@@ -390,26 +320,17 @@ export default function MembersPage() {
           return;
         }
       } else {
-        const createdMember =
-          await createMember(formData);
+        const createdMember = await createMember(formData);
 
-        setMembers((previous) => [
-          ...previous,
-          createdMember,
-        ]);
+        setMembers((previous) => [...previous, createdMember]);
 
-        toast.success(
-          `${formData.firstName} ${formData.lastName} was added`,
-        );
+        toast.success(`${formData.firstName} ${formData.lastName} was added`);
 
         setIsFormOpen(false);
         setFormMember(null);
       }
     } catch (error) {
-      toast.error(
-        error?.message ||
-          "Something went wrong saving this member.",
-      );
+      toast.error(error?.message || "Something went wrong saving this member.");
     }
   }
 
@@ -427,16 +348,10 @@ export default function MembersPage() {
 
     try {
       if (allowDeleteDirectly) {
-        await deleteMember(
-          memberPendingDelete.id,
-        );
+        await deleteMember(memberPendingDelete.id);
 
         setMembers((previous) =>
-          previous.filter(
-            (member) =>
-              member.id !==
-              memberPendingDelete.id,
-          ),
+          previous.filter((member) => member.id !== memberPendingDelete.id),
         );
 
         toast.success(
@@ -459,8 +374,7 @@ export default function MembersPage() {
       }
     } catch (error) {
       toast.error(
-        error?.message ||
-          "Something went wrong processing this request.",
+        error?.message || "Something went wrong processing this request.",
       );
 
       setMemberPendingDelete(null);
@@ -481,31 +395,22 @@ export default function MembersPage() {
         reason: requestReason.trim(),
       });
 
-      const requestType =
-        requestReview.type === "delete"
-          ? "Deletion"
-          : "Edit";
+      const requestType = requestReview.type === "delete" ? "Deletion" : "Edit";
 
       setRequestReview(null);
       setRequestReason("");
 
-      toast.success(
-        `${requestType} request sent to Super Admin for approval.`,
-      );
+      toast.success(`${requestType} request sent to Super Admin for approval.`);
     } catch (error) {
       toast.error(
-        error?.message ||
-          "Something went wrong sending this request.",
+        error?.message || "Something went wrong sending this request.",
       );
     }
   }
 
   async function handleAssignMember(member) {
     try {
-      await assignMemberToDepartment(
-        member.id,
-        user.scope,
-      );
+      await assignMemberToDepartment(member.id, user.scope);
 
       setMembers((previous) =>
         previous.map((item) => {
@@ -513,25 +418,17 @@ export default function MembersPage() {
             return item;
           }
 
-          const currentDepartments =
-            Array.isArray(item.departments)
-              ? item.departments
-              : [];
+          const currentDepartments = Array.isArray(item.departments)
+            ? item.departments
+            : [];
 
-          if (
-            currentDepartments.includes(
-              user.scope,
-            )
-          ) {
+          if (currentDepartments.includes(user.scope)) {
             return item;
           }
 
           return {
             ...item,
-            departments: [
-              ...currentDepartments,
-              user.scope,
-            ],
+            departments: [...currentDepartments, user.scope],
           };
         }),
       );
@@ -542,16 +439,11 @@ export default function MembersPage() {
 
       setIsAssignDrawerOpen(false);
     } catch (error) {
-      toast.error(
-        error?.message ||
-          "Something went wrong adding this member.",
-      );
+      toast.error(error?.message || "Something went wrong adding this member.");
     }
   }
 
-  function handleRequestRemoveFromDepartment(
-    member,
-  ) {
+  function handleRequestRemoveFromDepartment(member) {
     setMemberPendingRemoval(member);
     setIsDrawerOpen(false);
   }
@@ -564,31 +456,23 @@ export default function MembersPage() {
     if (!memberPendingRemoval) return;
 
     try {
-      await removeMemberFromDepartment(
-        memberPendingRemoval.id,
-        user.scope,
-      );
+      await removeMemberFromDepartment(memberPendingRemoval.id, user.scope);
 
       setMembers((previous) =>
         previous.map((member) => {
-          if (
-            member.id !==
-            memberPendingRemoval.id
-          ) {
+          if (member.id !== memberPendingRemoval.id) {
             return member;
           }
 
-          const currentDepartments =
-            Array.isArray(member.departments)
-              ? member.departments
-              : [];
+          const currentDepartments = Array.isArray(member.departments)
+            ? member.departments
+            : [];
 
           return {
             ...member,
-            departments:
-              currentDepartments.filter(
-                (item) => item !== user.scope,
-              ),
+            departments: currentDepartments.filter(
+              (item) => item !== user.scope,
+            ),
           };
         }),
       );
@@ -598,8 +482,7 @@ export default function MembersPage() {
       );
     } catch (error) {
       toast.error(
-        error?.message ||
-          "Something went wrong removing this member.",
+        error?.message || "Something went wrong removing this member.",
       );
     } finally {
       setMemberPendingRemoval(null);
@@ -642,16 +525,13 @@ export default function MembersPage() {
             ? promoteForm.department_id
             : null,
         category:
-          promoteForm.role === "category_admin"
-            ? promoteForm.category
-            : null,
+          promoteForm.role === "category_admin" ? promoteForm.category : null,
         password: promoteForm.password,
       });
 
       setMembers((previous) =>
         previous.map((member) =>
-          member.id ===
-          memberPendingPromote.id
+          member.id === memberPendingPromote.id
             ? {
                 ...member,
                 isAdmin: true,
@@ -667,8 +547,7 @@ export default function MembersPage() {
       handleCancelPromote();
     } catch (error) {
       toast.error(
-        error?.message ||
-          "Something went wrong promoting this member.",
+        error?.message || "Something went wrong promoting this member.",
       );
     }
   }
@@ -687,13 +566,12 @@ export default function MembersPage() {
 
     try {
       await demoteAdminToMember({
-        admin_id: memberPendingDemote.id,
+        admin_id: memberPendingDemote.userId,
       });
 
       setMembers((previous) =>
         previous.map((member) =>
-          member.id ===
-          memberPendingDemote.id
+          member.id === memberPendingDemote.id
             ? {
                 ...member,
                 isAdmin: false,
@@ -709,38 +587,28 @@ export default function MembersPage() {
       setMemberPendingDemote(null);
     } catch (error) {
       toast.error(
-        error?.message ||
-          "Something went wrong demoting this admin.",
+        error?.message || "Something went wrong demoting this admin.",
       );
     }
   }
 
-  const showAddButton =
-    canCreateMember(user);
+  const showAddButton = canCreateMember(user);
 
-  const showAssignButton =
-    isDepartmentAdmin(user);
+  const showAssignButton = isDepartmentAdmin(user);
 
-  const showEditAction =
-    allowEditDirectly || allowEditRequest;
+  const showEditAction = allowEditDirectly || allowEditRequest;
 
-  const showDeleteAction =
-    allowDeleteDirectly ||
-    allowDeleteRequest;
+  const showDeleteAction = allowDeleteDirectly || allowDeleteRequest;
 
-  const showPromoteButton =
-    canPromoteDemoteMembers(user);
+  const showPromoteButton = canPromoteDemoteMembers(user);
 
-  const showDemoteButton =
-    canPromoteDemoteMembers(user);
+  const showDemoteButton = canPromoteDemoteMembers(user);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Members
-          </h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Members</h1>
 
           <p className="mt-1 text-sm text-gray-500">
             {user
@@ -764,9 +632,7 @@ export default function MembersPage() {
         {showAssignButton && (
           <Button
             variant="primary"
-            onClick={() =>
-              setIsAssignDrawerOpen(true)
-            }
+            onClick={() => setIsAssignDrawerOpen(true)}
             className="sm:w-auto"
           >
             + Add Existing Member
@@ -799,15 +665,10 @@ export default function MembersPage() {
             onStatusChange={setStatus}
             sort={sort}
             onSortChange={setSort}
-            isSuperAdmin={
-              user?.role === "super_admin"
-            }
+            isSuperAdmin={user?.role === "super_admin"}
           />
 
-          <MemberList
-            members={filteredMembers}
-            onView={handleView}
-          />
+          <MemberList members={filteredMembers} onView={handleView} />
         </>
       )}
 
@@ -815,30 +676,18 @@ export default function MembersPage() {
         member={selectedMember}
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
-        onEdit={
-          showEditAction
-            ? handleEdit
-            : undefined
-        }
-        onDelete={
-          showDeleteAction
-            ? handleDelete
-            : undefined
-        }
+        onEdit={showEditAction ? handleEdit : undefined}
+        onDelete={showDeleteAction ? handleDelete : undefined}
         onRemoveFromDepartment={
-          showAssignButton
-            ? handleRequestRemoveFromDepartment
-            : undefined
+          showAssignButton ? handleRequestRemoveFromDepartment : undefined
         }
         onPromoteToAdmin={
-          showPromoteButton &&
-          !selectedMember?.isAdmin
+          showPromoteButton && !selectedMember?.isAdmin
             ? handlePromoteToAdmin
             : undefined
         }
         onDemoteToMember={
-          showDemoteButton &&
-          selectedMember?.isAdmin
+          showDemoteButton && selectedMember?.isAdmin
             ? handleDemoteToMember
             : undefined
         }
@@ -850,18 +699,10 @@ export default function MembersPage() {
           isOpen={isFormOpen}
           onClose={handleCloseForm}
           onSave={handleSaveMember}
-          lockedCategory={
-            isCategoryAdmin(user)
-              ? user.scope
-              : undefined
-          }
-          departmentOptions={departments.map(
-            (item) => item.name,
-          )}
+          lockedCategory={isCategoryAdmin(user) ? user.scope : undefined}
+          departmentOptions={departments.map((item) => item.name)}
           submitLabel={
-            isCategoryAdmin(user) && formMember
-              ? "Send Request"
-              : "Save Member"
+            isCategoryAdmin(user) && formMember ? "Send Request" : "Save Member"
           }
         />
       )}
@@ -881,9 +722,7 @@ export default function MembersPage() {
       {showAssignButton && (
         <AssignMemberDrawer
           isOpen={isAssignDrawerOpen}
-          onClose={() =>
-            setIsAssignDrawerOpen(false)
-          }
+          onClose={() => setIsAssignDrawerOpen(false)}
           departmentName={user.scope}
           members={members}
           onAssign={handleAssignMember}
@@ -904,11 +743,7 @@ export default function MembersPage() {
               : `This will submit a request to Super Admin to delete ${memberPendingDelete.firstName} ${memberPendingDelete.lastName}. The member won't be removed until approved.`
             : ""
         }
-        confirmLabel={
-          allowDeleteDirectly
-            ? "Delete Member"
-            : "Continue"
-        }
+        confirmLabel={allowDeleteDirectly ? "Delete Member" : "Continue"}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />
@@ -930,9 +765,7 @@ export default function MembersPage() {
         member={memberPendingPromote}
         form={promoteForm}
         departments={departments}
-        isOpen={Boolean(
-          memberPendingPromote,
-        )}
+        isOpen={Boolean(memberPendingPromote)}
         onChange={(field, value) =>
           setPromoteForm((current) => ({
             ...current,
@@ -969,9 +802,7 @@ function MemberRequestReviewDrawer({
 }) {
   if (!review) return null;
 
-  const fields = Object.entries(
-    review.changes || {},
-  );
+  const fields = Object.entries(review.changes || {});
 
   return (
     <Drawer
@@ -993,16 +824,14 @@ function MemberRequestReviewDrawer({
             </p>
 
             <h2 className="mt-1 text-lg font-semibold text-gray-900">
-              {review.member.firstName}{" "}
-              {review.member.lastName}
+              {review.member.firstName} {review.member.lastName}
             </h2>
           </div>
 
           {review.type === "delete" ? (
             <div className="rounded-lg border border-[#9e263b]/20 bg-[#9e263b]/5 p-4 text-sm text-[#821f31]">
-              This member will be submitted for
-              deletion. The member will remain until a
-              Super Admin approves the request.
+              This member will be submitted for deletion. The member will remain
+              until a Super Admin approves the request.
             </div>
           ) : (
             <section>
@@ -1021,14 +850,10 @@ function MemberRequestReviewDrawer({
                         {formatRequestField(key)}
                       </p>
 
-                      <p className="mt-1 text-xs text-gray-400">
-                        Before
-                      </p>
+                      <p className="mt-1 text-xs text-gray-400">Before</p>
 
                       <p className="break-words text-sm text-gray-700">
-                        {formatRequestValue(
-                          review.member[key],
-                        )}
+                        {formatRequestValue(review.member[key])}
                       </p>
                     </div>
 
@@ -1050,18 +875,12 @@ function MemberRequestReviewDrawer({
           <label className="block">
             <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700">
               Reason
-              <span className="text-[#9e263b]">
-                *
-              </span>
+              <span className="text-[#9e263b]">*</span>
             </span>
 
             <textarea
               value={reason}
-              onChange={(event) =>
-                onReasonChange(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => onReasonChange(event.target.value)}
               rows={4}
               placeholder="Explain why this request is needed"
               className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#154d78] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
@@ -1070,18 +889,11 @@ function MemberRequestReviewDrawer({
         </div>
 
         <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white p-5">
-          <Button
-            variant="secondary"
-            onClick={onClose}
-          >
+          <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
 
-          <Button
-            variant="primary"
-            onClick={onSend}
-            disabled={!reason.trim()}
-          >
+          <Button variant="primary" onClick={onSend} disabled={!reason.trim()}>
             Send Request
           </Button>
         </div>
@@ -1093,24 +905,16 @@ function MemberRequestReviewDrawer({
 function formatRequestField(key) {
   return key
     .replace(/([A-Z])/g, " $1")
-    .replace(/^./, (value) =>
-      value.toUpperCase(),
-    );
+    .replace(/^./, (value) => value.toUpperCase());
 }
 
 function formatRequestValue(value) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+  if (value === null || value === undefined || value === "") {
     return "Not provided";
   }
 
   if (Array.isArray(value)) {
-    return value.length
-      ? value.join(", ")
-      : "None";
+    return value.length ? value.join(", ") : "None";
   }
 
   if (typeof value === "boolean") {
@@ -1129,19 +933,15 @@ function PromoteAdminDrawer({
   onConfirm,
   onCancel,
 }) {
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   if (!member) return null;
 
-  const isDepartmentRole =
-    form.role === "department_admin";
+  const isDepartmentRole = form.role === "department_admin";
 
   const canSubmit =
     form.password.length >= 8 &&
-    (isDepartmentRole
-      ? Boolean(form.department_id)
-      : Boolean(form.category));
+    (isDepartmentRole ? Boolean(form.department_id) : Boolean(form.category));
 
   return (
     <Drawer
@@ -1161,19 +961,15 @@ function PromoteAdminDrawer({
             <div className="mt-2 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {member.firstName}{" "}
-                  {member.lastName}
+                  {member.firstName} {member.lastName}
                 </h2>
 
                 <p className="mt-1 truncate text-sm text-gray-500">
-                  {member.email ||
-                    "No email on member record"}
+                  {member.email || "No email on member record"}
                 </p>
               </div>
 
-              <Badge tone="info">
-                New admin
-              </Badge>
+              <Badge tone="info">New admin</Badge>
             </div>
           </div>
 
@@ -1183,8 +979,7 @@ function PromoteAdminDrawer({
             </h3>
 
             <p className="mt-1 text-sm text-gray-500">
-              Choose the role and scope this member
-              will manage.
+              Choose the role and scope this member will manage.
             </p>
           </div>
 
@@ -1201,32 +996,20 @@ function PromoteAdminDrawer({
               },
             ]}
             value={form.role}
-            onChange={(event) =>
-              onChange(
-                "role",
-                event.target.value,
-              )
-            }
+            onChange={(event) => onChange("role", event.target.value)}
           />
 
           {isDepartmentRole ? (
             <Select
               label="Assigned department"
               placeholder="Select a department"
-              options={departments.map(
-                (department) => ({
-                  value: String(department.id),
-                  label: department.name,
-                }),
-              )}
-              value={String(
-                form.department_id || "",
-              )}
+              options={departments.map((department) => ({
+                value: String(department.id),
+                label: department.name,
+              }))}
+              value={String(form.department_id || "")}
               onChange={(event) =>
-                onChange(
-                  "department_id",
-                  event.target.value,
-                )
+                onChange("department_id", event.target.value)
               }
               required
             />
@@ -1253,76 +1036,50 @@ function PromoteAdminDrawer({
                 },
               ]}
               value={form.category}
-              onChange={(event) =>
-                onChange(
-                  "category",
-                  event.target.value,
-                )
-              }
+              onChange={(event) => onChange("category", event.target.value)}
               required
             />
           )}
           <div>
-          <div className="relative">
-            <Input
-              label="Temporary password"
-              type={showPassword ? "text" : "password"}
-              value={form.password}
-              onChange={(event) =>
-                onChange("password", event.target.value)
-              }
-              placeholder="At least 8 characters"
-              minLength={8}
-              required
-              className="pr-12"
-            />
+            <div className="relative">
+              <Input
+                label="Temporary password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(event) => onChange("password", event.target.value)}
+                placeholder="At least 8 characters"
+                minLength={8}
+                required
+                className="pr-12"
+              />
 
-            <button
-              type="button"
-              onClick={() =>
-                setShowPassword((previous) => !previous)
-              }
-              aria-label={
-                showPassword ? "Hide password" : "Show password"
-              }
-              title={
-                showPassword ? "Hide password" : "Show password"
-              }
-              className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent p-0 text-gray-400 outline-none transition-colors hover:bg-gray-100 hover:text-gray-600 focus:border-0 focus:outline-none focus:ring-0 active:border-0 active:outline-none active:ring-0"
-            >
-              {showPassword ? (
-                <EyeOff
-                  className="h-4 w-4"
-                  strokeWidth={2}
-                />
-              ) : (
-                <Eye
-                  className="h-4 w-4"
-                  strokeWidth={2}
-                />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowPassword((previous) => !previous)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent p-0 text-gray-400 outline-none transition-colors hover:bg-gray-100 hover:text-gray-600 focus:border-0 focus:outline-none focus:ring-0 active:border-0 active:outline-none active:ring-0"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" strokeWidth={2} />
+                ) : (
+                  <Eye className="h-4 w-4" strokeWidth={2} />
+                )}
+              </button>
+            </div>
+
+            <p className="mt-2 text-xs text-gray-400">
+              Share this password securely with the new administrator.
+            </p>
           </div>
-
-          <p className="mt-2 text-xs text-gray-400">
-            Share this password securely with the new administrator.
-          </p>
-        </div>
         </div>
 
         <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white p-5">
-          <Button
-            variant="secondary"
-            onClick={onCancel}
-          >
+          <Button variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
 
-          <Button
-            variant="primary"
-            onClick={onConfirm}
-            disabled={!canSubmit}
-          >
+          <Button variant="primary" onClick={onConfirm} disabled={!canSubmit}>
             Create Admin Account
           </Button>
         </div>

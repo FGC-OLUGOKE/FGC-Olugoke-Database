@@ -16,6 +16,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 
 class MemberSerializer(serializers.ModelSerializer):
+    userId = serializers.IntegerField(source="user_id", read_only=True, allow_null=True)
     departments = serializers.SlugRelatedField(slug_field="name", many=True, queryset=Department.objects.all(), required=False)
     category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, required=True)
     firstName = serializers.CharField(source="first_name")
@@ -31,7 +32,7 @@ class MemberSerializer(serializers.ModelSerializer):
     isAdmin = serializers.SerializerMethodField()
     class Meta:
         model = Member
-        fields = ("id", "membershipId", "photoUrl", "firstName", "lastName", "gender", "dateOfBirth", "maritalStatus", "occupation", "phone", "email", "address", "category", "departments", "status", "dateJoined", "baptized", "worker", "cellGroup", "serviceUnit", "created_at", "updated_at", "isAdmin")
+        fields = ("id", "userId", "membershipId", "photoUrl", "firstName", "lastName", "gender", "dateOfBirth", "maritalStatus", "occupation", "phone", "email", "address", "category", "departments", "status", "dateJoined", "baptized", "worker", "cellGroup", "serviceUnit", "created_at", "updated_at", "isAdmin")
         read_only_fields = ("created_at", "updated_at", "isAdmin")
     
     def get_isAdmin(self, obj):

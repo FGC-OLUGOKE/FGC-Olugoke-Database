@@ -10,8 +10,18 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveConstraint(
-            model_name='attendancerecord',
-            name='one_attendance_record_per_category_and_date',
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    "ALTER TABLE members_attendancerecord DROP CONSTRAINT IF EXISTS one_attendance_record_per_category_and_date",
+                    migrations.RunSQL.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.RemoveConstraint(
+                    model_name='attendancerecord',
+                    name='one_attendance_record_per_category_and_date',
+                ),
+            ],
         ),
     ]

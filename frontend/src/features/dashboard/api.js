@@ -1,6 +1,5 @@
 import { getMembers } from "../members/api";
 import { getDepartments } from "../departments/api";
-import { getAttendanceHistory } from "../attendance/api";
 // import { getEvents } from "../events/api"; // Uncomment if you bring events back
 import { apiRequest } from "../../lib/apiClient";
 
@@ -14,7 +13,6 @@ export async function getDashboardData() {
     getMembers(),
     getDepartments(),
     getMembershipGrowth(),
-    getAttendanceHistory(),
     // getEvents ? getEvents() : Promise.resolve([]),
     getRecentActivity(),
   ]);
@@ -23,8 +21,8 @@ export async function getDashboardData() {
     members: results[0].status === "fulfilled" ? results[0].value : [],
     departments: results[1].status === "fulfilled" ? results[1].value : [],
     growth: results[2].status === "fulfilled" ? results[2].value : [],
-    attendance: results[3].status === "fulfilled" ? results[3].value : [],
+    attendance: [],
     events: [], // Fallback empty array since getEvents wasn't imported
-    activity: results[4].status === "fulfilled" ? results[4].value : [],
+    activity: results[3].status === "fulfilled" ? results[3].value : [],
   };
 }

@@ -14,15 +14,15 @@ import secrets
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.contrib.auth.password_validation import validate_password
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.db import transaction
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
-from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member, PasswordResetToken
-from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer
+from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, Category, ChurchEvent, Department, DepartmentReport, Member, Notification, Pastorate, PasswordResetToken
+from .serializers import ActivityLogSerializer, AdminAccountSerializer, AnnouncementSerializer, ApprovalRequestSerializer, AttendanceRecordSerializer, ChurchEventSerializer, DepartmentReportSerializer, DepartmentSerializer, MemberSerializer, NotificationSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer, PastorateSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +40,13 @@ def is_category_admin(user):
 
 def is_read_only_admin(user):
     account = account_for(user)
-    return bool(account and account.role == AdminAccount.MANAGING_DEPARTMENTS)
+    return bool(account and account.role in (AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE))
 
 def assigned_departments(account):
     if account.role == AdminAccount.DEPARTMENT_ADMIN:
         return Department.objects.filter(pk=account.department_id)
+    if account.role == AdminAccount.PASTORATE and account.pastorate_id:
+        return account.pastorate.departments.all()
     return account.departments.all()
 
 def can_manage_department(account, department):
@@ -53,11 +55,19 @@ def can_manage_department(account, department):
 def log_activity(user, description, department=None):
     ActivityLog.objects.create(admin=user, description=description, department=department)
 
+def notify(user, title, message):
+    Notification.objects.create(recipient=user, title=title, message=message)
+
 class IsApplicationAdmin(permissions.BasePermission):
     def has_permission(self, request, view): return bool(request.user and request.user.is_authenticated and account_for(request.user))
 
 class SuperAdminOnly(permissions.BasePermission):
     def has_permission(self, request, view): return is_super_admin(request.user)
+
+class PastorateAdminOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        account = account_for(request.user)
+        return bool(account and account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.PASTORATE))
 
 class NonCategoryAdmin(permissions.BasePermission):
     def has_permission(self, request, view): return not is_category_admin(request.user)
@@ -66,32 +76,115 @@ class ReadOnlyManagingAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.method in permissions.SAFE_METHODS or not is_read_only_admin(request.user)
 
+class DepartmentWriteScope(permissions.BasePermission):
+    def has_permission(self, request, view):
+        account = account_for(request.user)
+        if account.role == AdminAccount.SUPER_ADMIN:
+            return True
+        if account.role != AdminAccount.PASTORATE:
+            return False
+        if view.action == "create":
+            return True
+        department_id = view.kwargs.get(view.lookup_field, view.kwargs.get("pk"))
+        return account.departments.filter(pk=department_id).exists()
+
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all(); serializer_class = DepartmentSerializer; permission_classes = (IsApplicationAdmin, NonCategoryAdmin)
     def get_queryset(self):
         account = account_for(self.request.user)
-        queryset = Department.objects.annotate(member_count=Count("members"))
-        if account.role in (AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE):
+        queryset = Department.objects.select_related("pastorate").prefetch_related(
+            "members",
+            "admins__user",
+        ).annotate(member_count=Count("members", distinct=True))
+        if account.role == AdminAccount.MANAGING_DEPARTMENTS:
             return queryset
+        if account.role == AdminAccount.PASTORATE:
+            return queryset.filter(pastorate_id=account.pastorate_id)
         if account.role == AdminAccount.DEPARTMENT_ADMIN:
             return queryset.filter(pk=account.department_id)
         if account.role == AdminAccount.CATEGORY_ADMIN:
             return queryset.filter(members__category=account.category).distinct()
         return queryset
-    def get_permissions(self): return [IsApplicationAdmin(), SuperAdminOnly()] if self.action not in ("list", "retrieve") else [IsApplicationAdmin()]
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsApplicationAdmin()]
+        return [IsApplicationAdmin(), DepartmentWriteScope()] if account_for(self.request.user).role == AdminAccount.PASTORATE else [IsApplicationAdmin(), SuperAdminOnly()]
+
+    def perform_create(self, serializer):
+        account = account_for(self.request.user)
+        if account.role == AdminAccount.PASTORATE:
+            if not account.pastorate_id:
+                raise PermissionDenied("This Pastorate Admin is not assigned to a pastorate.")
+            department = serializer.save(pastorate=account.pastorate)
+            account.departments.add(department)
+            log_activity(self.request.user, f"Created department {department.name}", department)
+            return
+        department = serializer.save(
+            pastorate=serializer.validated_data.get("pastorate")
+            or Pastorate.objects.get_or_create(name="General Pastorate")[0]
+        )
+        log_activity(self.request.user, f"Created department {department.name}", department)
+
+    def perform_update(self, serializer):
+        account = account_for(self.request.user)
+        if account.role == AdminAccount.PASTORATE:
+            department = self.get_object()
+            if department.pastorate_id != account.pastorate_id:
+                raise PermissionDenied("You may only manage departments in your pastorate.")
+            requested_pastorate = serializer.validated_data.get("pastorate", department.pastorate)
+            if requested_pastorate.pk != account.pastorate_id:
+                raise PermissionDenied("You may not move a department to another pastorate.")
+        department = serializer.save()
+        log_activity(self.request.user, f"Updated department {department.name}", department)
+
+    def perform_destroy(self, instance):
+        account = account_for(self.request.user)
+        if account.role == AdminAccount.PASTORATE and instance.pastorate_id != account.pastorate_id:
+            raise PermissionDenied("You may only manage departments in your pastorate.")
+        name = instance.name
+        instance.delete()
+        log_activity(self.request.user, f"Deleted department {name}")
+
+
+class PastorateViewSet(viewsets.ModelViewSet):
+    serializer_class = PastorateSerializer
+    permission_classes = (IsApplicationAdmin,)
+    queryset = Pastorate.objects.all()
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsApplicationAdmin()]
+        return [IsApplicationAdmin(), SuperAdminOnly()]
+
+    def get_queryset(self):
+        account = account_for(self.request.user)
+        if account.role == AdminAccount.SUPER_ADMIN:
+            return Pastorate.objects.all()
+        if account.role == AdminAccount.PASTORATE:
+            return Pastorate.objects.filter(pk=account.pastorate_id)
+        return Pastorate.objects.none()
+
+    def perform_destroy(self, instance):
+        if instance.departments.exists():
+            raise PermissionDenied("A pastorate with departments cannot be deleted.")
+        instance.delete()
 
 class MemberViewSet(viewsets.ModelViewSet):
     serializer_class = MemberSerializer; permission_classes = (IsApplicationAdmin,)
     def get_permissions(self):
+        if self.action == "departments":
+            return [IsApplicationAdmin()]
         return [IsApplicationAdmin(), ReadOnlyManagingAdmin()]
     def get_queryset(self):
-        queryset = Member.objects.prefetch_related("departments").all(); account = account_for(self.request.user)
+        queryset = Member.objects.select_related("user").prefetch_related("departments").all(); account = account_for(self.request.user)
         if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE):
             return queryset
         if account.role == AdminAccount.CATEGORY_ADMIN:
             return queryset.filter(category=account.category)
         return queryset.filter(departments__in=assigned_departments(account)).distinct()
     def create(self, request, *args, **kwargs):
+        if account_for(request.user).role == AdminAccount.PASTORATE:
+            return Response({"detail": "Pastorate Admins cannot create ordinary member profiles."}, status=status.HTTP_403_FORBIDDEN)
         return super().create(request, *args, **kwargs)
     def perform_create(self, serializer):
         account = account_for(self.request.user)
@@ -112,6 +205,8 @@ class MemberViewSet(viewsets.ModelViewSet):
         partial = kwargs.pop("partial", False)
         data = request.data.copy()
         account = account_for(request.user)
+        if account.role == AdminAccount.PASTORATE:
+            return Response({"detail": "Pastorate Admins cannot edit ordinary member profiles."}, status=status.HTTP_403_FORBIDDEN)
         
         if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE, AdminAccount.CATEGORY_ADMIN) and "departments" in request.data:
             data.pop("departments")
@@ -130,9 +225,13 @@ class MemberViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
-    def partial_update(self, request, *args, **kwargs): return self.update(request, *args, **kwargs)
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
     def destroy(self, request, *args, **kwargs):
         account = account_for(request.user)
+        if account.role == AdminAccount.PASTORATE:
+            return Response({"detail": "Pastorate Admins cannot delete ordinary members."}, status=status.HTTP_403_FORBIDDEN)
         instance = self.get_object()
         
         # Scope validation for delete
@@ -152,6 +251,8 @@ class MemberViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=("patch",), url_path="departments")
     def departments(self, request, pk=None):
         account = account_for(request.user); add, remove = request.data.get("add"), request.data.get("remove")
+        if account.role == AdminAccount.MANAGING_DEPARTMENTS:
+            return Response({"detail": "Managing Departments accounts have read-only access."}, status=status.HTTP_403_FORBIDDEN)
         member = Member.objects.prefetch_related("departments").filter(pk=pk).first()
         if not member: return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
         if bool(add) == bool(remove): return Response({"detail": "Provide exactly one of 'add' or 'remove'."}, status=status.HTTP_400_BAD_REQUEST)
@@ -159,13 +260,42 @@ class MemberViewSet(viewsets.ModelViewSet):
         # Scope validation for department assignment
         if account.role == AdminAccount.CATEGORY_ADMIN and member.category != account.category:
             return Response({"detail": "You can only manage members in your category."}, status=status.HTTP_403_FORBIDDEN)
-        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not member.departments.filter(pk__in=assigned_departments(account)).exists():
-            return Response({"detail": "You can only manage members in your department."}, status=status.HTTP_403_FORBIDDEN)
-        
         try: department = Department.objects.get(name=add or remove)
         except Department.DoesNotExist: return Response({"department": "Unknown department."}, status=status.HTTP_400_BAD_REQUEST)
-        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not can_manage_department(account, department): return Response({"detail": "You may only manage your assigned departments."}, status=status.HTTP_403_FORBIDDEN)
+        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not can_manage_department(account, department):
+            return Response({"detail": "Department not found."}, status=status.HTTP_404_NOT_FOUND)
         if account.role == AdminAccount.CATEGORY_ADMIN: return Response({"detail": "Category Admins cannot manage department assignments."}, status=status.HTTP_403_FORBIDDEN)
+        if remove and not member.departments.filter(pk=department.pk).exists():
+            return Response({"detail": "The member is not assigned to this department."}, status=status.HTTP_400_BAD_REQUEST)
+        if account.role == AdminAccount.DEPARTMENT_ADMIN:
+            action_name = "add" if add else "remove"
+            pending = ApprovalRequest.objects.filter(
+                member=member,
+                status=ApprovalRequest.PENDING,
+                type=ApprovalRequest.EDIT,
+                changes__departmentAction__department=department.name,
+            ).exists()
+            if pending:
+                return Response({"detail": "A matching membership request is already pending."}, status=status.HTTP_400_BAD_REQUEST)
+            approval = ApprovalRequest.objects.create(
+                member=member,
+                pastorate=department.pastorate,
+                type=ApprovalRequest.EDIT,
+                requested_by=request.user,
+                changes={"departmentAction": {"action": action_name, "department": department.name}},
+                reason=f"Request to {action_name} {member} {'to' if add else 'from'} {department.name}.",
+            )
+            for reviewer in AdminAccount.objects.filter(
+                role=AdminAccount.PASTORATE,
+                pastorate=department.pastorate,
+            ).select_related("user"):
+                notify(
+                    reviewer.user,
+                    "Membership request pending",
+                    f"{request.user.get_full_name() or request.user.email} requested to {action_name} {member} in {department.name}.",
+                )
+            log_activity(request.user, f"Submitted membership {action_name} request for {member}", department)
+            return Response(ApprovalRequestSerializer(approval).data, status=status.HTTP_201_CREATED)
         (member.departments.add if add else member.departments.remove)(department)
         member.worker = member.departments.exists()
         member.save(update_fields=("worker",))
@@ -179,6 +309,71 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
     # ID for detail routes so PATCH/DELETE operate on the account selected by
     # the client, even when User and AdminAccount primary keys differ.
     lookup_field = "user_id"
+
+    def get_permissions(self):
+        if self.action in (
+            "appoint_department_admin",
+            "revoke_department_admin",
+            "department_admin_candidates",
+        ):
+            return [IsApplicationAdmin(), PastorateAdminOnly()]
+        return [SuperAdminOnly()]
+
+    def _scoped_department(self, account, department_id):
+        department = Department.objects.filter(pk=department_id).first()
+        if not department:
+            raise PermissionDenied("Department not found.")
+        if account.role == AdminAccount.PASTORATE and department.pastorate_id != account.pastorate_id:
+            raise PermissionDenied("You may only manage departments in your pastorate.")
+        return department
+
+    @action(detail=False, methods=("get",))
+    def department_admin_candidates(self, request):
+        account = account_for(request.user)
+        if account.role not in (AdminAccount.SUPER_ADMIN, AdminAccount.PASTORATE):
+            return Response({"detail": "Only Super Admins and Pastorate Admins can appoint Department Admins."}, status=status.HTTP_403_FORBIDDEN)
+        users = get_user_model().objects.filter(
+            is_active=True,
+            admin_account__isnull=True,
+        ).order_by("first_name", "last_name", "email")
+        return Response([
+            {"id": user.id, "name": user.get_full_name() or user.email, "email": user.email}
+            for user in users
+        ])
+
+    @action(detail=False, methods=("post",))
+    def appoint_department_admin(self, request):
+        account = account_for(request.user)
+        department = self._scoped_department(account, request.data.get("department_id"))
+        user_id = request.data.get("user_id")
+        user = get_user_model().objects.filter(pk=user_id, is_active=True).first()
+        if not user:
+            return Response({"detail": "An active user account is required."}, status=status.HTTP_400_BAD_REQUEST)
+        current_account = account_for(user)
+        if current_account and current_account.role != AdminAccount.DEPARTMENT_ADMIN:
+            return Response({"detail": "Only a regular user or current Department Admin can be appointed."}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            AdminAccount.objects.filter(role=AdminAccount.DEPARTMENT_ADMIN, department=department).exclude(pk=getattr(current_account, "pk", None)).delete()
+            if current_account:
+                current_account.department = department
+                current_account.save(update_fields=("department",))
+                appointed = current_account
+            else:
+                appointed = AdminAccount.objects.create(user=user, role=AdminAccount.DEPARTMENT_ADMIN, department=department)
+        log_activity(request.user, f"Appointed {user.get_full_name() or user.email} as Department Admin for {department.name}", department)
+        return Response(AdminAccountSerializer(appointed).data)
+
+    @action(detail=False, methods=("post",))
+    def revoke_department_admin(self, request):
+        account = account_for(request.user)
+        department = self._scoped_department(account, request.data.get("department_id"))
+        appointed = AdminAccount.objects.filter(role=AdminAccount.DEPARTMENT_ADMIN, department=department).select_related("user").first()
+        if not appointed:
+            return Response({"detail": "This department has no active Department Admin."}, status=status.HTTP_404_NOT_FOUND)
+        name = appointed.user.get_full_name() or appointed.user.email
+        appointed.delete()
+        log_activity(request.user, f"Revoked Department Admin access for {name} in {department.name}", department)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def destroy(self, request, *args, **kwargs):
         account = self.get_object()
@@ -375,27 +570,73 @@ class ApprovalRequestViewSet(viewsets.ModelViewSet):
     serializer_class = ApprovalRequestSerializer; permission_classes = (IsApplicationAdmin,)
     def get_permissions(self):
         if self.action in ("update", "partial_update", "destroy"):
-            return [IsApplicationAdmin(), SuperAdminOnly()]
+            return [IsApplicationAdmin()]
         return [IsApplicationAdmin(), ReadOnlyManagingAdmin()]
     def get_queryset(self):
         account = account_for(self.request.user); query = ApprovalRequest.objects.select_related("member", "requested_by", "requested_by__admin_account", "requested_by__admin_account__department")
-        return query if account.role in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE) else query.filter(requested_by=self.request.user)
+        if account.role == AdminAccount.SUPER_ADMIN:
+            return query
+        if account.role == AdminAccount.PASTORATE:
+            return query.filter(
+                Q(pastorate_id=account.pastorate_id)
+                | Q(member__departments__pastorate_id=account.pastorate_id)
+            ).distinct()
+        return query.filter(requested_by=self.request.user)
     def perform_create(self, serializer):
         account = account_for(self.request.user); member = serializer.validated_data["member"]
+        if account.role == AdminAccount.PASTORATE:
+            raise PermissionDenied("Pastorate Admins review membership requests; they do not submit them.")
         if account.role == AdminAccount.CATEGORY_ADMIN and member.category != account.category:
             raise PermissionDenied("You may only request changes for members in your category.")
-        if account.role in (AdminAccount.DEPARTMENT_ADMIN, AdminAccount.PASTORATE) and not member.departments.filter(pk__in=assigned_departments(account)).exists():
-            raise PermissionDenied("You may only request changes for members in your assigned departments.")
-        request = serializer.save(requested_by=self.request.user)
+        department_action = serializer.validated_data.get("changes", {}).get("departmentAction")
+        if account.role == AdminAccount.DEPARTMENT_ADMIN:
+            if department_action:
+                department = Department.objects.filter(name=department_action.get("department")).first()
+                if not department or department.pk != account.department_id:
+                    raise PermissionDenied("You may only request membership changes for your department.")
+                if department_action.get("action") == "remove" and not member.departments.filter(pk=department.pk).exists():
+                    raise PermissionDenied("The member is not assigned to your department.")
+            elif not member.departments.filter(pk=account.department_id).exists():
+                raise PermissionDenied("You may only request changes for members in your department.")
+        request = serializer.save(
+            requested_by=self.request.user,
+            pastorate=member.departments.filter(pk=account.department_id).values_list("pastorate", flat=True).first()
+            if account.role == AdminAccount.DEPARTMENT_ADMIN else None,
+        )
         log_activity(self.request.user, f"Submitted {request.type} request for {member}", account.department)
     def partial_update(self, request, *args, **kwargs):
-        if not is_super_admin(request.user): return Response({"detail": "Only the Super Admin can review requests."}, status=status.HTTP_403_FORBIDDEN)
+        account = account_for(request.user)
+        if account.role not in (AdminAccount.SUPER_ADMIN, AdminAccount.PASTORATE):
+            return Response({"detail": "Only Super Admins and Pastorate Admins can review requests."}, status=status.HTTP_403_FORBIDDEN)
         approval = self.get_object(); decision = request.data.get("status")
         if approval.status != ApprovalRequest.PENDING or decision not in (ApprovalRequest.APPROVED, ApprovalRequest.REJECTED):
             return Response({"detail": "Only pending requests can be approved or rejected."}, status=status.HTTP_400_BAD_REQUEST)
+        if approval.requested_by_id == request.user.id:
+            return Response({"detail": "You cannot approve your own request."}, status=status.HTTP_403_FORBIDDEN)
+        department_action = approval.changes.get("departmentAction") if approval.changes else None
+        if account.role == AdminAccount.PASTORATE:
+            target_department = Department.objects.filter(name=department_action.get("department")).first() if department_action else None
+            in_scope = approval.pastorate_id == account.pastorate_id or approval.member.departments.filter(pastorate_id=account.pastorate_id).exists()
+            if target_department:
+                in_scope = target_department.pastorate_id == account.pastorate_id
+            if not in_scope:
+                return Response({"detail": "This request is outside your pastorate."}, status=status.HTTP_403_FORBIDDEN)
+        rejection_reason = str(request.data.get("rejectionReason", "")).strip()
+        if decision == ApprovalRequest.REJECTED and not rejection_reason:
+            return Response({"rejectionReason": "A reason is required when rejecting a request."}, status=status.HTTP_400_BAD_REQUEST)
         with transaction.atomic():
             if decision == ApprovalRequest.APPROVED:
-                if approval.type == ApprovalRequest.EDIT:
+                department_action = approval.changes.get("departmentAction") if approval.changes else None
+                if department_action:
+                    department = Department.objects.filter(name=department_action.get("department")).first()
+                    if not department or (department.pastorate_id != account.pastorate_id and account.role != AdminAccount.SUPER_ADMIN):
+                        return Response({"detail": "This department is outside your pastorate."}, status=status.HTTP_403_FORBIDDEN)
+                    if department_action.get("action") == "add":
+                        approval.member.departments.add(department)
+                    elif department_action.get("action") == "remove":
+                        approval.member.departments.remove(department)
+                    log_activity(request.user, f"Approved membership request for {approval.member}", department)
+                elif approval.type == ApprovalRequest.EDIT:
                     member_serializer = MemberSerializer(approval.member, data=approval.changes, partial=True)
                     member_serializer.is_valid(raise_exception=True)
                     member_serializer.save()
@@ -405,8 +646,39 @@ class ApprovalRequestViewSet(viewsets.ModelViewSet):
                     member.delete()
                     approval.member = None
                     log_activity(request.user, f"Approved deletion request for {member_name}")
-            approval.status, approval.reviewed_by, approval.reviewed_at = decision, request.user, timezone.now(); approval.save(update_fields=("status", "reviewed_by", "reviewed_at"))
+            approval.status, approval.reviewed_by, approval.reviewed_at = decision, request.user, timezone.now()
+            if decision == ApprovalRequest.REJECTED:
+                approval.rejection_reason = rejection_reason
+            approval.save(update_fields=("status", "reviewed_by", "reviewed_at", "rejection_reason"))
+            notify(
+                approval.requested_by,
+                f"Request {decision}",
+                f"Your request for {approval.member or 'a member'} was {decision} by {request.user.get_full_name() or request.user.email}."
+                + (f" Reason: {rejection_reason}" if rejection_reason else ""),
+            )
         return Response(ApprovalRequestSerializer(approval).data)
+
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Approval requests cannot be edited after submission. Review them with PATCH."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = (IsApplicationAdmin,)
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+
+    @action(detail=True, methods=("post",))
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        if notification.read_at is None:
+            notification.read_at = timezone.now()
+            notification.save(update_fields=("read_at",))
+        return Response(NotificationSerializer(notification).data)
 
 @api_view(("POST",))
 @permission_classes((permissions.AllowAny,))

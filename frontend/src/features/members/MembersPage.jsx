@@ -41,6 +41,7 @@ import {
   canRequestMemberDelete,
   canAssignMembersToDepartment,
   isCategoryAdmin,
+  isDepartmentAdmin,
   getRoleLabel,
   canPromoteDemoteMembers,
 } from "../../lib/permissions";

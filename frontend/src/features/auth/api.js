@@ -13,3 +13,8 @@ export const confirmPasswordReset = (token, password, confirmPassword) =>
 export const createAdminAccount = (data) => apiRequest("/users/", { method: "POST", body: JSON.stringify(data) });
 export const updateAdminAccount = (id, data) => apiRequest(`/users/${id}/`, { method: "PATCH", body: JSON.stringify(data) });
 export const removeAdminAccount = (id) => apiRequest(`/users/${id}/`, { method: "DELETE" });
+export const getDepartmentAdminCandidates = () => apiRequest("/users/department_admin_candidates/");
+export const appointDepartmentAdmin = (departmentId, userId) => apiRequest("/users/appoint_department_admin/", { method: "POST", body: JSON.stringify({ department_id: departmentId, user_id: userId }) });
+export const revokeDepartmentAdmin = (departmentId) => apiRequest("/users/revoke_department_admin/", { method: "POST", body: JSON.stringify({ department_id: departmentId }) });
+export const getNotifications = () => apiRequest("/notifications/");
+export const markNotificationRead = (id) => apiRequest(`/notifications/${id}/mark_read/`, { method: "POST" });

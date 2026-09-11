@@ -3,12 +3,19 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 const TOKEN_KEY = "fgcAuthToken";
 const pendingRequests = new Map();
+const cachedGets = new Map();
+const GET_CACHE_TTL = 2000;
 export function getToken() { return window.localStorage.getItem(TOKEN_KEY); }
 export function setToken(token) { window.localStorage.setItem(TOKEN_KEY, token); }
 export function clearToken() { window.localStorage.removeItem(TOKEN_KEY); }
 export async function apiRequest(path, options = {}) {
   const method = (options.method || "GET").toUpperCase();
   const requestKey = `${method}:${path}:${options.body || ""}`;
+  if (method === "GET") {
+    const cached = cachedGets.get(path);
+    if (cached && cached.expiresAt > Date.now()) return cached.data;
+    if (pendingRequests.has(requestKey)) return pendingRequests.get(requestKey);
+  }
   if (method !== "GET" && pendingRequests.has(requestKey)) {
     return pendingRequests.get(requestKey);
   }
@@ -34,9 +41,17 @@ export async function apiRequest(path, options = {}) {
   })();
 
   if (method !== "GET") pendingRequests.set(requestKey, request);
+  else pendingRequests.set(requestKey, request);
   try {
-    return await request;
+    const result = await request;
+    if (method === "GET") cachedGets.set(path, { data: result, expiresAt: Date.now() + GET_CACHE_TTL });
+    return result;
   } finally {
-    if (method !== "GET") pendingRequests.delete(requestKey);
+    pendingRequests.delete(requestKey);
+    if (method !== "GET") {
+      for (const key of cachedGets.keys()) {
+        if (key.split("/")[1] === path.split("/")[1]) cachedGets.delete(key);
+      }
+    }
   }
 }

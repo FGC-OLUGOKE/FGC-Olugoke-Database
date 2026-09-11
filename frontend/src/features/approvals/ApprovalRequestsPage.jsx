@@ -35,7 +35,7 @@ import {
   removeAdminAccount,
 } from "../auth/api";
 
-import { getRoleLabel, isCategoryAdmin, isSuperAdmin } from "../../lib/permissions";
+import { getRoleLabel, isCategoryAdmin, isPastorate, isSuperAdmin } from "../../lib/permissions";
 
 import CreateAdminAccountForm from "./CreateAdminAccountForm";
 import AdminDetailsDrawer from "./AdminDetailsDrawer";
@@ -76,6 +76,7 @@ export default function ApprovalRequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [reviewingRequestId, setReviewingRequestId] = useState(null);
   const [reviewConfirmation, setReviewConfirmation] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
   const [dateFilter, setDateFilter] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
@@ -86,7 +87,7 @@ export default function ApprovalRequestsPage() {
   const [isAdminDetailsOpen, setIsAdminDetailsOpen] = useState(false);
 
   useEffect(() => {
-    if (!isSuperAdmin(user) && !isCategoryAdmin(user)) {
+    if (!isSuperAdmin(user) && !isCategoryAdmin(user) && !isPastorate(user)) {
       setIsLoading(false);
       return undefined;
     }
@@ -116,7 +117,7 @@ export default function ApprovalRequestsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!isSuperAdmin(user) && !isCategoryAdmin(user)) return undefined;
+    if (!isSuperAdmin(user) && !isCategoryAdmin(user) && !isPastorate(user)) return undefined;
 
     let isMounted = true;
     const refreshRequests = async () => {
@@ -143,7 +144,7 @@ export default function ApprovalRequestsPage() {
     if (reviewingRequestId === request.id) return;
     setReviewingRequestId(request.id);
     try {
-      const reviewedRequest = await reviewApprovalRequest(request.id, decision);
+      const reviewedRequest = await reviewApprovalRequest(request.id, decision, rejectionReason);
 
       setRequests((prev) =>
         prev.map((r) =>
@@ -162,10 +163,12 @@ export default function ApprovalRequestsPage() {
       toast.error(error.message || "Something went wrong reviewing this request.");
     } finally {
       setReviewingRequestId(null);
+      setRejectionReason("");
     }
   }
 
   function askToReview(request, decision) {
+    setRejectionReason("");
     setReviewConfirmation({ request, decision });
   }
 
@@ -271,12 +274,13 @@ export default function ApprovalRequestsPage() {
   const pending = requests.filter((r) => r.status === "pending");
   const history = requests.filter((r) => r.status !== "pending");
   const isSuper = isSuperAdmin(user);
+  const canReview = isSuper || isPastorate(user);
   const requestHistory = isSuper ? history : requests;
   const filteredHistory = requestHistory.filter((request) => matchesDateFilter(request, dateFilter, customStartDate, customEndDate));
   const historyPageSize = 8;
   const pagedHistory = filteredHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
 
-  if (!isSuper && !isCategoryAdmin(user)) {
+  if (!isSuper && !isCategoryAdmin(user) && !isPastorate(user)) {
     return (
       <EmptyState
         icon={Users}
@@ -307,7 +311,7 @@ export default function ApprovalRequestsPage() {
       </div>
 
       {/* Pending Requests */}
-      {isSuper && showRequests && <SectionCard title={`Pending Requests (${pending.length})`}>
+      {canReview && showRequests && <SectionCard title={`Pending Requests (${pending.length})`}>
         {pending.length === 0 ? (
           <EmptyState
             icon={Inbox}
@@ -384,7 +388,7 @@ export default function ApprovalRequestsPage() {
       </SectionCard>}
 
       {showRequests && <SectionCard
-        title={isSuper ? "Request History" : "Approval Requests"}
+        title={isSuper ? "Request History" : isPastorate(user) ? "Pastorate Approval Requests" : "Approval Requests"}
         headerContent={(
           <div className="w-44 shrink-0">
             <Select
@@ -429,7 +433,7 @@ export default function ApprovalRequestsPage() {
         isOpen={Boolean(selectedRequest)}
         onClose={() => setSelectedRequest(null)}
         onReview={askToReview}
-        canReview={isSuper && selectedRequest?.status === "pending"}
+        canReview={canReview && selectedRequest?.status === "pending" && selectedRequest?.requestedBy?.id !== user?.id}
         isReviewing={selectedRequest && reviewingRequestId === selectedRequest.id}
       />}
 
@@ -541,11 +545,25 @@ export default function ApprovalRequestsPage() {
         confirmVariant={reviewConfirmation?.decision === "approved" ? "success" : "danger"}
         onConfirm={() => {
           const confirmation = reviewConfirmation;
+          if (confirmation.decision === "rejected" && !rejectionReason.trim()) {
+            toast.error("Please provide a rejection reason.");
+            return;
+          }
           setReviewConfirmation(null);
           handleReview(confirmation.request, confirmation.decision);
         }}
         onCancel={() => setReviewConfirmation(null)}
-      />
+      >
+        {reviewConfirmation?.decision === "rejected" && (
+          <textarea
+            className="mt-4 w-full rounded-lg border border-gray-300 p-2 text-sm"
+            rows={3}
+            placeholder="Reason for rejection"
+            value={rejectionReason}
+            onChange={(event) => setRejectionReason(event.target.value)}
+          />
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

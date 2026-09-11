@@ -5,14 +5,34 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
-from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, ChurchEvent, Department, DepartmentReport, Member
+from .models import ActivityLog, AdminAccount, Announcement, ApprovalRequest, AttendanceRecord, ChurchEvent, Department, DepartmentReport, Member, Notification, Pastorate
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
-    memberCount = serializers.IntegerField(source="members.count", read_only=True)
+    memberCount = serializers.SerializerMethodField()
+    pastorateId = serializers.PrimaryKeyRelatedField(source="pastorate", queryset=Pastorate.objects.all(), required=False, allow_null=True)
+    pastorateName = serializers.CharField(source="pastorate.name", read_only=True)
+    departmentAdmin = serializers.SerializerMethodField()
     class Meta:
         model = Department
-        fields = ("id", "name", "description", "leader", "memberCount")
+        fields = ("id", "name", "description", "leader", "memberCount", "pastorateId", "pastorateName", "departmentAdmin")
+
+    def get_memberCount(self, obj):
+        return getattr(obj, "member_count", obj.members.count())
+
+    def get_departmentAdmin(self, obj):
+        account = next((item for item in obj.admins.all() if item.role == AdminAccount.DEPARTMENT_ADMIN), None)
+        if not account:
+            return None
+        return {"id": account.user_id, "name": account.user.get_full_name() or account.user.email, "email": account.user.email}
+
+
+class PastorateSerializer(serializers.ModelSerializer):
+    departmentCount = serializers.IntegerField(source="departments.count", read_only=True)
+
+    class Meta:
+        model = Pastorate
+        fields = ("id", "name", "description", "departmentCount")
 
 
 class MemberSerializer(serializers.ModelSerializer):
@@ -81,11 +101,14 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     departmentId = serializers.PrimaryKeyRelatedField(source="department", queryset=Department.objects.all(), write_only=True, required=False, allow_null=True)
     departmentIds = serializers.PrimaryKeyRelatedField(source="departments", queryset=Department.objects.all(), many=True, write_only=True, required=False)
     departments = serializers.SerializerMethodField()
+    pastorateId = serializers.PrimaryKeyRelatedField(source="pastorate", queryset=Pastorate.objects.all(), required=False, allow_null=True)
+    pastorate = serializers.SerializerMethodField()
     category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, write_only=True, required=False, allow_null=True)
     password = serializers.CharField(source="user.password", write_only=True, required=False, min_length=8)
+    role = serializers.ChoiceField(choices=AdminAccount.ROLE_CHOICES, required=False, default=AdminAccount.DEPARTMENT_ADMIN)
     class Meta:
         model = AdminAccount
-        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "category", "password")
+        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password")
         read_only_fields = ()
 
     def to_internal_value(self, data):
@@ -101,7 +124,11 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             elif role == AdminAccount.CATEGORY_ADMIN:
                 data["category"] = scope
             elif role == AdminAccount.PASTORATE:
-                data["departmentIds"] = [department.pk for department in Department.objects.filter(name__in=scope if isinstance(scope, list) else [scope])]
+                if isinstance(scope, list):
+                    data["departmentIds"] = [department.pk for department in Department.objects.filter(name__in=scope)]
+                    pastorates = Pastorate.objects.filter(departments__name__in=scope).distinct()
+                    if pastorates.count() == 1:
+                        data["pastorateId"] = pastorates.first().pk
         return super().to_internal_value(data)
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.email
@@ -109,11 +136,14 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     def get_departments(self, obj):
         if obj.role != AdminAccount.PASTORATE:
             return []
-        return [department.name for department in obj.departments.all()]
+        return [department.name for department in obj.pastorate.departments.all()] if obj.pastorate_id else []
+
+    def get_pastorate(self, obj):
+        return obj.pastorate.name if obj.pastorate_id else None
 
     def get_scope(self, obj):
         if obj.role == AdminAccount.PASTORATE:
-            return [department.name for department in obj.departments.all()]
+            return [department.name for department in obj.pastorate.departments.all()] if obj.pastorate_id else []
         return obj.department.name if obj.department_id else obj.category
     def validate_email(self, value):
         email = value.strip().lower()
@@ -128,6 +158,7 @@ class AdminAccountSerializer(serializers.ModelSerializer):
         role = attrs.get("role", self.instance.role if self.instance else AdminAccount.DEPARTMENT_ADMIN)
         department = attrs.get("department", self.instance.department if self.instance else None)
         category = attrs.get("category", self.instance.category if self.instance else None)
+        pastorate = attrs.get("pastorate", self.instance.pastorate if self.instance else None)
         if role == AdminAccount.CATEGORY_ADMIN:
             department = None
             attrs["department"] = None
@@ -139,6 +170,9 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             category = None
             attrs["department"] = None
             attrs["category"] = None
+        if role != AdminAccount.PASTORATE:
+            pastorate = None
+            attrs["pastorate"] = None
         if role == AdminAccount.DEPARTMENT_ADMIN and not department:
             raise serializers.ValidationError({"departmentId": "A Departmental Admin must be assigned to a department."})
         if role == AdminAccount.CATEGORY_ADMIN and not category:
@@ -151,8 +185,25 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"category": "A Departmental Admin cannot be assigned to a category."})
         if role == AdminAccount.MANAGING_DEPARTMENTS and attrs.get("departments"):
             raise serializers.ValidationError({"departmentIds": "Managing Departments accounts are read-only and cannot be assigned departments."})
-        if role == AdminAccount.PASTORATE and not attrs.get("departments", self.instance.departments.all() if self.instance else []):
-            raise serializers.ValidationError({"departmentIds": "A Pastorate account must be assigned at least one department."})
+        if role == AdminAccount.PASTORATE and not pastorate:
+            departments = attrs.get("departments", self.instance.departments.all() if self.instance else Department.objects.none())
+            pastorate_ids = set(departments.values_list("pastorate_id", flat=True)) if hasattr(departments, "values_list") else {department.pastorate_id for department in departments}
+            pastorate_ids.discard(None)
+            if len(pastorate_ids) == 1:
+                pastorate = Pastorate.objects.get(pk=next(iter(pastorate_ids)))
+                attrs["pastorate"] = pastorate
+            elif departments:
+                pastorate, _ = Pastorate.objects.get_or_create(name="General Pastorate")
+                Department.objects.filter(pk__in=[department.pk for department in departments], pastorate__isnull=True).update(pastorate=pastorate)
+                attrs["pastorate"] = pastorate
+        pastorate = attrs.get("pastorate", pastorate)
+        if role == AdminAccount.PASTORATE and not attrs.get("pastorate"):
+            raise serializers.ValidationError({"pastorateId": "A Pastorate Admin must be assigned to one pastorate."})
+        if role == AdminAccount.PASTORATE:
+            departments = attrs.get("departments", self.instance.departments.all() if self.instance else Department.objects.none())
+            department_queryset = departments if hasattr(departments, "exclude") else Department.objects.filter(pk__in=[department.pk for department in departments])
+            if pastorate and department_queryset.filter(pastorate__isnull=False).exclude(pastorate=pastorate).exists():
+                raise serializers.ValidationError({"departmentIds": "All assigned departments must belong to the selected pastorate."})
         return attrs
     def create(self, validated_data):
         user_data = validated_data.pop("user")
@@ -165,7 +216,11 @@ class AdminAccountSerializer(serializers.ModelSerializer):
         parts = name.split(maxsplit=1); User = get_user_model()
         user = User.objects.create_user(username=user_data["email"], email=user_data["email"], first_name=parts[0], last_name=parts[1] if len(parts) > 1 else "", password=password)
         account = AdminAccount.objects.create(user=user, role=role, **validated_data)
-        account.departments.set(departments)
+        if role == AdminAccount.PASTORATE:
+            if account.pastorate_id:
+                account.departments.set(departments or account.pastorate.departments.all())
+        else:
+            account.departments.set([])
         return account
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {}); name = self.initial_data.get("name")
@@ -226,11 +281,13 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
     requestedBy = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     reviewedAt = serializers.DateTimeField(source="reviewed_at", read_only=True)
+    rejectionReason = serializers.CharField(source="rejection_reason", read_only=True)
 
     class Meta:
         model = ApprovalRequest
-        fields = ("id", "type", "memberId", "memberName", "requestedBy", "changes", "reason", "status", "createdAt", "reviewedAt")
+        fields = ("id", "type", "memberId", "memberName", "requestedBy", "pastorate", "changes", "reason", "rejectionReason", "status", "createdAt", "reviewedAt")
         read_only_fields = ("status",)
+    pastorate = serializers.CharField(source="pastorate.name", read_only=True)
 
     def get_memberName(self, obj):
         return f"{obj.member.first_name} {obj.member.last_name}" if obj.member else "Deleted member"
@@ -240,6 +297,15 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
         if not account:
             return {"id": obj.requested_by_id, "name": obj.requested_by.get_full_name() or obj.requested_by.email, "role": None, "scope": None}
         return AdminAccountSerializer(account).data
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    readAt = serializers.DateTimeField(source="read_at", read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = ("id", "title", "message", "createdAt", "readAt")
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):

@@ -22,8 +22,12 @@ import {
 
 import { getMembers } from "../members/api";
 import FloatingActionButton from "../../components/ui/FloatingActionButton";
+import { useAuth } from "../auth/AuthContext";
+import { isPastorate, isSuperAdmin } from "../../lib/permissions";
+import { getDepartmentAdminCandidates, appointDepartmentAdmin, revokeDepartmentAdmin } from "../auth/api";
 
 export default function DepartmentsPage() {
+  const { user } = useAuth();
   const toast = useToast();
 
   const [departments, setDepartments] = useState([]);
@@ -41,6 +45,7 @@ export default function DepartmentsPage() {
 
   const [departmentPendingDelete, setDepartmentPendingDelete] =
     useState(null);
+  const [adminCandidates, setAdminCandidates] = useState([]);
 
   async function loadDepartmentData() {
     const [departmentsData, membersData] = await Promise.all([
@@ -87,6 +92,28 @@ export default function DepartmentsPage() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!isPastorate(user) && !isSuperAdmin(user)) return;
+    getDepartmentAdminCandidates()
+      .then(setAdminCandidates)
+      .catch(() => toast.error("Couldn't load Department Admin candidates."));
+  }, [user]);
+
+  async function handleAppointDepartmentAdmin(departmentId, userId) {
+    const updated = await appointDepartmentAdmin(departmentId, userId);
+    setDepartments((previous) => previous.map((item) => item.id === departmentId ? { ...item, departmentAdmin: updated } : item));
+    setSelectedDepartment((previous) => previous?.id === departmentId ? { ...previous, departmentAdmin: updated } : previous);
+    setAdminCandidates((previous) => previous.filter((candidate) => candidate.id !== userId));
+    toast.success("Department Admin appointed.");
+  }
+
+  async function handleRevokeDepartmentAdmin(departmentId) {
+    await revokeDepartmentAdmin(departmentId);
+    setDepartments((previous) => previous.map((item) => item.id === departmentId ? { ...item, departmentAdmin: null } : item));
+    setSelectedDepartment((previous) => previous?.id === departmentId ? { ...previous, departmentAdmin: null } : previous);
+    toast.success("Department Admin access revoked.");
+  }
 
   const departmentsWithCounts = useMemo(() => {
     return departments.map((dept) => ({
@@ -345,6 +372,10 @@ export default function DepartmentsPage() {
         onClose={handleCloseDetails}
         onMembersChanged={handleMembersChanged}
         onEdit={handleSaveLeader}
+        canManageAdmin={isPastorate(user) || isSuperAdmin(user)}
+        adminCandidates={adminCandidates}
+        onAppointAdmin={handleAppointDepartmentAdmin}
+        onRevokeAdmin={handleRevokeDepartmentAdmin}
         onDelete={() =>
           handleDeleteDepartment(selectedDepartment)
         }

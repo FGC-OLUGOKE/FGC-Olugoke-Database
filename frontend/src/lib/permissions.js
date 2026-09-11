@@ -6,7 +6,7 @@
  * - Category Admin: scoped to one category (Children, Teenager, Youth, Adult).
  * - Department Admin: scoped to one department.
  * - Managing Departments: read-only access to all church information.
- * - Pastorate: read access to everything and write access to assigned departments.
+ * - Pastorate Admin: church-wide member visibility and management of assigned departments.
  *
  * This module is intentionally pure: it only evaluates the user object and
  * data passed to it. Backend authorization remains the final authority.
@@ -56,22 +56,26 @@ export function getScopedDepartments(user, departments = []) {
   if (!user) return [];
   if (isSuperAdmin(user)) return departments;
   if (isDepartmentAdmin(user)) return departments.filter((d) => d.name === user.scope);
+  if (isPastorate(user)) {
+    const assigned = Array.isArray(user.scope) ? user.scope : [];
+    return departments.filter((d) => assigned.includes(d.name));
+  }
   return departments;
 }
 
-/** Creating a brand-new member is reserved for Super Admin and Category Admin. */
+/** Pastorate Admins can view members, but cannot create member profiles. */
 export function canCreateMember(user) {
-  return isSuperAdmin(user) || isCategoryAdmin(user) || isPastorate(user);
+  return isSuperAdmin(user) || isCategoryAdmin(user);
 }
 
-/** Super Admin edits directly; Category Admin edits through approval requests. */
+/** Pastorate Admins cannot edit ordinary member profiles. */
 export function canEditMemberDirectly(user) {
-  return isSuperAdmin(user) || isPastorate(user);
+  return isSuperAdmin(user);
 }
 
-/** Super Admin deletes directly; Category Admin deletes through approval requests. */
+/** Pastorate Admins cannot delete ordinary members. */
 export function canDeleteMemberDirectly(user) {
-  return isSuperAdmin(user) || isPastorate(user);
+  return isSuperAdmin(user);
 }
 
 export function canRequestMemberEdit(user) {
@@ -91,9 +95,9 @@ export function canRemoveMembersFromDepartment(user) {
   return isDepartmentAdmin(user) || isPastorate(user);
 }
 
-/** Only Super Admin can create, edit, or delete departments. */
+/** Super Admin and Pastorate Admin manage departments in their scope. */
 export function canManageDepartments(user) {
-  return isSuperAdmin(user);
+  return isSuperAdmin(user) || isPastorate(user);
 }
 
 export function canViewFullReports(user) {
@@ -101,7 +105,7 @@ export function canViewFullReports(user) {
 }
 
 export function canReviewApprovalRequests(user) {
-  return isSuperAdmin(user);
+  return isSuperAdmin(user) || isPastorate(user);
 }
 
 export function canManageUsers(user) {
@@ -120,7 +124,8 @@ export function getAllowedNavPaths(user) {
   if (isSuperAdmin(user)) return null;
   if (isCategoryAdmin(user)) return ["dashboard", "members", "attendance", "birthdays", "reports", "approvals"];
   if (isDepartmentAdmin(user)) return ["dashboard", "members", "birthdays", "reports"];
-  if (isManagingDepartments(user) || isPastorate(user)) return ["dashboard", "members", "attendance", "birthdays", "reports"];
+  if (isManagingDepartments(user)) return ["dashboard", "members", "attendance", "birthdays", "reports"];
+  if (isPastorate(user)) return ["dashboard", "members", "departments", "attendance", "birthdays", "reports", "approvals"];
   return ["dashboard"];
 }
 
@@ -130,6 +135,6 @@ export function getRoleLabel(user) {
   if (isCategoryAdmin(user)) return `${user.scope} Category Admin`;
   if (isDepartmentAdmin(user)) return `${user.scope} Department Admin`;
   if (isManagingDepartments(user)) return "Managing Departments";
-  if (isPastorate(user)) return "Pastorate";
+  if (isPastorate(user)) return "Pastorate Admin";
   return "Unknown Role";
 }

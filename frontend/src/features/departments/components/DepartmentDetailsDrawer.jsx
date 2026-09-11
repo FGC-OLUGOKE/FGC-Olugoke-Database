@@ -50,6 +50,10 @@ export default function DepartmentDetailsDrawer({
   onMembersChanged,
   onDelete,
   onEdit,
+  canManageAdmin = false,
+  adminCandidates = [],
+  onAppointAdmin,
+  onRevokeAdmin,
 }) {
   const toast = useToast();
 
@@ -63,6 +67,7 @@ export default function DepartmentDetailsDrawer({
 
   const [memberPendingRemove, setMemberPendingRemove] = useState(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [selectedAdminId, setSelectedAdminId] = useState("");
 
   useEffect(() => {
     if (!isOpen || !department) return;
@@ -72,6 +77,7 @@ export default function DepartmentDetailsDrawer({
     setMemberSearch("");
     setSelectedMembers([]);
     setMemberPendingRemove(null);
+    setSelectedAdminId("");
   }, [isOpen, department]);
 
   const departmentMembers = useMemo(() => {
@@ -234,6 +240,29 @@ export default function DepartmentDetailsDrawer({
                     strokeWidth={2}
                   />
                 </div>
+                {/* {canManageAdmin && (
+                  <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+                    <h4 className="text-sm font-semibold text-gray-900">Department Admin</h4>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {department.departmentAdmin ? `${department.departmentAdmin.name} (${department.departmentAdmin.email})` : "No Department Admin appointed."}
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      <Select
+                        label=""
+                        options={[{ value: "", label: "Select a user" }, ...adminCandidates.map((candidate) => ({ value: String(candidate.id), label: candidate.name }))]}
+                        value={selectedAdminId}
+                        onChange={(event) => setSelectedAdminId(event.target.value)}
+                        aria-label="Select Department Admin"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="primary" disabled={!selectedAdminId} onClick={() => onAppointAdmin?.(department.id, Number(selectedAdminId))}>
+                          {department.departmentAdmin ? "Replace Admin" : "Appoint Admin"}
+                        </Button>
+                        {department.departmentAdmin && <Button variant="danger" onClick={() => onRevokeAdmin?.(department.id)}>Revoke</Button>}
+                      </div>
+                    </div>
+                  </section>
+                )} */}
 
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-semibold text-gray-900">

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, LogOut, User } from "lucide-react";
+import { Bell, Menu, LogOut, User } from "lucide-react";
 import Logo from "../../assets/logo.svg";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { useAuth } from "../../features/auth/AuthContext";
+import { getNotifications, markNotificationRead } from "../../features/auth/api";
 
 /**
  * Navbar
@@ -24,6 +25,19 @@ export default function Navbar({
 
   const [showLogoutConfirm, setShowLogoutConfirm] =
     useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const unreadCount = notifications.filter((item) => !item.readAt).length;
+
+  useEffect(() => {
+    getNotifications().then(setNotifications).catch(() => {});
+  }, []);
+
+  async function handleNotificationClick(notification) {
+    if (!notification.readAt) {
+      const updated = await markNotificationRead(notification.id);
+      setNotifications((items) => items.map((item) => item.id === updated.id ? updated : item));
+    }
+  }
 
   const initials = adminName
     .split(" ")
@@ -84,6 +98,38 @@ export default function Navbar({
 
           {/* Right: signed-in admin Avatar with Dropdown */}
           <div className="flex shrink-0 items-center gap-3">
+            <DropdownMenu
+              width={320}
+              trigger={
+                <button
+                  type="button"
+                  aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+                  className="relative flex h-9 w-9 items-center justify-center rounded-full text-white hover:bg-white/10"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d6b447] px-1 text-[10px] font-bold text-gray-900">{unreadCount}</span>}
+                </button>
+              }
+            >
+              {(close) => (
+                <div className="max-h-80 overflow-y-auto py-1">
+                  <p className="border-b border-gray-100 px-3 py-2 text-sm font-semibold text-gray-900">Notifications</p>
+                  {notifications.length === 0 ? (
+                    <p className="px-3 py-4 text-sm text-gray-500">No notifications.</p>
+                  ) : notifications.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => { handleNotificationClick(notification); close(); }}
+                      className={`w-full border-b border-gray-50 px-3 py-3 text-left hover:bg-gray-50 ${notification.readAt ? "bg-white" : "bg-blue-50/60"}`}
+                    >
+                      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                      <p className="mt-1 text-xs text-gray-600">{notification.message}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </DropdownMenu>
             <div className="hidden text-right leading-tight sm:block">
               <p className="truncate text-sm font-medium text-white">
                 {adminName}

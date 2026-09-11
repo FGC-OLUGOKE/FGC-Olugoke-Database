@@ -37,6 +37,7 @@ export default function ConfirmDialog({
   cancelLabel = "Cancel",
   confirmVariant = "danger",
   isLoading = false,
+  children,
   onConfirm,
   onCancel,
 }) {
@@ -96,6 +97,7 @@ export default function ConfirmDialog({
         {description && (
           <p className="mt-1.5 text-sm text-gray-500">{description}</p>
         )}
+        {children}
 
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="secondary" onClick={onCancel} disabled={isBusy}>

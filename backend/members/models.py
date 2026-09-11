@@ -4,10 +4,23 @@ from django.db import models
 from django.db.models import Q
 
 
+class Pastorate(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+
 class Department(models.Model):
     name = models.CharField(max_length=120, unique=True)
     description = models.TextField(blank=True)
     leader = models.CharField(max_length=255, blank=True)
+    pastorate = models.ForeignKey(Pastorate, on_delete=models.PROTECT, null=True, blank=True, related_name="departments")
 
     class Meta:
         ordering = ("name",)
@@ -45,10 +58,14 @@ class AdminAccount(models.Model):
     category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, null=True, blank=True)
     department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name="admins")
     departments = models.ManyToManyField(Department, blank=True, related_name="pastorate_admins")
+    pastorate = models.ForeignKey(Pastorate, on_delete=models.PROTECT, null=True, blank=True, related_name="admins")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("role",), condition=Q(role="super_admin"), name="single_super_admin")]
+        constraints = [
+            models.UniqueConstraint(fields=("role",), condition=Q(role="super_admin"), name="single_super_admin"),
+            models.UniqueConstraint(fields=("department",), condition=Q(role="department_admin"), name="one_department_admin_per_department"),
+        ]
 
     def clean(self):
         if self.role == self.SUPER_ADMIN and (self.department_id or self.category):
@@ -57,8 +74,10 @@ class AdminAccount(models.Model):
             raise ValidationError({"category": "A Category Admin must be assigned to one category."})
         if self.role == self.DEPARTMENT_ADMIN and not self.department_id:
             raise ValidationError({"department": "A Departmental Admin must be assigned to one department."})
-        if self.role in (self.SUPER_ADMIN, self.MANAGING_DEPARTMENTS, self.PASTORATE) and (self.department_id or self.category):
+        if self.role in (self.SUPER_ADMIN, self.MANAGING_DEPARTMENTS) and (self.department_id or self.category or self.pastorate_id):
             raise ValidationError("This admin role cannot have a single department or category scope.")
+        if self.role == self.PASTORATE and (self.department_id or self.category or not self.pastorate_id):
+            raise ValidationError("A Pastorate Admin must be assigned to one pastorate.")
 
 
 class Member(models.Model):
@@ -154,10 +173,12 @@ class ApprovalRequest(models.Model):
     APPROVED = "approved"
     REJECTED = "rejected"
     member = models.ForeignKey(Member, null=True, on_delete=models.SET_NULL, related_name="approval_requests")
+    pastorate = models.ForeignKey(Pastorate, null=True, blank=True, on_delete=models.PROTECT, related_name="approval_requests")
     type = models.CharField(max_length=16, choices=((EDIT, "Edit"), (DELETE, "Delete")))
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="approval_requests")
     changes = models.JSONField(default=dict, blank=True)
     reason = models.TextField(blank=True)
+    rejection_reason = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=((PENDING, "Pending"), (APPROVED, "Approved"), (REJECTED, "Rejected")), default=PENDING)
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="reviewed_approval_requests")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -182,6 +203,17 @@ class ActivityLog(models.Model):
     description = models.CharField(max_length=500)
     admin = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="activity_logs")
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.SET_NULL, related_name="activity_logs")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+
+class Notification(models.Model):
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    read_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

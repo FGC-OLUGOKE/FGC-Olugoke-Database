@@ -16,7 +16,7 @@ import AttendancePage from "./features/attendance/AttendancePage";
 import LogsPage from "./features/activity-logs/LogsPage.jsx";
 import ProfilePage from "./features/profile/ProfilePage";
 import { ToastProvider } from "./components/ui/ToastProvider";
-import { isSuperAdmin, isCategoryAdmin } from "./lib/permissions";
+import { isSuperAdmin, isCategoryAdmin, isPastorate } from "./lib/permissions";
 
 export default function App() {
   const { user, isLoading } = useAuth();
@@ -61,7 +61,7 @@ export default function App() {
             <Route
               path="departments"
               element={
-                isSuperAdmin(user) ? (
+                isSuperAdmin(user) || isPastorate(user) ? (
                   <DepartmentsPage />
                 ) : (
                   <Navigate to="/dashboard" replace />
@@ -77,7 +77,7 @@ export default function App() {
             <Route
               path="attendance"
               element={
-                isSuperAdmin(user) || isCategoryAdmin(user) ? (
+                isSuperAdmin(user) || isCategoryAdmin(user) || isPastorate(user) ? (
                   <AttendancePage />
                 ) : (
                   <Navigate to="/dashboard" replace />
@@ -98,7 +98,7 @@ export default function App() {
             <Route
               path="approvals"
               element={
-                isSuperAdmin(user) || isCategoryAdmin(user) ? (
+                isSuperAdmin(user) || isCategoryAdmin(user) || isPastorate(user) ? (
                   <ApprovalRequestsPage />
                 ) : (
                   <Navigate to="/dashboard" replace />

@@ -1,4 +1,19 @@
 import { apiRequest, clearToken, setToken } from "../../lib/apiClient";
+
+async function post(path, body) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const message = data.detail ?? Object.values(data).flat().join(' ')
+    throw new Error(message || 'Something went wrong. Please try again.')
+  }
+  return data
+}
+
 export const getUsers = () => apiRequest("/users/");
 export const getCurrentUser = () => apiRequest("/me/");
 export async function login(email, password) { clearToken(); const result = await apiRequest("/auth/login/", { method: "POST", body: JSON.stringify({ email, password }) }); setToken(result.token); return result.user; }

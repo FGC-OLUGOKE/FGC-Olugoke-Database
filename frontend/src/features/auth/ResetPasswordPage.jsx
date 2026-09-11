@@ -4,44 +4,72 @@ import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { confirmPasswordReset } from "./api";
 
-export default function ResetPasswordPage() {
-  const token = window.location.pathname.split("/").filter(Boolean).pop();
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+export default function ResetPassword() {
+  const [code, setCode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [status, setStatus] = useState('idle')
+  const [message, setMessage] = useState('')
 
   async function handleSubmit(event) {
-    event.preventDefault();
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    setError("");
+    event.preventDefault()
+    if (newPassword !== confirmPassword) {
+      setStatus('error')
+      setMessage('The two passwords do not match.')
+      return
+    }
+    setStatus('saving')
     try {
-      const response = await confirmPasswordReset(token, password, confirmPassword);
-      setMessage(response.detail);
-    } catch (requestError) {
-      const detail = requestError.data?.detail;
-      setError(Array.isArray(detail) ? detail.join(" ") : requestError.message || "Unable to reset password.");
-    } finally {
-      setIsSubmitting(false);
+      const data = await confirmPasswordReset({ code, newPassword })
+      setStatus('done')
+      setMessage(data.detail)
+    } catch (error) {
+      setStatus('error')
+      setMessage(error.message)
     }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-900/5">
-        <Lock className="h-8 w-8 text-[#154d78]" />
-        <h1 className="mt-4 text-2xl font-bold text-gray-900">Set a new password</h1>
-        {message ? <div className="mt-6 space-y-4"><p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-700">{message}</p><a className="text-sm font-medium text-[#154d78] hover:underline" href="/">Return to sign in</a></div> : (
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-            {error && <p className="rounded-lg bg-[#9e263b]/5 p-3 text-sm text-[#9e263b]">{error}</p>}
-            <Input label="New password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required />
-            <Input label="Confirm new password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} required />
-            <Button type="submit" isLoading={isSubmitting} loadingLabel="Saving..." className="w-full">Reset password</Button>
-          </form>
-        )}
-      </div>
+    <main className="auth-card">
+      <h1>Choose a new password</h1>
+      <p>Enter the reset code from the email we sent you.</p>
+      <form onSubmit={handleSubmit}>
+        <label htmlFor="code">Reset code</label>
+        <input
+          id="code"
+          type="text"
+          autoComplete="one-time-code"
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          required
+        />
+        <label htmlFor="new-password">New password</label>
+        <input
+          id="new-password"
+          type="password"
+          value={newPassword}
+          onChange={(event) => setNewPassword(event.target.value)}
+          required
+        />
+        <label htmlFor="confirm-password">Confirm new password</label>
+        <input
+          id="confirm-password"
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          required
+        />
+        <button type="submit" disabled={status === 'saving' || status === 'done'}>
+          {status === 'saving' ? 'Saving…' : 'Reset password'}
+        </button>
+      </form>
+      {message && (
+        <p className={status === 'error' ? 'message error' : 'message success'}>
+          {message}
+        </p>
+      )}
     </main>
-  );
+  )
 }

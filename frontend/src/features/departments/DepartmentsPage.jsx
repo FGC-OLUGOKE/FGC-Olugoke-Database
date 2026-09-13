@@ -24,6 +24,7 @@ import { getMembers } from "../members/api";
 import FloatingActionButton from "../../components/ui/FloatingActionButton";
 import { useAuth } from "../auth/AuthContext";
 import { isPastorate, isSuperAdmin } from "../../lib/permissions";
+import { getScopedDepartments } from "../../lib/permissions";
 import { getDepartmentAdminCandidates, appointDepartmentAdmin, revokeDepartmentAdmin } from "../auth/api";
 
 export default function DepartmentsPage() {
@@ -116,7 +117,7 @@ export default function DepartmentsPage() {
   }
 
   const departmentsWithCounts = useMemo(() => {
-    return departments.map((dept) => ({
+    return getScopedDepartments(user, departments).map((dept) => ({
       ...dept,
 
       memberCount: members.filter((member) =>
@@ -125,7 +126,7 @@ export default function DepartmentsPage() {
           : false,
       ).length,
     }));
-  }, [departments, members]);
+  }, [departments, members, user]);
 
   const filteredDepartments = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -318,13 +319,15 @@ export default function DepartmentsPage() {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          onClick={handleAddNew}
-          className="hidden md:inline-flex sm:w-auto"
-        >
-          + New Department
-        </Button>
+        <div className="hidden md:inline-block">
+              <Button
+                variant="primary"
+                onClick={handleAddNew}
+                className="hidden md:inline-flex sm:w-auto"
+              >
+                + New Department
+              </Button>
+        </div>
       </div>
 
       <FloatingActionButton

@@ -2,22 +2,21 @@ import { useEffect, useState } from "react";
 import Drawer from "../../components/ui/Drawer";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
-import SegmentedControl from "../../components/ui/SegmentedControl";
 import Button from "../../components/ui/Button";
-import { FORM_CATEGORIES, FORM_DEPARTMENTS } from "../members/constants";
+import { FORM_CATEGORIES } from "../members/constants";
 import MultiSelect from "../../components/ui/MultiSelect";
 
 const ROLE_OPTIONS = [
   "Category Admin",
   "Departmental Admin",
   "Managing Departments",
-  "Pastorate",
+  "Pastorate Admin",
 ];
 const ROLE_VALUES = {
   "Category Admin": "category_admin",
   "Departmental Admin": "department_admin",
   "Managing Departments": "managing_departments",
-  Pastorate: "pastorate",
+  "Pastorate Admin": "pastorate",
 };
 
 const EMPTY_FORM = {
@@ -40,6 +39,7 @@ function validate(data) {
   }
   if (
     data.roleLabel !== "Managing Departments" &&
+    data.roleLabel !== "Pastorate Admin" &&
     (!data.scope || data.scope.length === 0)
   ) {
     errors.scope = `Please select ${data.roleLabel === "Category Admin" ? "a category" : "at least one department"}`;
@@ -69,6 +69,7 @@ export default function CreateAdminAccountForm({
   account,
   onClose,
   onSave,
+  departments = [],
 }) {
   const isEditing = Boolean(account);
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -88,7 +89,7 @@ export default function CreateAdminAccountForm({
                   : account.role === "managing_departments"
                     ? "Managing Departments"
                     : account.role === "pastorate"
-                      ? "Pastorate"
+                      ? "Pastorate Admin"
                       : "Departmental Admin",
               scope: account.scope ?? "",
               password: "",
@@ -104,7 +105,9 @@ export default function CreateAdminAccountForm({
       ...prev,
       [field]: value,
       ...(field === "roleLabel"
-        ? { scope: value === "Pastorate" ? [] : "" }
+        ? {
+            scope: value === "Pastorate Admin" ? [] : "",
+          }
         : {}),
     }));
     setErrors((prev) => {
@@ -140,9 +143,29 @@ export default function CreateAdminAccountForm({
 
   const isCategoryRole = formData.roleLabel === "Category Admin";
   const isReadOnlyRole = formData.roleLabel === "Managing Departments";
-  const isPastorateRole = formData.roleLabel === "Pastorate";
-  const scopeOptions = isCategoryRole ? FORM_CATEGORIES : FORM_DEPARTMENTS;
+  const isPastorateRole = formData.roleLabel === "Pastorate Admin";
+  const availableDepartments = departments.filter(
+    (department) =>
+      !department.pastorateAdmin ||
+      (account?.role === "pastorate" &&
+        Array.isArray(account.departments) &&
+        account.departments.includes(department.name)),
+  );
+  const scopeOptions = isCategoryRole
+    ? FORM_CATEGORIES
+    : availableDepartments.map((department) => department.name);
   const scopeLabel = isCategoryRole ? "Category" : "Department";
+  const hasRequiredScope =
+    isReadOnlyRole ||
+    isPastorateRole ||
+    (Array.isArray(formData.scope)
+      ? formData.scope.length > 0
+      : Boolean(formData.scope));
+  const isFormValid =
+    Boolean(formData.name.trim()) &&
+    EMAIL_PATTERN.test(formData.email.trim()) &&
+    hasRequiredScope &&
+    (isEditing || formData.password.length >= 8);
 
   return (
     <Drawer
@@ -177,12 +200,15 @@ export default function CreateAdminAccountForm({
             value={formData.password}
             onChange={(e) => update("password", e.target.value)}
           />
-          <SegmentedControl
+          <Select
             label="Role"
             required
-            options={ROLE_OPTIONS}
+            options={ROLE_OPTIONS.map((label) => ({
+              value: label,
+              label,
+            }))}
             value={formData.roleLabel}
-            onChange={(value) => update("roleLabel", value)}
+            onChange={(event) => update("roleLabel", event.target.value)}
           />
           {!isReadOnlyRole && !isPastorateRole && (
             <Select
@@ -197,14 +223,15 @@ export default function CreateAdminAccountForm({
           )}
 
           {isPastorateRole && (
+            <>
             <MultiSelect
               label="Assigned departments"
-              options={FORM_DEPARTMENTS}
+              options={scopeOptions}
               values={Array.isArray(formData.scope) ? formData.scope : []}
               onChange={(value) => update("scope", value)}
-              required
               error={errors.scope}
             />
+            </>
           )}
 
           {isReadOnlyRole && (
@@ -222,6 +249,7 @@ export default function CreateAdminAccountForm({
             variant="primary"
             type="submit"
             isLoading={isSubmitting}
+            disabled={isSubmitting || !isFormValid}
             loadingLabel={isEditing ? "Saving..." : "Creating..."}
           >
             {isEditing ? "Save Changes" : "Create Account"}

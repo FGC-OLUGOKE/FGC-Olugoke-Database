@@ -14,6 +14,7 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Drawer from "../../components/ui/Drawer";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
+import MultiSelect from "../../components/ui/MultiSelect";
 import FloatingActionButton from "../../components/ui/FloatingActionButton";
 import LoadingState from "../../components/ui/LoadingState";
 
@@ -84,6 +85,7 @@ export default function MembersPage() {
     role: "department_admin",
     department_id: "",
     category: "",
+    department_ids: [],
     password: "",
   });
 
@@ -491,12 +493,17 @@ export default function MembersPage() {
   }
 
   function handlePromoteToAdmin(member) {
+    if (!member.email?.trim()) {
+      toast.error("Add an email address to this member before promoting them to an admin.");
+      return;
+    }
     setMemberPendingPromote(member);
 
     setPromoteForm({
       role: "department_admin",
       department_id: "",
       category: "",
+      department_ids: [],
       password: "",
     });
 
@@ -510,6 +517,7 @@ export default function MembersPage() {
       role: "department_admin",
       department_id: "",
       category: "",
+      department_ids: [],
       password: "",
     });
   }
@@ -527,6 +535,19 @@ export default function MembersPage() {
             : null,
         category:
           promoteForm.role === "category_admin" ? promoteForm.category : null,
+        pastorate_id:
+          promoteForm.role === "pastorate"
+            ? departments.find((department) =>
+                promoteForm.department_ids.length
+                  ? String(department.id) ===
+                    String(promoteForm.department_ids[0])
+                  : memberPendingPromote.departments?.includes(
+                      department.name,
+                    ),
+              )?.pastorateId
+            : null,
+        department_ids:
+          promoteForm.role === "pastorate" ? promoteForm.department_ids : [],
         password: promoteForm.password,
       });
 
@@ -602,6 +623,7 @@ export default function MembersPage() {
   const showDeleteAction = allowDeleteDirectly || allowDeleteRequest;
 
   const showPromoteButton = canPromoteDemoteMembers(user);
+  const canPromoteSelectedMember = Boolean(selectedMember?.email?.trim());
 
   const showDemoteButton = canPromoteDemoteMembers(user);
 
@@ -620,15 +642,17 @@ export default function MembersPage() {
           </p>
         </div>
 
-        {showAddButton && (
-          <Button
-            variant="primary"
-            onClick={handleAddNew}
-            className="hidden md:inline-flex sm:w-auto"
-          >
-            + New Member
-          </Button>
-        )}
+        <div className="hidden md:inline-block">
+          {showAddButton && (
+            <Button
+              variant="primary"
+              onClick={handleAddNew}
+              className="hidden md:inline-flex sm:w-auto"
+            >
+              + New Member
+            </Button>
+          )}
+        </div>
 
         {showAssignButton && (
           <Button
@@ -683,7 +707,9 @@ export default function MembersPage() {
           showAssignButton ? handleRequestRemoveFromDepartment : undefined
         }
         onPromoteToAdmin={
-          showPromoteButton && !selectedMember?.isAdmin
+          showPromoteButton &&
+          canPromoteSelectedMember &&
+          !selectedMember?.isAdmin
             ? handlePromoteToAdmin
             : undefined
         }
@@ -771,6 +797,7 @@ export default function MembersPage() {
           setPromoteForm((current) => ({
             ...current,
             [field]: value,
+            ...(field === "role" ? { department_ids: [] } : {}),
           }))
         }
         onConfirm={handleConfirmPromote}
@@ -939,10 +966,15 @@ function PromoteAdminDrawer({
   if (!member) return null;
 
   const isDepartmentRole = form.role === "department_admin";
+  const isPastorateRole = form.role === "pastorate";
 
   const canSubmit =
     form.password.length >= 8 &&
-    (isDepartmentRole ? Boolean(form.department_id) : Boolean(form.category));
+    (isDepartmentRole
+      ? Boolean(form.department_id)
+      : isPastorateRole
+        ? form.department_ids.length > 0
+        : Boolean(form.category));
 
   return (
     <Drawer
@@ -995,6 +1027,10 @@ function PromoteAdminDrawer({
                 value: "category_admin",
                 label: "Category Admin",
               },
+              {
+                value: "pastorate",
+                label: "Pastorate Admin",
+              },
             ]}
             value={form.role}
             onChange={(event) => onChange("role", event.target.value)}
@@ -1014,6 +1050,49 @@ function PromoteAdminDrawer({
               }
               required
             />
+          ) : isPastorateRole ? (
+            <>
+              <MultiSelect
+                label="Departments under custody"
+                options={departments
+                  .filter(
+                    (department) => {
+                      const selectedDepartment = departments.find(
+                        (item) =>
+                          String(item.id) ===
+                          String(form.department_ids[0] || ""),
+                      );
+                      return (
+                        !department.pastorateAdmin &&
+                        (!selectedDepartment ||
+                          String(department.pastorateId || "") ===
+                            String(selectedDepartment.pastorateId || ""))
+                      );
+                    },
+                  )
+                  .map((department) => department.name)}
+                values={form.department_ids
+                  .map((id) =>
+                    departments.find(
+                      (department) => String(department.id) === String(id),
+                    )?.name,
+                  )
+                  .filter(Boolean)}
+                onChange={(names) =>
+                  onChange(
+                    "department_ids",
+                    names
+                      .map(
+                        (name) =>
+                          departments.find(
+                            (department) => department.name === name,
+                          )?.id,
+                      )
+                      .filter(Boolean),
+                  )
+                }
+              />
+            </>
           ) : (
             <Select
               label="Assigned category"
@@ -1038,7 +1117,6 @@ function PromoteAdminDrawer({
               ]}
               value={form.category}
               onChange={(event) => onChange("category", event.target.value)}
-              required
             />
           )}
           <div>

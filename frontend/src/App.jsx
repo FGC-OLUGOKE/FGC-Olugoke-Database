@@ -32,6 +32,12 @@ export default function App() {
     }
     return <LoginPage />;
   }
+  if (user.mustSetPassword && window.location.pathname !== "/set-password") {
+    return <ResetPasswordPage firstLogin />;
+  }
+  if (user.mustSetPassword) {
+    return <ResetPasswordPage firstLogin />;
+  }
 
   return (
     <ToastProvider>

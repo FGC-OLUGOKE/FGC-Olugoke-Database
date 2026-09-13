@@ -1,7 +1,10 @@
+import secrets
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.mail import send_mail
+from django.db import transaction
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
@@ -113,9 +116,10 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, write_only=True, required=False, allow_null=True)
     password = serializers.CharField(source="user.password", write_only=True, required=False, min_length=8)
     role = serializers.ChoiceField(choices=AdminAccount.ROLE_CHOICES, required=False, default=AdminAccount.DEPARTMENT_ADMIN)
+    mustSetPassword = serializers.BooleanField(source="must_set_password", read_only=True)
     class Meta:
         model = AdminAccount
-        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password")
+        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password", "mustSetPassword")
         read_only_fields = ()
 
     def to_internal_value(self, data):
@@ -221,14 +225,15 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             if occupied.exists():
                 raise serializers.ValidationError({"departmentIds": "One or more selected departments are already assigned to another Pastorate Admin."})
         return attrs
+    @transaction.atomic
     def create(self, validated_data):
         user_data = validated_data.pop("user")
         departments = validated_data.pop("departments", [])
         role = validated_data.pop("role", AdminAccount.DEPARTMENT_ADMIN)
         name = self.initial_data.get("name", "").strip()
-        password = user_data.pop("password", None)
+        user_data.pop("password", None)
+        password = secrets.token_urlsafe(18)
         if not name: raise serializers.ValidationError({"name": "Name is required."})
-        if not password: raise serializers.ValidationError({"password": "Password is required."})
         parts = name.split(maxsplit=1); User = get_user_model()
         user = User.objects.create_user(username=user_data["email"], email=user_data["email"], first_name=parts[0], last_name=parts[1] if len(parts) > 1 else "", password=password)
         account = AdminAccount.objects.create(user=user, role=role, **validated_data)
@@ -237,6 +242,15 @@ class AdminAccountSerializer(serializers.ModelSerializer):
                 account.departments.set(departments)
         else:
             account.departments.set([])
+        account.must_set_password = True
+        account.save(update_fields=("must_set_password",))
+        send_mail(
+            "Your FGC Olugoke admin account",
+            f"Your temporary password is:\n\n{password}\n\nUse it to sign in. You will be required to set a new password before accessing the dashboard.",
+            None,
+            [user.email],
+            fail_silently=False,
+        )
         return account
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {}); name = self.initial_data.get("name")

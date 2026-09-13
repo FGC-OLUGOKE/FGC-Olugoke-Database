@@ -407,10 +407,10 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         category = request.data.get("category")
         pastorate_id = request.data.get("pastorate_id")
         department_ids = request.data.get("department_ids") or []
-        password = request.data.get("password")
+        temporary_password = secrets.token_urlsafe(18)
         
-        if not member_id or not role or not password:
-            return Response({"detail": "member_id, role, and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not member_id or not role:
+            return Response({"detail": "member_id and role are required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             member = Member.objects.get(pk=member_id)
@@ -441,6 +441,7 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         
         User = get_user_model()
         username = member.email or f"{member.first_name.lower()}.{member.last_name.lower()}@member"
+        password = temporary_password
         
         try:
             user = User.objects.create_user(
@@ -490,11 +491,18 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
             admin_data["pastorate"] = pastorate
         
         try:
-            admin_account = AdminAccount.objects.create(user=user, **admin_data)
+            admin_account = AdminAccount.objects.create(user=user, must_set_password=True, **admin_data)
             if role == AdminAccount.PASTORATE:
                 admin_account.departments.set(departments)
             member.user = user
             member.save(update_fields=("user",))
+            send_mail(
+                "Your FGC Olugoke admin account",
+                f"Your temporary password is:\n\n{temporary_password}\n\nUse it to sign in. You will be required to set a new password before accessing the dashboard.",
+                None,
+                [user.email],
+                fail_silently=False,
+            )
             log_activity(request.user, f"Promoted {member.first_name} {member.last_name} to {role}")
             return Response(AdminAccountSerializer(admin_account).data, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -796,6 +804,26 @@ def logout(request):
 @api_view(("GET",))
 @permission_classes((IsApplicationAdmin,))
 def me(request): return Response(AdminAccountSerializer(account_for(request.user)).data)
+
+@api_view(("POST",))
+@permission_classes((IsApplicationAdmin,))
+def set_password(request):
+    password = request.data.get("password", "")
+    confirmation = request.data.get("confirmPassword", "")
+    if password != confirmation:
+        return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        validate_password(password, request.user)
+    except Exception as error:
+        return Response({"detail": error.messages}, status=status.HTTP_400_BAD_REQUEST)
+    account = account_for(request.user)
+    if not account.must_set_password:
+        return Response({"detail": "Password setup is not required."}, status=status.HTTP_400_BAD_REQUEST)
+    request.user.set_password(password)
+    request.user.save(update_fields=("password",))
+    account.must_set_password = False
+    account.save(update_fields=("must_set_password",))
+    return Response({"detail": "Password set successfully."})
 
 @api_view(("GET",))
 @permission_classes((IsApplicationAdmin,))

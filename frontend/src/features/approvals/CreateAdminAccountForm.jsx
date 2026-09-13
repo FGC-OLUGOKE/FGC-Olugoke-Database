@@ -24,7 +24,6 @@ const EMPTY_FORM = {
   email: "",
   roleLabel: "Category Admin",
   scope: "",
-  password: "",
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,10 +43,6 @@ function validate(data) {
   ) {
     errors.scope = `Please select ${data.roleLabel === "Category Admin" ? "a category" : "at least one department"}`;
   }
-  if (!data.password && !data.isEditing)
-    errors.password = "Password is required";
-  if (data.password && data.password.length < 8)
-    errors.password = "Password must be at least 8 characters";
   return errors;
 }
 
@@ -92,7 +87,6 @@ export default function CreateAdminAccountForm({
                       ? "Pastorate Admin"
                       : "Departmental Admin",
               scope: account.scope ?? "",
-              password: "",
             }
           : EMPTY_FORM,
       );
@@ -132,7 +126,6 @@ export default function CreateAdminAccountForm({
       role: ROLE_VALUES[formData.roleLabel],
       scope: formData.scope,
     };
-    if (formData.password) accountData.password = formData.password;
     setIsSubmitting(true);
     try {
       await onSave(accountData);
@@ -165,7 +158,7 @@ export default function CreateAdminAccountForm({
     Boolean(formData.name.trim()) &&
     EMAIL_PATTERN.test(formData.email.trim()) &&
     hasRequiredScope &&
-    (isEditing || formData.password.length >= 8);
+    true;
 
   return (
     <Drawer
@@ -191,14 +184,6 @@ export default function CreateAdminAccountForm({
             error={errors.email}
             value={formData.email}
             onChange={(e) => update("email", e.target.value)}
-          />
-          <Input
-            label={isEditing ? "New Password" : "Password"}
-            type="password"
-            required={!isEditing}
-            error={errors.password}
-            value={formData.password}
-            onChange={(e) => update("password", e.target.value)}
           />
           <Select
             label="Role"

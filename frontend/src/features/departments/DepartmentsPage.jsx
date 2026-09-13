@@ -375,6 +375,7 @@ export default function DepartmentsPage() {
         onClose={handleCloseDetails}
         onMembersChanged={handleMembersChanged}
         onEdit={handleSaveLeader}
+        onEditDetails={handleEditDepartment}
         canManageAdmin={isPastorate(user) || isSuperAdmin(user)}
         adminCandidates={adminCandidates}
         onAppointAdmin={handleAppointDepartmentAdmin}
@@ -383,7 +384,7 @@ export default function DepartmentsPage() {
           handleDeleteDepartment(selectedDepartment)
         }
       />
-
+      
       {/* Delete confirmation */}
       <ConfirmDialog
         isOpen={Boolean(departmentPendingDelete)}

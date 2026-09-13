@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 
 import SearchBar from "./components/SearchBar";
 import StatsCards from "./components/StatsCards";
@@ -76,6 +76,7 @@ export default function MembersPage() {
   const [isAssignDrawerOpen, setIsAssignDrawerOpen] = useState(false);
 
   const [memberPendingPromote, setMemberPendingPromote] = useState(null);
+  const [isPromoting, setIsPromoting] = useState(false);
 
   const [memberPendingDemote, setMemberPendingDemote] = useState(null);
 
@@ -86,7 +87,6 @@ export default function MembersPage() {
     department_id: "",
     category: "",
     department_ids: [],
-    password: "",
   });
 
   const [requestReview, setRequestReview] = useState(null);
@@ -504,7 +504,6 @@ export default function MembersPage() {
       department_id: "",
       category: "",
       department_ids: [],
-      password: "",
     });
 
     setIsDrawerOpen(false);
@@ -518,13 +517,13 @@ export default function MembersPage() {
       department_id: "",
       category: "",
       department_ids: [],
-      password: "",
     });
   }
 
   async function handleConfirmPromote() {
-    if (!memberPendingPromote) return;
+    if (!memberPendingPromote || isPromoting) return;
 
+    setIsPromoting(true);
     try {
       await promoteMemberToAdmin({
         member_id: memberPendingPromote.id,
@@ -548,7 +547,6 @@ export default function MembersPage() {
             : null,
         department_ids:
           promoteForm.role === "pastorate" ? promoteForm.department_ids : [],
-        password: promoteForm.password,
       });
 
       setMembers((previous) =>
@@ -571,6 +569,8 @@ export default function MembersPage() {
       toast.error(
         error?.message || "Something went wrong promoting this member.",
       );
+    } finally {
+      setIsPromoting(false);
     }
   }
 
@@ -802,6 +802,7 @@ export default function MembersPage() {
         }
         onConfirm={handleConfirmPromote}
         onCancel={handleCancelPromote}
+        isSubmitting={isPromoting}
       />
 
       <ConfirmDialog
@@ -960,20 +961,18 @@ function PromoteAdminDrawer({
   onChange,
   onConfirm,
   onCancel,
+  isSubmitting,
 }) {
-  const [showPassword, setShowPassword] = useState(false);
-
   if (!member) return null;
 
   const isDepartmentRole = form.role === "department_admin";
   const isPastorateRole = form.role === "pastorate";
 
   const canSubmit =
-    form.password.length >= 8 &&
     (isDepartmentRole
       ? Boolean(form.department_id)
       : isPastorateRole
-        ? form.department_ids.length > 0
+        ? true
         : Boolean(form.category));
 
   return (
@@ -1119,38 +1118,6 @@ function PromoteAdminDrawer({
               onChange={(event) => onChange("category", event.target.value)}
             />
           )}
-          <div>
-            <div className="relative">
-              <Input
-                label="Temporary password"
-                type={showPassword ? "text" : "password"}
-                value={form.password}
-                onChange={(event) => onChange("password", event.target.value)}
-                placeholder="At least 8 characters"
-                minLength={8}
-                required
-                className="pr-12"
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowPassword((previous) => !previous)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                title={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent p-0 text-gray-400 outline-none transition-colors hover:bg-gray-100 hover:text-gray-600 focus:border-0 focus:outline-none focus:ring-0 active:border-0 active:outline-none active:ring-0"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" strokeWidth={2} />
-                ) : (
-                  <Eye className="h-4 w-4" strokeWidth={2} />
-                )}
-              </button>
-            </div>
-
-            <p className="mt-2 text-xs text-gray-400">
-              Share this password securely with the new administrator.
-            </p>
-          </div>
         </div>
 
         <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white p-5">
@@ -1158,7 +1125,13 @@ function PromoteAdminDrawer({
             Cancel
           </Button>
 
-          <Button variant="primary" onClick={onConfirm} disabled={!canSubmit}>
+          <Button
+            variant="primary"
+            onClick={onConfirm}
+            disabled={!canSubmit || isSubmitting}
+            isLoading={isSubmitting}
+            loadingLabel="Creating..."
+          >
             Create Admin Account
           </Button>
         </div>

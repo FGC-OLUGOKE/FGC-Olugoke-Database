@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
-from .models import AdminAccount, ApprovalRequest, AttendanceRecord, Department, Member
+from .models import ActivityLog, AdminAccount, ApprovalRequest, AttendanceRecord, Department, Member
 
 
 class AccessControlTests(APITestCase):
@@ -35,6 +35,16 @@ class AccessControlTests(APITestCase):
 
         response = self.client.get("/api/me/")
         self.assertEqual(response.status_code, 401)
+        self.assertTrue(ActivityLog.objects.filter(admin__email="super@example.com", description="Admin logged out").exists())
+
+    def test_only_super_admin_can_view_activity_logs(self):
+        self.authenticate(self.staff_token)
+        self.assertEqual(self.client.get("/api/activity-log/").status_code, 403)
+
+        self.authenticate(self.super_token)
+        response = self.client.get("/api/activity-log/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
 
     def test_logout_succeeds_when_the_token_is_already_missing(self):
         response = self.client.post("/api/auth/logout/")

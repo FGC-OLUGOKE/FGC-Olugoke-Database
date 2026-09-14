@@ -311,6 +311,14 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
     # the client, even when User and AdminAccount primary keys differ.
     lookup_field = "user_id"
 
+    def perform_create(self, serializer):
+        account = serializer.save()
+        log_activity(self.request.user, f"Created admin account for {account.user.get_full_name() or account.user.email}")
+
+    def perform_update(self, serializer):
+        account = serializer.save()
+        log_activity(self.request.user, f"Updated admin account for {account.user.get_full_name() or account.user.email}")
+
     def get_permissions(self):
         if self.action in (
             "appoint_department_admin",
@@ -743,6 +751,7 @@ def login(request):
     user = authenticate(request, username=email, password=password)
     if not user or not account_for(user): return Response({"detail": "Invalid credentials or inactive admin account."}, status=status.HTTP_401_UNAUTHORIZED)
     token, _ = Token.objects.get_or_create(user=user)
+    log_activity(user, "Admin logged in")
     return Response({"token": token.key, "user": AdminAccountSerializer(account_for(user)).data})
 
 @api_view(("POST",))
@@ -786,6 +795,7 @@ def confirm_password_reset(request, token):
         return Response({"detail": error.messages}, status=status.HTTP_400_BAD_REQUEST)
     reset.user.set_password(password)
     reset.user.save(update_fields=("password",))
+    log_activity(reset.user, "Admin password changed")
     Token.objects.filter(user=reset.user).delete()
     reset.used_at = timezone.now()
     reset.save(update_fields=("used_at",))
@@ -798,6 +808,7 @@ def logout(request):
     # have expired or been revoked, but the user should still be able to leave
     # the application without receiving a 401 response.
     if request.user.is_authenticated:
+        log_activity(request.user, "Admin logged out")
         Token.objects.filter(user=request.user).delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -821,9 +832,39 @@ def set_password(request):
         return Response({"detail": "Password setup is not required."}, status=status.HTTP_400_BAD_REQUEST)
     request.user.set_password(password)
     request.user.save(update_fields=("password",))
+    log_activity(request.user, "Admin password changed")
     account.must_set_password = False
     account.save(update_fields=("must_set_password",))
     return Response({"detail": "Password set successfully."})
+
+@api_view(("POST",))
+@permission_classes((IsApplicationAdmin,))
+def change_password(request):
+    current_password = request.data.get("currentPassword", "")
+    password = request.data.get("password", "")
+    confirmation = request.data.get("confirmPassword", "")
+    if not request.user.check_password(current_password):
+        return Response({"detail": "The current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+    if password != confirmation:
+        return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        validate_password(password, request.user)
+    except Exception as error:
+        return Response({"detail": error.messages}, status=status.HTTP_400_BAD_REQUEST)
+    request.user.set_password(password)
+    request.user.save(update_fields=("password",))
+    Token.objects.filter(user=request.user).delete()
+    log_activity(request.user, "Admin password changed")
+    return Response({"detail": "Password changed successfully."})
+
+@api_view(("PATCH",))
+@permission_classes((IsApplicationAdmin,))
+def change_profile_photo(request):
+    account = account_for(request.user)
+    account.profile_photo_url = request.data.get("photoUrl", "")
+    account.save(update_fields=("profile_photo_url",))
+    log_activity(request.user, "Admin profile picture changed")
+    return Response(AdminAccountSerializer(account).data)
 
 @api_view(("GET",))
 @permission_classes((IsApplicationAdmin,))
@@ -852,10 +893,10 @@ def membership_growth(request):
 @api_view(("GET",))
 @permission_classes((IsApplicationAdmin,))
 def activity_log(request):
-    account = account_for(request.user); query = ActivityLog.objects.select_related("admin", "department")
-    if account.role == AdminAccount.CATEGORY_ADMIN: return Response([])
-    if account.role not in (AdminAccount.SUPER_ADMIN, AdminAccount.MANAGING_DEPARTMENTS, AdminAccount.PASTORATE): query = query.filter(department__in=assigned_departments(account))
-    return Response(ActivityLogSerializer(query[:50], many=True).data)
+    if not is_super_admin(request.user):
+        return Response({"detail": "Only the Super Admin can view activity logs."}, status=status.HTTP_403_FORBIDDEN)
+    query = ActivityLog.objects.select_related("admin", "department")
+    return Response(ActivityLogSerializer(query[:200], many=True).data)
 
 @api_view(("GET",))
 @permission_classes((permissions.AllowAny,))

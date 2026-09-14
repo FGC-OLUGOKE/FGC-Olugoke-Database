@@ -11,10 +11,12 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../auth/AuthContext";
+import { changeProfilePhoto } from "../auth/api";
 
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Avatar from "../../components/ui/Avatar";
+import PhotoUpload from "../../components/ui/PhotoUpload";
 
 import { getRoleLabel } from "../../lib/permissions";
 
@@ -28,7 +30,7 @@ import { getRoleLabel } from "../../lib/permissions";
  */
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
 
   if (!user) return null;
 
@@ -43,6 +45,11 @@ export default function ProfilePage() {
 
   const formattedCreatedAt = formatDate(user.createdAt);
   const formattedLastLogin = formatDate(user.lastLogin);
+
+  async function handlePhotoChange(photoUrl) {
+    await changeProfilePhoto(photoUrl);
+    await refresh();
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 sm:space-y-6">
@@ -97,6 +104,21 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      <ProfileSection
+        icon={User}
+        title="Profile Picture"
+        description="Keep your administrator profile current."
+      >
+        <div className="col-span-full">
+          <PhotoUpload
+            firstName={firstName}
+            lastName={lastName}
+            value={user.photoUrl || ""}
+            onChange={handlePhotoChange}
+          />
+        </div>
+      </ProfileSection>
 
       {/* Personal Information */}
       <ProfileSection

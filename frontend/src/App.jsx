@@ -98,7 +98,9 @@ export default function App() {
 
             <Route
               path="logs"
-              element={<LogsPage />}
+              element={
+                isSuperAdmin(user) ? <LogsPage /> : <Navigate to="/dashboard" replace />
+              }
             />
 
             <Route

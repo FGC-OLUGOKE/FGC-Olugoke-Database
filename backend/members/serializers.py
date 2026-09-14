@@ -117,9 +117,11 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     password = serializers.CharField(source="user.password", write_only=True, required=False, min_length=8)
     role = serializers.ChoiceField(choices=AdminAccount.ROLE_CHOICES, required=False, default=AdminAccount.DEPARTMENT_ADMIN)
     mustSetPassword = serializers.BooleanField(source="must_set_password", read_only=True)
+    photoUrl = serializers.CharField(source="profile_photo_url", required=False, allow_blank=True)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     class Meta:
         model = AdminAccount
-        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password", "mustSetPassword")
+        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password", "mustSetPassword", "photoUrl", "createdAt")
         read_only_fields = ()
 
     def to_internal_value(self, data):

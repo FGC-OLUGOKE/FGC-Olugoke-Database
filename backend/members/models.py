@@ -90,7 +90,6 @@ class Member(models.Model):
     gender = models.CharField(max_length=16, choices=(("Male", "Male"), ("Female", "Female")))
     date_of_birth = models.DateField()
     photo_url = models.TextField(blank=True)
-    occupation = models.CharField(max_length=255, blank=True)
     membership_id = models.CharField(max_length=64, blank=True, unique=True, null=True)
     marital_status = models.CharField(max_length=64, blank=True)
     phone = models.CharField(max_length=32, blank=True)

@@ -86,7 +86,6 @@ export default function MemberDetailsDrawer({
             <Field label="Gender" value={member.gender} />
             <Field label="Category" value={member.category} />
             <Field label="Marital Status" value={member.maritalStatus} />
-            <Field label="Occupation" value={member.occupation} />
           </Section>
 
           <Section title="Contact Information">
@@ -101,7 +100,7 @@ export default function MemberDetailsDrawer({
               value={member.departments?.join(", ")}
             />
             <Field label="Status" value={member.status} />
-            <Field label="Date Joined" value={formattedDate} />
+            <Field label="Date Joined" value={formattedDate || "-"} />
             <Field
               label="Membership ID"
               value={

@@ -36,7 +36,7 @@ export default function NewMembersReport({ newMembers, breakdown, period }) {
             m.category,
             m.dateOfBirth || "—",
             m.dateOfBirth ? getCurrentAge(m.dateOfBirth) : "—",
-            m.dateJoined,
+            m.dateJoined || "-",
             m.departments.join(", ") || "Not Assigned",
             m.status,
             m.phone || "Not provided",
@@ -99,7 +99,7 @@ export default function NewMembersReport({ newMembers, breakdown, period }) {
                     {m.category} · {m.departments.join(", ") || "Not Assigned"}
                   </p>
                 </div>
-                <span className="text-xs text-gray-400">{m.dateJoined}</span>
+                <span className="text-xs text-gray-400">{m.dateJoined || "-"}</span>
                 <Badge tone={m.status === "Active" ? "active" : "inactive"}>{m.status}</Badge>
               </button>
             ))}

@@ -33,7 +33,7 @@ export default function MemberStatusReport({ breakdown, members, period }) {
             m.status,
             m.category,
             m.departments.join(", ") || "Not Assigned",
-            m.dateJoined,
+            m.dateJoined || "-",
           ]),
         },
       ],

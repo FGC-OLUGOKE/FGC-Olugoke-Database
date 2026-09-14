@@ -28,7 +28,7 @@ export default function DepartmentReport({ departments, members, period }) {
               m.category,
               m.departments.join(", ") || "Not Assigned",
               m.status,
-              m.dateJoined,
+              m.dateJoined || "-",
             ]),
         },
       ],

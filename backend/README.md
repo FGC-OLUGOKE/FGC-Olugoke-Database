@@ -125,7 +125,7 @@ application account unless stated otherwise.
 
 Member responses use the frontend camelCase contract, including
 `membershipId`, `photoUrl`, `firstName`, `lastName`, `dateOfBirth`,
-`maritalStatus`, `occupation`, `phone`, `email`, `address`, `category`,
+`maritalStatus`, `phone`, `email`, `address`, `category`,
 `departments`, `status`, `dateJoined`, `baptized`, `worker`, `cellGroup`, and
 `serviceUnit`.
 

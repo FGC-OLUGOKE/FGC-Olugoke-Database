@@ -137,14 +137,13 @@ export default function MemberList({ members = [], onView }) {
 
                 {/* Joined */}
                 <td className="whitespace-nowrap px-5 py-3 text-gray-700">
-                  {new Date(member.dateJoined).toLocaleDateString(
-                    "en-US",
-                    {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    },
-                  )}
+                  {member.dateJoined
+                    ? new Date(member.dateJoined).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "-"}
                 </td>
               </tr>
             ))}

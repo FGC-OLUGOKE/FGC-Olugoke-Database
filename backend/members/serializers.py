@@ -54,7 +54,6 @@ class MemberSerializer(serializers.ModelSerializer):
     dateOfBirth = serializers.DateField(source="date_of_birth")
     photoUrl = serializers.CharField(source="photo_url", required=False, allow_blank=True)
     membershipId = serializers.CharField(source="membership_id", required=False, allow_blank=True, allow_null=True)
-    occupation = serializers.CharField(required=False, allow_blank=True)
     maritalStatus = serializers.CharField(source="marital_status", required=False, allow_blank=True)
     dateJoined = serializers.DateField(source="date_joined", required=False, allow_null=True)
     cellGroup = serializers.CharField(source="cell_group", required=False, allow_blank=True)
@@ -62,7 +61,7 @@ class MemberSerializer(serializers.ModelSerializer):
     isAdmin = serializers.SerializerMethodField()
     class Meta:
         model = Member
-        fields = ("id", "userId", "membershipId", "photoUrl", "firstName", "lastName", "gender", "dateOfBirth", "maritalStatus", "occupation", "phone", "email", "address", "category", "departments", "status", "dateJoined", "baptized", "worker", "cellGroup", "serviceUnit", "created_at", "updated_at", "isAdmin")
+        fields = ("id", "userId", "membershipId", "photoUrl", "firstName", "lastName", "gender", "dateOfBirth", "maritalStatus", "phone", "email", "address", "category", "departments", "status", "dateJoined", "baptized", "worker", "cellGroup", "serviceUnit", "created_at", "updated_at", "isAdmin")
         read_only_fields = ("created_at", "updated_at", "isAdmin")
     
     def get_isAdmin(self, obj):

@@ -6,7 +6,7 @@ import Avatar from "../../../components/ui/Avatar";
 export default function RecentMembersSection({ members }) {
   const navigate = useNavigate();
   const recent = [...members]
-    .sort((a, b) => new Date(b.dateJoined) - new Date(a.dateJoined))
+    .sort((a, b) => new Date(b.dateJoined || 0) - new Date(a.dateJoined || 0))
     .slice(0, 5);
 
   return (
@@ -36,10 +36,12 @@ export default function RecentMembersSection({ members }) {
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <Badge tone={m.status === "Active" ? "success" : "neutral"}>{m.status}</Badge>
                 <span className="text-[11px] text-gray-400">
-                  {new Date(m.dateJoined).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
+                  {m.dateJoined
+                    ? new Date(m.dateJoined).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "-"}
                 </span>
               </div>
             </li>

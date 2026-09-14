@@ -102,6 +102,7 @@ export default function DashboardPage() {
       totalMembers: scopedMembers.length,
       activeMembers: scopedMembers.filter((m) => m.status === "Active").length,
       newMembersThisMonth: scopedMembers.filter((m) => {
+        if (!m.dateJoined) return false;
         const joined = new Date(m.dateJoined);
         return (
           joined.getFullYear() === now.getFullYear() &&
@@ -121,7 +122,6 @@ export default function DashboardPage() {
         !member.phone?.trim() && "Phone Number",
         !member.email?.trim() && "Email",
         !member.address?.trim() && "Address",
-        !member.occupation?.trim() && "Occupation",
         !member.departments?.length && "Department",
       ].filter(Boolean);
 

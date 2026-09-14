@@ -49,7 +49,7 @@ export default function MemberCard({ member, onView }) {
         </span>
         <span className="flex items-center gap-1">
           <Calendar className="h-3.5 w-3.5" />
-          Joined {new Date(member.dateJoined).getFullYear()}
+          Joined {member.dateJoined ? new Date(member.dateJoined).getFullYear() : "-"}
         </span>
       </div>
     </button>

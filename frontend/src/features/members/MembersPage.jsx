@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 
 import SearchBar from "./components/SearchBar";
 import StatsCards from "./components/StatsCards";
@@ -14,6 +14,7 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Drawer from "../../components/ui/Drawer";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
+import MultiSelect from "../../components/ui/MultiSelect";
 import FloatingActionButton from "../../components/ui/FloatingActionButton";
 import LoadingState from "../../components/ui/LoadingState";
 
@@ -75,6 +76,7 @@ export default function MembersPage() {
   const [isAssignDrawerOpen, setIsAssignDrawerOpen] = useState(false);
 
   const [memberPendingPromote, setMemberPendingPromote] = useState(null);
+  const [isPromoting, setIsPromoting] = useState(false);
 
   const [memberPendingDemote, setMemberPendingDemote] = useState(null);
 
@@ -84,7 +86,7 @@ export default function MembersPage() {
     role: "department_admin",
     department_id: "",
     category: "",
-    password: "",
+    department_ids: [],
   });
 
   const [requestReview, setRequestReview] = useState(null);
@@ -491,13 +493,17 @@ export default function MembersPage() {
   }
 
   function handlePromoteToAdmin(member) {
+    if (!member.email?.trim()) {
+      toast.error("Add an email address to this member before promoting them to an admin.");
+      return;
+    }
     setMemberPendingPromote(member);
 
     setPromoteForm({
       role: "department_admin",
       department_id: "",
       category: "",
-      password: "",
+      department_ids: [],
     });
 
     setIsDrawerOpen(false);
@@ -510,13 +516,14 @@ export default function MembersPage() {
       role: "department_admin",
       department_id: "",
       category: "",
-      password: "",
+      department_ids: [],
     });
   }
 
   async function handleConfirmPromote() {
-    if (!memberPendingPromote) return;
+    if (!memberPendingPromote || isPromoting) return;
 
+    setIsPromoting(true);
     try {
       await promoteMemberToAdmin({
         member_id: memberPendingPromote.id,
@@ -527,7 +534,19 @@ export default function MembersPage() {
             : null,
         category:
           promoteForm.role === "category_admin" ? promoteForm.category : null,
-        password: promoteForm.password,
+        pastorate_id:
+          promoteForm.role === "pastorate"
+            ? departments.find((department) =>
+                promoteForm.department_ids.length
+                  ? String(department.id) ===
+                    String(promoteForm.department_ids[0])
+                  : memberPendingPromote.departments?.includes(
+                      department.name,
+                    ),
+              )?.pastorateId
+            : null,
+        department_ids:
+          promoteForm.role === "pastorate" ? promoteForm.department_ids : [],
       });
 
       setMembers((previous) =>
@@ -550,6 +569,8 @@ export default function MembersPage() {
       toast.error(
         error?.message || "Something went wrong promoting this member.",
       );
+    } finally {
+      setIsPromoting(false);
     }
   }
 
@@ -602,6 +623,7 @@ export default function MembersPage() {
   const showDeleteAction = allowDeleteDirectly || allowDeleteRequest;
 
   const showPromoteButton = canPromoteDemoteMembers(user);
+  const canPromoteSelectedMember = Boolean(selectedMember?.email?.trim());
 
   const showDemoteButton = canPromoteDemoteMembers(user);
 
@@ -620,15 +642,17 @@ export default function MembersPage() {
           </p>
         </div>
 
-        {showAddButton && (
-          <Button
-            variant="primary"
-            onClick={handleAddNew}
-            className="hidden md:inline-flex sm:w-auto"
-          >
-            + New Member
-          </Button>
-        )}
+        <div className="hidden md:inline-block">
+          {showAddButton && (
+            <Button
+              variant="primary"
+              onClick={handleAddNew}
+              className="hidden md:inline-flex sm:w-auto"
+            >
+              + New Member
+            </Button>
+          )}
+        </div>
 
         {showAssignButton && (
           <Button
@@ -683,7 +707,9 @@ export default function MembersPage() {
           showAssignButton ? handleRequestRemoveFromDepartment : undefined
         }
         onPromoteToAdmin={
-          showPromoteButton && !selectedMember?.isAdmin
+          showPromoteButton &&
+          canPromoteSelectedMember &&
+          !selectedMember?.isAdmin
             ? handlePromoteToAdmin
             : undefined
         }
@@ -771,10 +797,12 @@ export default function MembersPage() {
           setPromoteForm((current) => ({
             ...current,
             [field]: value,
+            ...(field === "role" ? { department_ids: [] } : {}),
           }))
         }
         onConfirm={handleConfirmPromote}
         onCancel={handleCancelPromote}
+        isSubmitting={isPromoting}
       />
 
       <ConfirmDialog
@@ -933,16 +961,19 @@ function PromoteAdminDrawer({
   onChange,
   onConfirm,
   onCancel,
+  isSubmitting,
 }) {
-  const [showPassword, setShowPassword] = useState(false);
-
   if (!member) return null;
 
   const isDepartmentRole = form.role === "department_admin";
+  const isPastorateRole = form.role === "pastorate";
 
   const canSubmit =
-    form.password.length >= 8 &&
-    (isDepartmentRole ? Boolean(form.department_id) : Boolean(form.category));
+    (isDepartmentRole
+      ? Boolean(form.department_id)
+      : isPastorateRole
+        ? true
+        : Boolean(form.category));
 
   return (
     <Drawer
@@ -995,6 +1026,10 @@ function PromoteAdminDrawer({
                 value: "category_admin",
                 label: "Category Admin",
               },
+              {
+                value: "pastorate",
+                label: "Pastorate Admin",
+              },
             ]}
             value={form.role}
             onChange={(event) => onChange("role", event.target.value)}
@@ -1014,6 +1049,49 @@ function PromoteAdminDrawer({
               }
               required
             />
+          ) : isPastorateRole ? (
+            <>
+              <MultiSelect
+                label="Departments under custody"
+                options={departments
+                  .filter(
+                    (department) => {
+                      const selectedDepartment = departments.find(
+                        (item) =>
+                          String(item.id) ===
+                          String(form.department_ids[0] || ""),
+                      );
+                      return (
+                        !department.pastorateAdmin &&
+                        (!selectedDepartment ||
+                          String(department.pastorateId || "") ===
+                            String(selectedDepartment.pastorateId || ""))
+                      );
+                    },
+                  )
+                  .map((department) => department.name)}
+                values={form.department_ids
+                  .map((id) =>
+                    departments.find(
+                      (department) => String(department.id) === String(id),
+                    )?.name,
+                  )
+                  .filter(Boolean)}
+                onChange={(names) =>
+                  onChange(
+                    "department_ids",
+                    names
+                      .map(
+                        (name) =>
+                          departments.find(
+                            (department) => department.name === name,
+                          )?.id,
+                      )
+                      .filter(Boolean),
+                  )
+                }
+              />
+            </>
           ) : (
             <Select
               label="Assigned category"
@@ -1038,41 +1116,8 @@ function PromoteAdminDrawer({
               ]}
               value={form.category}
               onChange={(event) => onChange("category", event.target.value)}
-              required
             />
           )}
-          <div>
-            <div className="relative">
-              <Input
-                label="Temporary password"
-                type={showPassword ? "text" : "password"}
-                value={form.password}
-                onChange={(event) => onChange("password", event.target.value)}
-                placeholder="At least 8 characters"
-                minLength={8}
-                required
-                className="pr-12"
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowPassword((previous) => !previous)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                title={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent p-0 text-gray-400 outline-none transition-colors hover:bg-gray-100 hover:text-gray-600 focus:border-0 focus:outline-none focus:ring-0 active:border-0 active:outline-none active:ring-0"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" strokeWidth={2} />
-                ) : (
-                  <Eye className="h-4 w-4" strokeWidth={2} />
-                )}
-              </button>
-            </div>
-
-            <p className="mt-2 text-xs text-gray-400">
-              Share this password securely with the new administrator.
-            </p>
-          </div>
         </div>
 
         <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white p-5">
@@ -1080,7 +1125,13 @@ function PromoteAdminDrawer({
             Cancel
           </Button>
 
-          <Button variant="primary" onClick={onConfirm} disabled={!canSubmit}>
+          <Button
+            variant="primary"
+            onClick={onConfirm}
+            disabled={!canSubmit || isSubmitting}
+            isLoading={isSubmitting}
+            loadingLabel="Creating..."
+          >
             Create Admin Account
           </Button>
         </div>

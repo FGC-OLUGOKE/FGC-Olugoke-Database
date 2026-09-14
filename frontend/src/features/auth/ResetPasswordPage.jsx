@@ -1,13 +1,17 @@
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import Logo from "../../assets/logo.svg";
-import { confirmPasswordReset } from "./api";
+import { confirmPasswordReset, setInitialPassword } from "./api";
+import { useAuth } from "./AuthContext";
 
-export default function ResetPasswordPage({ token = "" }) {
+export default function ResetPasswordPage({ token = "", firstLogin = false }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { refresh } = useAuth();
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -20,9 +24,12 @@ export default function ResetPasswordPage({ token = "" }) {
     setStatus("saving");
     setMessage("");
     try {
-      const data = await confirmPasswordReset(token, newPassword, confirmPassword);
+      const data = firstLogin
+        ? await setInitialPassword(newPassword, confirmPassword)
+        : await confirmPasswordReset(token, newPassword, confirmPassword);
       setStatus("done");
       setMessage(data.detail);
+      if (firstLogin) await refresh();
     } catch (error) {
       setStatus("error");
       setMessage(error.message || "We could not reset your password. Please request a new link.");
@@ -40,10 +47,12 @@ export default function ResetPasswordPage({ token = "" }) {
                 <img src={Logo} alt="FGC Olugoke logo" className="h-10 w-10 object-contain" />
               </div>
               <h1 className="mt-5 text-2xl font-bold tracking-tight text-gray-900">
-                Choose a new password
+                {firstLogin ? "Set your password" : "Choose a new password"}
               </h1>
               <p className="mt-2 text-sm leading-6 text-gray-500">
-                Create a new password for your FGC Olugoke admin account.
+                {firstLogin
+                  ? "Set a permanent password for your FGC Olugoke admin account."
+                  : "Create a new password for your FGC Olugoke admin account."}
               </p>
             </div>
 
@@ -77,13 +86,21 @@ export default function ResetPasswordPage({ token = "" }) {
                   <KeyRound className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-gray-400" />
                   <input
                     id="new-password"
-                    type="password"
+                    type={showNewPassword ? "text" : "password"}
                     autoComplete="new-password"
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     required
-                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm text-gray-900 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
+                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-10 text-sm text-gray-900 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((visible) => !visible)}
+                    aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-gray-400 hover:text-gray-700"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -98,19 +115,27 @@ export default function ResetPasswordPage({ token = "" }) {
                   <KeyRound className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-gray-400" />
                   <input
                     id="confirm-password"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     required
-                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm text-gray-900 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
+                    className="block w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-10 text-sm text-gray-900 transition-colors focus:border-[#154d78] focus:outline-none focus:ring-2 focus:ring-[#154d78]/20"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((visible) => !visible)}
+                    aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-gray-400 hover:text-gray-700"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
               <button
                 type="submit"
-                disabled={status === "saving" || status === "done" || !token}
+                disabled={status === "saving" || status === "done" || (!firstLogin && !token)}
                 className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#154d78] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#113e61] focus:outline-none focus:ring-2 focus:ring-[#154d78] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {status === "saving" ? (
@@ -121,7 +146,7 @@ export default function ResetPasswordPage({ token = "" }) {
                 ) : status === "done" ? (
                   "Password updated"
                 ) : (
-                  "Reset password"
+                  firstLogin ? "Set password" : "Reset password"
                 )}
               </button>
             </form>

@@ -10,6 +10,11 @@ export const confirmPasswordReset = (token, password, confirmPassword) =>
     method: "POST",
     body: JSON.stringify({ password, confirmPassword }),
   });
+export const setInitialPassword = (password, confirmPassword) =>
+  apiRequest("/auth/set-password/", {
+    method: "POST",
+    body: JSON.stringify({ password, confirmPassword }),
+  });
 export const createAdminAccount = (data) => apiRequest("/users/", { method: "POST", body: JSON.stringify(data) });
 export const updateAdminAccount = (id, data) => apiRequest(`/users/${id}/`, { method: "PATCH", body: JSON.stringify(data) });
 export const removeAdminAccount = (id) => apiRequest(`/users/${id}/`, { method: "DELETE" });

@@ -27,6 +27,7 @@ import Pagination from "../../components/ui/Pagination";
 import { useToast } from "../../components/ui/ToastProvider";
 
 import { getApprovalRequests, reviewApprovalRequest } from "./api";
+import { getDepartments } from "../departments/api";
 
 import {
   getUsers,
@@ -67,6 +68,7 @@ export default function ApprovalRequestsPage() {
 
   const [requests, setRequests] = useState([]);
   const [admins, setAdmins] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [editingAccount, setEditingAccount] = useState(null);
@@ -97,12 +99,14 @@ export default function ApprovalRequestsPage() {
     Promise.all([
       getApprovalRequests(),
       isSuperAdmin(user) ? getUsers() : Promise.resolve([]),
+      isSuperAdmin(user) ? getDepartments() : Promise.resolve([]),
     ])
-      .then(([requestsData, usersData]) => {
+      .then(([requestsData, usersData, departmentsData]) => {
         if (!isMounted) return;
 
         setRequests(requestsData);
         setAdmins(usersData);
+        setDepartments(departmentsData);
       })
       .catch(() => {
         if (isMounted) toast.error("Couldn't load approval requests. Try refreshing.");
@@ -502,6 +506,7 @@ export default function ApprovalRequestsPage() {
         account={editingAccount}
         onClose={handleCloseAccountForm}
         onSave={handleSaveAccount}
+        departments={departments}
       />}
 
       {/* Admin Details */}

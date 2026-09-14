@@ -59,6 +59,7 @@ class AdminAccount(models.Model):
     department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name="admins")
     departments = models.ManyToManyField(Department, blank=True, related_name="pastorate_admins")
     pastorate = models.ForeignKey(Pastorate, on_delete=models.PROTECT, null=True, blank=True, related_name="admins")
+    must_set_password = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

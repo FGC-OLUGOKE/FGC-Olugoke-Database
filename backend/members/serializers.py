@@ -1,7 +1,10 @@
+import secrets
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.mail import send_mail
+from django.db import transaction
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
@@ -13,15 +16,22 @@ class DepartmentSerializer(serializers.ModelSerializer):
     pastorateId = serializers.PrimaryKeyRelatedField(source="pastorate", queryset=Pastorate.objects.all(), required=False, allow_null=True)
     pastorateName = serializers.CharField(source="pastorate.name", read_only=True)
     departmentAdmin = serializers.SerializerMethodField()
+    pastorateAdmin = serializers.SerializerMethodField()
     class Meta:
         model = Department
-        fields = ("id", "name", "description", "leader", "memberCount", "pastorateId", "pastorateName", "departmentAdmin")
+        fields = ("id", "name", "description", "leader", "memberCount", "pastorateId", "pastorateName", "departmentAdmin", "pastorateAdmin")
 
     def get_memberCount(self, obj):
         return getattr(obj, "member_count", obj.members.count())
 
     def get_departmentAdmin(self, obj):
         account = next((item for item in obj.admins.all() if item.role == AdminAccount.DEPARTMENT_ADMIN), None)
+        if not account:
+            return None
+        return {"id": account.user_id, "name": account.user.get_full_name() or account.user.email, "email": account.user.email}
+
+    def get_pastorateAdmin(self, obj):
+        account = next((item for item in obj.pastorate_admins.all()), None)
         if not account:
             return None
         return {"id": account.user_id, "name": account.user.get_full_name() or account.user.email, "email": account.user.email}
@@ -106,9 +116,10 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     category = serializers.ChoiceField(choices=AdminAccount.CATEGORY_CHOICES, write_only=True, required=False, allow_null=True)
     password = serializers.CharField(source="user.password", write_only=True, required=False, min_length=8)
     role = serializers.ChoiceField(choices=AdminAccount.ROLE_CHOICES, required=False, default=AdminAccount.DEPARTMENT_ADMIN)
+    mustSetPassword = serializers.BooleanField(source="must_set_password", read_only=True)
     class Meta:
         model = AdminAccount
-        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password")
+        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password", "mustSetPassword")
         read_only_fields = ()
 
     def to_internal_value(self, data):
@@ -136,14 +147,14 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     def get_departments(self, obj):
         if obj.role != AdminAccount.PASTORATE:
             return []
-        return [department.name for department in obj.pastorate.departments.all()] if obj.pastorate_id else []
+        return [department.name for department in obj.departments.all()] if obj.pastorate_id else []
 
     def get_pastorate(self, obj):
         return obj.pastorate.name if obj.pastorate_id else None
 
     def get_scope(self, obj):
         if obj.role == AdminAccount.PASTORATE:
-            return [department.name for department in obj.pastorate.departments.all()] if obj.pastorate_id else []
+            return [department.name for department in obj.departments.all()] if obj.pastorate_id else []
         return obj.department.name if obj.department_id else obj.category
     def validate_email(self, value):
         email = value.strip().lower()
@@ -196,6 +207,9 @@ class AdminAccountSerializer(serializers.ModelSerializer):
                 pastorate, _ = Pastorate.objects.get_or_create(name="General Pastorate")
                 Department.objects.filter(pk__in=[department.pk for department in departments], pastorate__isnull=True).update(pastorate=pastorate)
                 attrs["pastorate"] = pastorate
+            else:
+                pastorate, _ = Pastorate.objects.get_or_create(name="General Pastorate")
+                attrs["pastorate"] = pastorate
         pastorate = attrs.get("pastorate", pastorate)
         if role == AdminAccount.PASTORATE and not attrs.get("pastorate"):
             raise serializers.ValidationError({"pastorateId": "A Pastorate Admin must be assigned to one pastorate."})
@@ -204,23 +218,39 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             department_queryset = departments if hasattr(departments, "exclude") else Department.objects.filter(pk__in=[department.pk for department in departments])
             if pastorate and department_queryset.filter(pastorate__isnull=False).exclude(pastorate=pastorate).exists():
                 raise serializers.ValidationError({"departmentIds": "All assigned departments must belong to the selected pastorate."})
+            occupied = AdminAccount.objects.filter(
+                role=AdminAccount.PASTORATE,
+                departments__in=department_queryset,
+            ).exclude(pk=self.instance.pk if self.instance else None)
+            if occupied.exists():
+                raise serializers.ValidationError({"departmentIds": "One or more selected departments are already assigned to another Pastorate Admin."})
         return attrs
+    @transaction.atomic
     def create(self, validated_data):
         user_data = validated_data.pop("user")
         departments = validated_data.pop("departments", [])
         role = validated_data.pop("role", AdminAccount.DEPARTMENT_ADMIN)
         name = self.initial_data.get("name", "").strip()
-        password = user_data.pop("password", None)
+        user_data.pop("password", None)
+        password = secrets.token_urlsafe(18)
         if not name: raise serializers.ValidationError({"name": "Name is required."})
-        if not password: raise serializers.ValidationError({"password": "Password is required."})
         parts = name.split(maxsplit=1); User = get_user_model()
         user = User.objects.create_user(username=user_data["email"], email=user_data["email"], first_name=parts[0], last_name=parts[1] if len(parts) > 1 else "", password=password)
         account = AdminAccount.objects.create(user=user, role=role, **validated_data)
         if role == AdminAccount.PASTORATE:
             if account.pastorate_id:
-                account.departments.set(departments or account.pastorate.departments.all())
+                account.departments.set(departments)
         else:
             account.departments.set([])
+        account.must_set_password = True
+        account.save(update_fields=("must_set_password",))
+        send_mail(
+            "Your FGC Olugoke admin account",
+            f"Your temporary password is:\n\n{password}\n\nUse it to sign in. You will be required to set a new password before accessing the dashboard.",
+            None,
+            [user.email],
+            fail_silently=False,
+        )
         return account
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {}); name = self.initial_data.get("name")

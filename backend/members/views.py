@@ -46,7 +46,7 @@ def assigned_departments(account):
     if account.role == AdminAccount.DEPARTMENT_ADMIN:
         return Department.objects.filter(pk=account.department_id)
     if account.role == AdminAccount.PASTORATE and account.pastorate_id:
-        return account.pastorate.departments.all()
+        return account.departments.filter(pastorate_id=account.pastorate_id)
     return account.departments.all()
 
 def can_manage_department(account, department):
@@ -95,6 +95,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         queryset = Department.objects.select_related("pastorate").prefetch_related(
             "members",
             "admins__user",
+            "pastorate_admins__user",
         ).annotate(member_count=Count("members", distinct=True))
         if account.role == AdminAccount.MANAGING_DEPARTMENTS:
             return queryset
@@ -323,8 +324,8 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         department = Department.objects.filter(pk=department_id).first()
         if not department:
             raise PermissionDenied("Department not found.")
-        if account.role == AdminAccount.PASTORATE and department.pastorate_id != account.pastorate_id:
-            raise PermissionDenied("You may only manage departments in your pastorate.")
+        if account.role == AdminAccount.PASTORATE and not can_manage_department(account, department):
+            raise PermissionDenied("You may only manage departments assigned to you.")
         return department
 
     @action(detail=False, methods=("get",))
@@ -404,18 +405,34 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         role = request.data.get("role")
         department_id = request.data.get("department_id")
         category = request.data.get("category")
-        password = request.data.get("password")
+        pastorate_id = request.data.get("pastorate_id")
+        department_ids = request.data.get("department_ids") or []
+        temporary_password = secrets.token_urlsafe(18)
         
-        if not member_id or not role or not password:
-            return Response({"detail": "member_id, role, and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not member_id or not role:
+            return Response({"detail": "member_id and role are required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             member = Member.objects.get(pk=member_id)
         except Member.DoesNotExist:
             return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not member.email.strip():
+            return Response({"detail": "This member must have an email address before being promoted to an admin."}, status=status.HTTP_400_BAD_REQUEST)
         
         if member.user:
-            return Response({"detail": "This member already has an admin account."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                member.user.admin_account
+            except AdminAccount.DoesNotExist:
+                orphaned_user = member.user
+                orphaned_user.username = f"orphaned-member-{orphaned_user.pk}@deleted.invalid"
+                orphaned_user.email = orphaned_user.username
+                orphaned_user.is_active = False
+                orphaned_user.set_unusable_password()
+                orphaned_user.save(update_fields=("username", "email", "is_active", "password"))
+                member.user = None
+                member.save(update_fields=("user",))
+            else:
+                return Response({"detail": "This member already has an admin account."}, status=status.HTTP_400_BAD_REQUEST)
         
         # Scope validation - only Super Admin can promote members
         account = account_for(request.user)
@@ -424,6 +441,7 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         
         User = get_user_model()
         username = member.email or f"{member.first_name.lower()}.{member.last_name.lower()}@member"
+        password = temporary_password
         
         try:
             user = User.objects.create_user(
@@ -445,11 +463,46 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "Department not found."}, status=status.HTTP_400_BAD_REQUEST)
         elif role == AdminAccount.CATEGORY_ADMIN and category:
             admin_data["category"] = category
+        elif role == AdminAccount.PASTORATE:
+            pastorate = Pastorate.objects.filter(pk=pastorate_id).first()
+            if not pastorate and not department_ids:
+                member_pastorates = Pastorate.objects.filter(
+                    departments__members=member,
+                ).distinct()
+                if member_pastorates.count() == 1:
+                    pastorate = member_pastorates.first()
+            if not pastorate and not department_ids:
+                pastorate = Pastorate.objects.filter(name="General Pastorate").first()
+                if not pastorate:
+                    pastorate = Pastorate.objects.create(name="General Pastorate")
+            if not pastorate:
+                user.delete()
+                return Response({"detail": "A valid pastorate is required."}, status=status.HTTP_400_BAD_REQUEST)
+            departments = Department.objects.filter(pk__in=department_ids, pastorate=pastorate)
+            if departments.count() != len(set(department_ids)):
+                user.delete()
+                return Response({"detail": "Select at least one valid department in the selected pastorate."}, status=status.HTTP_400_BAD_REQUEST)
+            if department_ids and AdminAccount.objects.filter(
+                role=AdminAccount.PASTORATE,
+                departments__in=departments,
+            ).exists():
+                user.delete()
+                return Response({"detail": "One or more selected departments are already assigned to another Pastorate Admin."}, status=status.HTTP_400_BAD_REQUEST)
+            admin_data["pastorate"] = pastorate
         
         try:
-            admin_account = AdminAccount.objects.create(user=user, **admin_data)
+            admin_account = AdminAccount.objects.create(user=user, must_set_password=True, **admin_data)
+            if role == AdminAccount.PASTORATE:
+                admin_account.departments.set(departments)
             member.user = user
             member.save(update_fields=("user",))
+            send_mail(
+                "Your FGC Olugoke admin account",
+                f"Your temporary password is:\n\n{temporary_password}\n\nUse it to sign in. You will be required to set a new password before accessing the dashboard.",
+                None,
+                [user.email],
+                fail_silently=False,
+            )
             log_activity(request.user, f"Promoted {member.first_name} {member.last_name} to {role}")
             return Response(AdminAccountSerializer(admin_account).data, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -751,6 +804,26 @@ def logout(request):
 @api_view(("GET",))
 @permission_classes((IsApplicationAdmin,))
 def me(request): return Response(AdminAccountSerializer(account_for(request.user)).data)
+
+@api_view(("POST",))
+@permission_classes((IsApplicationAdmin,))
+def set_password(request):
+    password = request.data.get("password", "")
+    confirmation = request.data.get("confirmPassword", "")
+    if password != confirmation:
+        return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        validate_password(password, request.user)
+    except Exception as error:
+        return Response({"detail": error.messages}, status=status.HTTP_400_BAD_REQUEST)
+    account = account_for(request.user)
+    if not account.must_set_password:
+        return Response({"detail": "Password setup is not required."}, status=status.HTTP_400_BAD_REQUEST)
+    request.user.set_password(password)
+    request.user.save(update_fields=("password",))
+    account.must_set_password = False
+    account.save(update_fields=("must_set_password",))
+    return Response({"detail": "Password set successfully."})
 
 @api_view(("GET",))
 @permission_classes((IsApplicationAdmin,))

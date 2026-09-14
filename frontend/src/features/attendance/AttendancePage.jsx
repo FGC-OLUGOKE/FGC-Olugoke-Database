@@ -192,7 +192,8 @@ export default function AttendancePage() {
         {/* ------------------------------------------
             ONLY SUPER ADMIN CAN CREATE SESSION
         ------------------------------------------- */}
-        {canRecord && (
+       <div className="hidden md:inline-block">
+         {canRecord && (
           <Button
             type="button"
             className="hidden md:inline-flex sm:w-auto"
@@ -204,7 +205,8 @@ export default function AttendancePage() {
             <ClipboardCheck className="h-4 w-4" />
             Record Attendance
           </Button>
-        )}
+          )}
+       </div>
       </div>
 
       {canRecord && (

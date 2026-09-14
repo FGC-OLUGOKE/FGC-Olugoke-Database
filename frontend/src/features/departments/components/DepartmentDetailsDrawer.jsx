@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -31,6 +30,7 @@ import {
  * Handles department-level management:
  *
  * - View department information
+ * - Edit department name/description
  * - Assign/change department leader
  * - View department members
  * - Add members to department
@@ -50,6 +50,7 @@ export default function DepartmentDetailsDrawer({
   onMembersChanged,
   onDelete,
   onEdit,
+  onEditDetails,
   canManageAdmin = false,
   adminCandidates = [],
   onAppointAdmin,
@@ -265,9 +266,19 @@ export default function DepartmentDetailsDrawer({
                 )} */}
 
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-semibold text-gray-900">
-                    {department.name}
-                  </h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {department.name}
+                    </h3>
+
+                    <button
+                      type="button"
+                      onClick={() => onEditDetails?.(department)}
+                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-[#154d78] transition hover:bg-[#154d78]/10"
+                    >
+                      Edit
+                    </button>
+                  </div>
 
                   <p className="mt-1 text-sm text-gray-500">
                     {department.description ||

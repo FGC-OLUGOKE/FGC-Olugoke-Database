@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Camera, X } from "lucide-react";
+import { Camera, Loader2, X } from "lucide-react";
 import Avatar from "./Avatar";
 
 const MAX_FILE_SIZE_MB = 3;
@@ -23,7 +23,7 @@ const MAX_FILE_SIZE_MB = 3;
  * - value      (string) — current photoUrl, or ""
  * - onChange   (fn)     (dataUrl | "") => void
  */
-export default function PhotoUpload({ firstName, lastName, value, onChange }) {
+export default function PhotoUpload({ firstName, lastName, value, onChange, isLoading = false }) {
   const inputRef = useRef(null);
   const [error, setError] = useState("");
 
@@ -61,17 +61,19 @@ export default function PhotoUpload({ firstName, lastName, value, onChange }) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Camera className="h-3.5 w-3.5" />
-            {value ? "Change Photo" : "Upload Photo"}
+            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            {isLoading ? "Saving..." : value ? "Change Photo" : "Upload Photo"}
           </button>
           {value && (
             <button
               type="button"
               onClick={() => onChange("")}
+              disabled={isLoading}
               aria-label="Remove photo"
-              className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#9e263b]"
+              className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#9e263b] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <X className="h-3.5 w-3.5" />
             </button>

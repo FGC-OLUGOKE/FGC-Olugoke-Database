@@ -4,6 +4,7 @@ import { Bell, Menu, LogOut, User } from "lucide-react";
 import Logo from "../../assets/logo.svg";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 import ConfirmDialog from "../ui/ConfirmDialog";
+import Avatar from "../ui/Avatar";
 import { useAuth } from "../../features/auth/AuthContext";
 import { getNotifications, markNotificationRead } from "../../features/auth/api";
 
@@ -16,6 +17,7 @@ import { getNotifications, markNotificationRead } from "../../features/auth/api"
 
 export default function Navbar({
   adminName = "Administrator",
+  adminPhotoUrl = "",
   adminRole = "Church Admin",
   onMenuClick,
 }) {
@@ -148,7 +150,13 @@ export default function Navbar({
                   className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white ring-1 ring-white/15 transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
                   aria-label="User actions"
                 >
-                  {initials || "A"}
+                  <Avatar
+                    firstName={adminName.split(/\s+/)[0] || ""}
+                    lastName={adminName.split(/\s+/).slice(1).join(" ")}
+                    photoUrl={adminPhotoUrl}
+                    className="h-9 w-9 text-xs"
+                    toneClassName="bg-white/10 text-white"
+                  />
                 </button>
               }
             >

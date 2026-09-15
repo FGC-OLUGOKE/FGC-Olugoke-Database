@@ -35,6 +35,7 @@ export default function Layout() {
     <div className="min-h-screen bg-gray-50">
       <Navbar
         adminName={user?.name}
+        adminPhotoUrl={user?.photoUrl}
         adminRole={getRoleLabel(user)}
         onMenuClick={() => setIsMobileNavOpen(true)}
       />

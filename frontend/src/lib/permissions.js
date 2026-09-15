@@ -123,7 +123,7 @@ export function canPromoteDemoteMembers(user) {
 export function getAllowedNavPaths(user) {
   if (isSuperAdmin(user)) return null;
   if (isCategoryAdmin(user)) return ["dashboard", "members", "attendance", "birthdays", "reports", "approvals"];
-  if (isDepartmentAdmin(user)) return ["dashboard", "members", "birthdays", "reports"];
+  if (isDepartmentAdmin(user)) return ["dashboard", "members", "departments", "birthdays", "reports"];
   if (isManagingDepartments(user)) return ["dashboard", "members", "attendance", "birthdays", "reports"];
   if (isPastorate(user)) return ["dashboard", "members", "departments", "attendance", "birthdays", "reports", "approvals"];
   return ["dashboard"];

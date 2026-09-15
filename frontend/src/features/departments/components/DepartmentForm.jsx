@@ -237,31 +237,31 @@ export default function DepartmentForm({
               <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
                 <div className="mb-4">
                   <h3 className="text-sm font-semibold text-gray-900">
-                    Department Leader
+                    Department Admin
                   </h3>
 
                   <p className="mt-1 text-xs text-gray-500">
-                    Select a member who is already assigned to this
-                    department.
+                    Select the Department Admin from members already assigned
+                    to this department.
                   </p>
                 </div>
 
                 {departmentMembers.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-500">
                     No members are currently assigned to this
-                    department. Add members first, then assign a
-                    leader from the department details.
+                    department. Add members first, then assign a Department
+                    Admin from the department details.
                   </div>
                 ) : (
                   <MemberPicker
-                    label="Leader"
+                    label="Department Admin"
                     members={departmentMembers}
                     value={formData.leader}
                     onChange={(name) =>
                       update("leader", name)
                     }
-                    placeholder="Select a leader"
-                    emptyMessage="No members are available to be selected as leader."
+                    placeholder="Select a Department Admin"
+                    emptyMessage="No members are available to be selected as Department Admin."
                   />
                 )}
               </section>

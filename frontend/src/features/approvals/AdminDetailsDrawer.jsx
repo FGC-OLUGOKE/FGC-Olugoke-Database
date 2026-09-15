@@ -91,9 +91,8 @@ export default function AdminDetailsDrawer({
             <Field
               label="Scope"
               value={
-                Array.isArray(admin.scope)
-                  ? admin.scope.join(", ")
-                  : admin.scope
+                admin.scopeLabel ||
+                (Array.isArray(admin.scope) ? admin.scope.join(", ") : admin.scope)
               }
             />
             <Field label="Status" value={status} />
@@ -111,9 +110,8 @@ export default function AdminDetailsDrawer({
               value={
                 isSuperAdmin
                   ? "Entire Church Database"
-                  : Array.isArray(admin.scope)
-                    ? admin.scope.join(", ")
-                    : admin.scope
+                  : admin.scopeLabel ||
+                    (Array.isArray(admin.scope) ? admin.scope.join(", ") : admin.scope)
               }
             />
           </Section>
@@ -137,12 +135,14 @@ export default function AdminDetailsDrawer({
               label="Last Login"
               value={
                 admin.lastLogin
-                  ? new Date(admin.lastLogin).toLocaleDateString("en-US", {
+                  ? new Date(admin.lastLogin).toLocaleString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
                     })
-                  : null
+                  : "Never"
               }
             />
           </Section>

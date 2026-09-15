@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Search } from "lucide-react";
 
@@ -20,16 +21,21 @@ import {
   deleteDepartment,
 } from "./api";
 
-import { getMembers } from "../members/api";
+import { getMembers, promoteMemberToAdmin } from "../members/api";
 import FloatingActionButton from "../../components/ui/FloatingActionButton";
 import { useAuth } from "../auth/AuthContext";
-import { isPastorate, isSuperAdmin } from "../../lib/permissions";
+import {
+  canManageDepartments,
+  isDepartmentAdmin,
+  isPastorate,
+  isSuperAdmin,
+} from "../../lib/permissions";
 import { getScopedDepartments } from "../../lib/permissions";
-import { getDepartmentAdminCandidates, appointDepartmentAdmin, revokeDepartmentAdmin } from "../auth/api";
 
 export default function DepartmentsPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const [departments, setDepartments] = useState([]);
   const [members, setMembers] = useState([]);
@@ -46,7 +52,6 @@ export default function DepartmentsPage() {
 
   const [departmentPendingDelete, setDepartmentPendingDelete] =
     useState(null);
-  const [adminCandidates, setAdminCandidates] = useState([]);
 
   async function loadDepartmentData() {
     const [departmentsData, membersData] = await Promise.all([
@@ -70,11 +75,18 @@ export default function DepartmentsPage() {
       .then(([departmentsData, membersData]) => {
         if (!isMounted) return;
 
-        setDepartments(
-          Array.isArray(departmentsData) ? departmentsData : [],
-        );
-
+        const nextDepartments = Array.isArray(departmentsData) ? departmentsData : [];
+        setDepartments(nextDepartments);
         setMembers(Array.isArray(membersData) ? membersData : []);
+
+        if (isDepartmentAdmin(user)) {
+          const assignedDepartment = nextDepartments.find(
+            (department) => department.name === user.scope,
+          );
+          if (assignedDepartment) {
+            navigate(`/my-department/${assignedDepartment.id}`, { replace: true });
+          }
+        }
       })
       .catch(() => {
         if (isMounted) {
@@ -92,28 +104,33 @@ export default function DepartmentsPage() {
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate, user]);
 
-  useEffect(() => {
-    if (!isPastorate(user) && !isSuperAdmin(user)) return;
-    getDepartmentAdminCandidates()
-      .then(setAdminCandidates)
-      .catch(() => toast.error("Couldn't load Department Admin candidates."));
-  }, [user]);
-
-  async function handleAppointDepartmentAdmin(departmentId, userId) {
-    const updated = await appointDepartmentAdmin(departmentId, userId);
-    setDepartments((previous) => previous.map((item) => item.id === departmentId ? { ...item, departmentAdmin: updated } : item));
-    setSelectedDepartment((previous) => previous?.id === departmentId ? { ...previous, departmentAdmin: updated } : previous);
-    setAdminCandidates((previous) => previous.filter((candidate) => candidate.id !== userId));
-    toast.success("Department Admin appointed.");
-  }
-
-  async function handleRevokeDepartmentAdmin(departmentId) {
-    await revokeDepartmentAdmin(departmentId);
-    setDepartments((previous) => previous.map((item) => item.id === departmentId ? { ...item, departmentAdmin: null } : item));
-    setSelectedDepartment((previous) => previous?.id === departmentId ? { ...previous, departmentAdmin: null } : previous);
-    toast.success("Department Admin access revoked.");
+  async function handleAppointMemberAsDepartmentAdmin(departmentId, memberId) {
+    try {
+      const updated = await promoteMemberToAdmin({
+        member_id: memberId,
+        role: "department_admin",
+        department_id: departmentId,
+      });
+      setDepartments((previous) =>
+        previous.map((item) =>
+          item.id === departmentId
+            ? { ...item, departmentAdmin: updated }
+            : item,
+        ),
+      );
+      setSelectedDepartment((previous) =>
+        previous?.id === departmentId
+          ? { ...previous, departmentAdmin: updated }
+          : previous,
+      );
+      await loadDepartmentData();
+      toast.success("Department Admin appointed.");
+    } catch (error) {
+      toast.error(error?.message || "Couldn't appoint the Department Admin.");
+      throw error;
+    }
   }
 
   const departmentsWithCounts = useMemo(() => {
@@ -143,6 +160,7 @@ export default function DepartmentsPage() {
   }, [departmentsWithCounts, search]);
 
   function handleAddNew() {
+    if (!canManageDepartments(user)) return;
     setFormDepartment(null);
     setIsFormOpen(true);
   }
@@ -158,6 +176,7 @@ export default function DepartmentsPage() {
   }
 
   function handleEditDepartment(department) {
+    if (!canManageDepartments(user)) return;
     setFormDepartment(department);
     setIsFormOpen(true);
   }
@@ -207,37 +226,6 @@ export default function DepartmentsPage() {
         "Something went wrong saving this department.",
       );
     }
-  }
-
-  async function handleSaveLeader(departmentData) {
-    const updated = await updateDepartment(
-      departmentData.id,
-      {
-        leader: departmentData.leader,
-      },
-    );
-
-    const nextDepartment = {
-      ...departmentData,
-      ...updated,
-      leader: departmentData.leader,
-    };
-
-    setDepartments((previous) =>
-      previous.map((department) =>
-        department.id === departmentData.id
-          ? { ...department, ...nextDepartment }
-          : department,
-      ),
-    );
-
-    setSelectedDepartment((previous) =>
-      previous?.id === departmentData.id
-        ? { ...previous, ...nextDepartment }
-        : previous,
-    );
-
-    return updated;
   }
 
   async function handleMembersChanged() {
@@ -319,7 +307,7 @@ export default function DepartmentsPage() {
           </p>
         </div>
 
-        <div className="hidden md:inline-block">
+        {canManageDepartments(user) && <div className="hidden md:inline-block">
               <Button
                 variant="primary"
                 onClick={handleAddNew}
@@ -327,14 +315,16 @@ export default function DepartmentsPage() {
               >
                 + New Department
               </Button>
-        </div>
+        </div>}
       </div>
 
-      <FloatingActionButton
-        label="New Department"
-        storageKey="departments-create"
-        onClick={handleAddNew}
-      />
+      {canManageDepartments(user) && (
+        <FloatingActionButton
+          label="New Department"
+          storageKey="departments-create"
+          onClick={handleAddNew}
+        />
+      )}
 
       {isLoading ? (
         <LoadingState label="Loading departments..." />
@@ -374,15 +364,12 @@ export default function DepartmentsPage() {
         isOpen={isDetailsOpen}
         onClose={handleCloseDetails}
         onMembersChanged={handleMembersChanged}
-        onEdit={handleSaveLeader}
         onEditDetails={handleEditDepartment}
         canManageAdmin={isPastorate(user) || isSuperAdmin(user)}
-        adminCandidates={adminCandidates}
-        onAppointAdmin={handleAppointDepartmentAdmin}
-        onRevokeAdmin={handleRevokeDepartmentAdmin}
-        onDelete={() =>
-          handleDeleteDepartment(selectedDepartment)
-        }
+        canEditDepartment={canManageDepartments(user)}
+        onAppointMember={handleAppointMemberAsDepartmentAdmin}
+        onViewDepartment={(department) => navigate(`/my-department/${department.id}`)}
+        onDelete={canManageDepartments(user) ? () => handleDeleteDepartment(selectedDepartment) : undefined}
       />
       
       {/* Delete confirmation */}

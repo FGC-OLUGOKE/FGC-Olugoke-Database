@@ -40,6 +40,9 @@ export default function LogsPage() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   useEffect(() => {
     let isMounted = true;
 
@@ -182,6 +185,18 @@ export default function LogsPage() {
     customStartDate,
     customEndDate,
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return logs.slice(start, start + PAGE_SIZE);
+  }, [logs, currentPage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, dateFilter, customStartDate, customEndDate]);
 
   const selectDateFilter = (filter) => {
     setDateFilter(filter);
@@ -417,7 +432,7 @@ export default function LogsPage() {
             <div className="absolute bottom-3 left-[15px] top-3 w-px bg-gray-200" />
 
             <ul className="space-y-1">
-              {logs.map((item, index) => {
+              {paginatedLogs.map((item, index) => {
                 const timestamp = new Date(item.timestamp);
 
                 const formattedDate = timestamp.toLocaleString(
@@ -482,6 +497,38 @@ export default function LogsPage() {
                 );
               })}
             </ul>
+
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between gap-3 text-sm text-gray-600">
+                <p className="whitespace-nowrap">
+                  Page {currentPage} of {totalPages}
+                </p>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      setPage((p) => Math.max(1, p - 1))
+                    }
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() =>
+                      setPage((p) => Math.min(totalPages, p + 1))
+                    }
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </SectionCard>

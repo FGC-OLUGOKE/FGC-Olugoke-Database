@@ -7,7 +7,7 @@ import Avatar from "../../../components/ui/Avatar";
 import EmptyState from "../../../components/ui/EmptyState";
 import MemberCard from "./MemberCard";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 /**
  * MemberList

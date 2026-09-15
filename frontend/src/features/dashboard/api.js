@@ -6,7 +6,7 @@ import { apiRequest } from "../../lib/apiClient";
 export const getMembershipGrowth = () => apiRequest("/membership-growth/");
 export const getRecentActivity = () => apiRequest("/activity-log/");
 
-export async function getDashboardData() {
+export async function getDashboardData({ includeActivity = false } = {}) {
   // Promise.allSettled ensures that if a restricted role gets a 403/401 
   // on specific endpoints, it doesn't crash the entire dashboard load.
   const results = await Promise.allSettled([
@@ -14,7 +14,7 @@ export async function getDashboardData() {
     getDepartments(),
     getMembershipGrowth(),
     // getEvents ? getEvents() : Promise.resolve([]),
-    getRecentActivity(),
+    includeActivity ? getRecentActivity() : Promise.resolve([]),
   ]);
 
   return {

@@ -107,6 +107,7 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     email = serializers.EmailField(source="user.email")
     scope = serializers.SerializerMethodField()
+    scopeLabel = serializers.SerializerMethodField()
     departmentId = serializers.PrimaryKeyRelatedField(source="department", queryset=Department.objects.all(), write_only=True, required=False, allow_null=True)
     departmentIds = serializers.PrimaryKeyRelatedField(source="departments", queryset=Department.objects.all(), many=True, write_only=True, required=False)
     departments = serializers.SerializerMethodField()
@@ -118,9 +119,10 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     mustSetPassword = serializers.BooleanField(source="must_set_password", read_only=True)
     photoUrl = serializers.CharField(source="profile_photo_url", required=False, allow_blank=True)
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    lastLogin = serializers.DateTimeField(source="user.last_login", read_only=True)
     class Meta:
         model = AdminAccount
-        fields = ("id", "name", "email", "role", "scope", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password", "mustSetPassword", "photoUrl", "createdAt")
+        fields = ("id", "name", "email", "role", "scope", "scopeLabel", "departmentId", "departmentIds", "departments", "pastorateId", "pastorate", "category", "password", "mustSetPassword", "photoUrl", "createdAt", "lastLogin")
         read_only_fields = ()
 
     def to_internal_value(self, data):
@@ -156,6 +158,16 @@ class AdminAccountSerializer(serializers.ModelSerializer):
     def get_scope(self, obj):
         if obj.role == AdminAccount.PASTORATE:
             return [department.name for department in obj.departments.all()] if obj.pastorate_id else []
+        return obj.department.name if obj.department_id else obj.category
+
+    def get_scopeLabel(self, obj):
+        if obj.role == AdminAccount.SUPER_ADMIN:
+            return "Entire Church"
+        if obj.role == AdminAccount.MANAGING_DEPARTMENTS:
+            return "All Departments"
+        if obj.role == AdminAccount.PASTORATE:
+            departments = [department.name for department in obj.departments.all()]
+            return ", ".join(departments) if departments else "No departments assigned"
         return obj.department.name if obj.department_id else obj.category
     def validate_email(self, value):
         email = value.strip().lower()

@@ -19,6 +19,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
+import Avatar from "../../components/ui/Avatar";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Drawer from "../../components/ui/Drawer";
 import Input from "../../components/ui/Input";
@@ -473,14 +474,22 @@ export default function ApprovalRequestsPage() {
                     onClick={() => handleOpenAdmin(admin)}
                     className="flex w-full items-center justify-between gap-3 rounded-lg py-3 text-left transition hover:bg-gray-50 focus:outline-none cursor-pointer focus:ring-0 first:pt-3 last:pb-3"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">
-                        {admin.name}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar
+                        firstName={admin.name?.split(/\s+/)[0] || ""}
+                        lastName={admin.name?.split(/\s+/).slice(1).join(" ") || ""}
+                        photoUrl={admin.photoUrl}
+                        className="h-10 w-10 text-sm"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {admin.name}
+                        </p>
 
-                      <p className="truncate text-xs text-gray-500">
-                        {admin.email}
-                      </p>
+                        <p className="truncate text-xs text-gray-500">
+                          {admin.email}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">

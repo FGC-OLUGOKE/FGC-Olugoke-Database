@@ -324,6 +324,7 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
             "appoint_department_admin",
             "revoke_department_admin",
             "department_admin_candidates",
+            "promote_member",
         ):
             return [IsApplicationAdmin(), PastorateAdminOnly()]
         return [SuperAdminOnly()]
@@ -362,13 +363,26 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         if current_account and current_account.role != AdminAccount.DEPARTMENT_ADMIN:
             return Response({"detail": "Only a regular user or current Department Admin can be appointed."}, status=status.HTTP_400_BAD_REQUEST)
         with transaction.atomic():
-            AdminAccount.objects.filter(role=AdminAccount.DEPARTMENT_ADMIN, department=department).exclude(pk=getattr(current_account, "pk", None)).delete()
+            replaced_accounts = list(
+                AdminAccount.objects.select_related("user").filter(
+                    role=AdminAccount.DEPARTMENT_ADMIN,
+                    department=department,
+                ).exclude(pk=getattr(current_account, "pk", None))
+            )
+            for replaced in replaced_accounts:
+                Member.objects.filter(user=replaced.user).update(user=None)
+                replaced.user.is_active = False
+                replaced.user.set_unusable_password()
+                replaced.user.save(update_fields=("is_active", "password"))
+                replaced.delete()
             if current_account:
                 current_account.department = department
                 current_account.save(update_fields=("department",))
                 appointed = current_account
             else:
                 appointed = AdminAccount.objects.create(user=user, role=AdminAccount.DEPARTMENT_ADMIN, department=department)
+        for replaced in replaced_accounts:
+            log_activity(request.user, f"Revoked Department Admin access for {replaced.user.get_full_name() or replaced.user.email} in {department.name}", department)
         log_activity(request.user, f"Appointed {user.get_full_name() or user.email} as Department Admin for {department.name}", department)
         return Response(AdminAccountSerializer(appointed).data)
 
@@ -426,7 +440,20 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
         if not member.email.strip():
             return Response({"detail": "This member must have an email address before being promoted to an admin."}, status=status.HTTP_400_BAD_REQUEST)
-        
+        appointment_department = None
+        account = account_for(request.user)
+        if account.role not in (AdminAccount.SUPER_ADMIN, AdminAccount.PASTORATE):
+            return Response({"detail": "Only Super Admins and Pastorate Admins can promote members to admin."}, status=status.HTTP_403_FORBIDDEN)
+        if account.role == AdminAccount.PASTORATE:
+            if role != AdminAccount.DEPARTMENT_ADMIN or not department_id:
+                return Response({"detail": "Pastorate Admins can only appoint Department Admins."}, status=status.HTTP_403_FORBIDDEN)
+            department = Department.objects.filter(pk=department_id).first()
+            if not department or not can_manage_department(account, department):
+                return Response({"detail": "You may only appoint Department Admins in your pastorate."}, status=status.HTTP_403_FORBIDDEN)
+            if not member.departments.filter(pk=department.pk).exists():
+                return Response({"detail": "The selected member must belong to the department."}, status=status.HTTP_400_BAD_REQUEST)
+            appointment_department = department
+
         if member.user:
             try:
                 member.user.admin_account
@@ -441,11 +468,6 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
                 member.save(update_fields=("user",))
             else:
                 return Response({"detail": "This member already has an admin account."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Scope validation - only Super Admin can promote members
-        account = account_for(request.user)
-        if account.role != AdminAccount.SUPER_ADMIN:
-            return Response({"detail": "Only Super Admin can promote members to admin."}, status=status.HTTP_403_FORBIDDEN)
         
         User = get_user_model()
         username = member.email or f"{member.first_name.lower()}.{member.last_name.lower()}@member"
@@ -466,6 +488,7 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
         if role == AdminAccount.DEPARTMENT_ADMIN and department_id:
             try:
                 admin_data["department"] = Department.objects.get(pk=department_id)
+                appointment_department = admin_data["department"]
             except Department.DoesNotExist:
                 user.delete()
                 return Response({"detail": "Department not found."}, status=status.HTTP_400_BAD_REQUEST)
@@ -499,19 +522,47 @@ class AdminAccountViewSet(viewsets.ModelViewSet):
             admin_data["pastorate"] = pastorate
         
         try:
-            admin_account = AdminAccount.objects.create(user=user, must_set_password=True, **admin_data)
-            if role == AdminAccount.PASTORATE:
-                admin_account.departments.set(departments)
-            member.user = user
-            member.save(update_fields=("user",))
-            send_mail(
-                "Your FGC Olugoke admin account",
-                f"Your temporary password is:\n\n{temporary_password}\n\nUse it to sign in. You will be required to set a new password before accessing the dashboard.",
-                None,
-                [user.email],
-                fail_silently=False,
-            )
-            log_activity(request.user, f"Promoted {member.first_name} {member.last_name} to {role}")
+            with transaction.atomic():
+                replaced_name = None
+                if account.role == AdminAccount.PASTORATE:
+                    previous = AdminAccount.objects.select_related("user").filter(
+                        role=AdminAccount.DEPARTMENT_ADMIN,
+                        department_id=department_id,
+                    ).first()
+                    if previous and previous.user_id != user.id:
+                        replaced_name = previous.user.get_full_name() or previous.user.email
+                        Member.objects.filter(user=previous.user).update(user=None)
+                        previous_user = previous.user
+                        previous.delete()
+                        previous_user.username = f"replaced-admin-{previous_user.pk}"
+                        previous_user.email = f"replaced-admin-{previous_user.pk}@deleted.invalid"
+                        previous_user.is_active = False
+                        previous_user.set_unusable_password()
+                        previous_user.save(update_fields=("username", "email", "is_active", "password"))
+
+                admin_account = AdminAccount.objects.create(
+                    user=user,
+                    must_set_password=True,
+                    profile_photo_url=member.photo_url,
+                    **admin_data,
+                )
+                if role == AdminAccount.PASTORATE:
+                    admin_account.departments.set(departments)
+                member.user = user
+                member.save(update_fields=("user",))
+                send_mail(
+                    "Your FGC Olugoke admin account",
+                    f"Your temporary password is:\n\n{temporary_password}\n\nUse it to sign in. You will be required to set a new password before accessing the dashboard.",
+                    None,
+                    [user.email],
+                    fail_silently=False,
+                )
+            if replaced_name:
+                log_activity(request.user, f"Revoked Department Admin access for {replaced_name} in {appointment_department.name}", appointment_department)
+                log_activity(request.user, f"Replaced Department Admin for {appointment_department.name} with {member.first_name} {member.last_name}", appointment_department)
+            else:
+                log_activity(request.user, f"Appointed {member.first_name} {member.last_name} as Department Admin for {appointment_department.name}" if appointment_department else f"Promoted {member.first_name} {member.last_name} to {role}")
+            log_activity(request.user, f"Created admin account for {member.first_name} {member.last_name}", appointment_department)
             return Response(AdminAccountSerializer(admin_account).data, status=status.HTTP_201_CREATED)
         except Exception as e:
             user.delete()
@@ -750,6 +801,8 @@ def login(request):
         return Response({"detail": "Email and password are required."}, status=status.HTTP_400_BAD_REQUEST)
     user = authenticate(request, username=email, password=password)
     if not user or not account_for(user): return Response({"detail": "Invalid credentials or inactive admin account."}, status=status.HTTP_401_UNAUTHORIZED)
+    user.last_login = timezone.now()
+    user.save(update_fields=("last_login",))
     token, _ = Token.objects.get_or_create(user=user)
     log_activity(user, "Admin logged in")
     return Response({"token": token.key, "user": AdminAccountSerializer(account_for(user)).data})
@@ -843,8 +896,12 @@ def change_password(request):
     current_password = request.data.get("currentPassword", "")
     password = request.data.get("password", "")
     confirmation = request.data.get("confirmPassword", "")
+    if not current_password or not password or not confirmation:
+        return Response({"detail": "All password fields are required."}, status=status.HTTP_400_BAD_REQUEST)
     if not request.user.check_password(current_password):
         return Response({"detail": "The current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+    if request.user.check_password(password):
+        return Response({"detail": "Your new password must be different from your current password."}, status=status.HTTP_400_BAD_REQUEST)
     if password != confirmation:
         return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
     try:

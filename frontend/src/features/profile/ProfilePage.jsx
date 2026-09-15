@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   User,
   Mail,
@@ -31,6 +33,9 @@ import { getRoleLabel } from "../../lib/permissions";
 
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
+  const navigate = useNavigate();
+  const [isPhotoSaving, setIsPhotoSaving] = useState(false);
+  const [photoError, setPhotoError] = useState("");
 
   if (!user) return null;
 
@@ -44,11 +49,19 @@ export default function ProfilePage() {
   const lastName = nameParts.slice(1).join(" ");
 
   const formattedCreatedAt = formatDate(user.createdAt);
-  const formattedLastLogin = formatDate(user.lastLogin);
+  const formattedLastLogin = formatDate(user.lastLogin, true) || "Never";
 
   async function handlePhotoChange(photoUrl) {
-    await changeProfilePhoto(photoUrl);
-    await refresh();
+    setIsPhotoSaving(true);
+    setPhotoError("");
+    try {
+      await changeProfilePhoto(photoUrl);
+      await refresh();
+    } catch (error) {
+      setPhotoError(error.message || "We could not update your profile picture.");
+    } finally {
+      setIsPhotoSaving(false);
+    }
   }
 
   return (
@@ -116,7 +129,9 @@ export default function ProfilePage() {
             lastName={lastName}
             value={user.photoUrl || ""}
             onChange={handlePhotoChange}
+            isLoading={isPhotoSaving}
           />
+          {photoError && <p className="mt-2 text-xs text-[#9e263b]">{photoError}</p>}
         </div>
       </ProfileSection>
 
@@ -160,10 +175,7 @@ export default function ProfilePage() {
         <InfoItem
           label="Scope"
           value={
-            user.scope ||
-            (user.role === "super_admin"
-              ? "Entire Church"
-              : null)
+            user.scopeLabel || formatScope(user.scope)
           }
           icon={Building2}
         />
@@ -214,6 +226,7 @@ export default function ProfilePage() {
           <Button
             variant="secondary"
             type="button"
+            onClick={() => navigate("/change-password")}
             className="w-full shrink-0 sm:w-auto"
           >
             <KeyRound className="h-3.5 w-3.5" />
@@ -293,7 +306,12 @@ function InfoItem({
 /**
  * Safely formats account dates.
  */
-function formatDate(date) {
+function formatScope(scope) {
+  if (Array.isArray(scope)) return scope.join(", ");
+  return scope;
+}
+
+function formatDate(date, includeTime = false) {
   if (!date) return null;
 
   const parsedDate = new Date(date);
@@ -302,9 +320,14 @@ function formatDate(date) {
     return null;
   }
 
-  return parsedDate.toLocaleDateString("en-US", {
+  const options = {
     month: "short",
     day: "numeric",
     year: "numeric",
-  });
+  };
+  if (includeTime) {
+    options.hour = "numeric";
+    options.minute = "2-digit";
+  }
+  return parsedDate.toLocaleString("en-US", options);
 }

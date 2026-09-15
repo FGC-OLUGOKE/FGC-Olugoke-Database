@@ -3,6 +3,7 @@ import { useAuth } from "./features/auth/AuthContext";
 import LoginPage from "./features/auth/LoginPage";
 import ForgotPasswordPage from "./features/auth/ForgotPasswordPage";
 import ResetPasswordPage from "./features/auth/ResetPasswordPage";
+import ChangePasswordPage from "./features/auth/ChangePasswordPage";
 import Layout from "./components/layout/Layout";
 import ComingSoon from "./components/layout/ComingSoon";
 import { NAV_ITEMS } from "./components/layout/navigation";
@@ -15,8 +16,9 @@ import ApprovalRequestsPage from "./features/approvals/ApprovalRequestsPage";
 import AttendancePage from "./features/attendance/AttendancePage";
 import LogsPage from "./features/activity-logs/LogsPage.jsx";
 import ProfilePage from "./features/profile/ProfilePage";
+import MyDepartmentPage from "./features/departments/MyDepartmentPage";
 import { ToastProvider } from "./components/ui/ToastProvider";
-import { isSuperAdmin, isCategoryAdmin, isPastorate } from "./lib/permissions";
+import { isSuperAdmin, isCategoryAdmin, isPastorate, isDepartmentAdmin } from "./lib/permissions";
 
 export default function App() {
   const { user, isLoading } = useAuth();
@@ -67,8 +69,19 @@ export default function App() {
             <Route
               path="departments"
               element={
-                isSuperAdmin(user) || isPastorate(user) ? (
+                isSuperAdmin(user) || isPastorate(user) || isDepartmentAdmin(user) ? (
                   <DepartmentsPage />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+
+            <Route
+              path="my-department/:departmentId?"
+              element={
+                isSuperAdmin(user) || isPastorate(user) || isDepartmentAdmin(user) ? (
+                  <MyDepartmentPage />
                 ) : (
                   <Navigate to="/dashboard" replace />
                 )
@@ -129,6 +142,11 @@ export default function App() {
             <Route
               path="profile"
               element={<ProfilePage />}
+            />
+
+            <Route
+              path="change-password"
+              element={<ChangePasswordPage />}
             />
 
             {NAV_ITEMS.filter(

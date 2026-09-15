@@ -22,6 +22,7 @@ import { useToast } from "../../../components/ui/ToastProvider";
 import {
   assignMemberToDepartment,
   removeMemberFromDepartment,
+  promoteMemberToAdmin,
 } from "../../members/api";
 
 /**
@@ -49,12 +50,11 @@ export default function DepartmentDetailsDrawer({
   onClose,
   onMembersChanged,
   onDelete,
-  onEdit,
   onEditDetails,
   canManageAdmin = false,
-  adminCandidates = [],
-  onAppointAdmin,
-  onRevokeAdmin,
+  canEditDepartment = true,
+  onAppointMember,
+  onViewDepartment,
 }) {
   const toast = useToast();
 
@@ -63,22 +63,19 @@ export default function DepartmentDetailsDrawer({
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [isSavingMembers, setIsSavingMembers] = useState(false);
 
-  const [selectedLeader, setSelectedLeader] = useState("");
-  const [isSavingLeader, setIsSavingLeader] = useState(false);
-
   const [memberPendingRemove, setMemberPendingRemove] = useState(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
-  const [selectedAdminId, setSelectedAdminId] = useState("");
+  const [selectedMemberAdminId, setSelectedMemberAdminId] = useState("");
+  const [isAppointingMember, setIsAppointingMember] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !department) return;
 
-    setSelectedLeader(department.leader || "");
     setIsAddingMembers(false);
     setMemberSearch("");
     setSelectedMembers([]);
     setMemberPendingRemove(null);
-    setSelectedAdminId("");
+    setSelectedMemberAdminId("");
   }, [isOpen, department]);
 
   const departmentMembers = useMemo(() => {
@@ -116,7 +113,9 @@ export default function DepartmentDetailsDrawer({
       });
   }, [members, department, memberSearch]);
 
-  const leaderCandidates = departmentMembers;
+  const departmentAdminCandidates = departmentMembers.filter(
+    (member) => member.email,
+  );
 
   function getMemberName(member) {
     return `${member.title ? `${member.title} ` : ""}${
@@ -191,34 +190,6 @@ export default function DepartmentDetailsDrawer({
     }
   }
 
-  async function handleSaveLeader() {
-    if (!department || isSavingLeader) return;
-
-    if (selectedLeader === (department.leader || "")) {
-      return;
-    }
-
-    setIsSavingLeader(true);
-
-    try {
-      await onEdit?.({
-        ...department,
-        leader: selectedLeader,
-      });
-
-      toast.success(
-        selectedLeader
-          ? `${selectedLeader} is now the leader of ${department.name}.`
-          : `Leader removed from ${department.name}.`,
-      );
-    } catch (error) {
-      console.error(error);
-      toast.error("Couldn't update the department leader.");
-    } finally {
-      setIsSavingLeader(false);
-    }
-  }
-
   if (!department) return null;
 
   return (
@@ -234,36 +205,22 @@ export default function DepartmentDetailsDrawer({
           <div className="space-y-6 px-5 py-5">
             {/* Department overview */}
             <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="flex items-start gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#4a2969]/10">
                   <Building2
                     className="h-6 w-6 text-[#4a2969]"
                     strokeWidth={2}
                   />
                 </div>
-                {/* {canManageAdmin && (
-                  <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
-                    <h4 className="text-sm font-semibold text-gray-900">Department Admin</h4>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {department.departmentAdmin ? `${department.departmentAdmin.name} (${department.departmentAdmin.email})` : "No Department Admin appointed."}
-                    </p>
-                    <div className="mt-3 space-y-2">
-                      <Select
-                        label=""
-                        options={[{ value: "", label: "Select a user" }, ...adminCandidates.map((candidate) => ({ value: String(candidate.id), label: candidate.name }))]}
-                        value={selectedAdminId}
-                        onChange={(event) => setSelectedAdminId(event.target.value)}
-                        aria-label="Select Department Admin"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="primary" disabled={!selectedAdminId} onClick={() => onAppointAdmin?.(department.id, Number(selectedAdminId))}>
-                          {department.departmentAdmin ? "Replace Admin" : "Appoint Admin"}
-                        </Button>
-                        {department.departmentAdmin && <Button variant="danger" onClick={() => onRevokeAdmin?.(department.id)}>Revoke</Button>}
-                      </div>
-                    </div>
-                  </section>
-                )} */}
+                {onViewDepartment && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onViewDepartment(department)}
+                  >
+                    View Department
+                  </Button>
+                )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
@@ -271,13 +228,15 @@ export default function DepartmentDetailsDrawer({
                       {department.name}
                     </h3>
 
-                    <button
-                      type="button"
-                      onClick={() => onEditDetails?.(department)}
-                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-[#154d78] transition hover:bg-[#154d78]/10"
-                    >
-                      Edit
-                    </button>
+                    {canEditDepartment && (
+                      <button
+                        type="button"
+                        onClick={() => onEditDetails?.(department)}
+                        className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-[#154d78] transition hover:bg-[#154d78]/10"
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
 
                   <p className="mt-1 text-sm text-gray-500">
@@ -295,59 +254,65 @@ export default function DepartmentDetailsDrawer({
               </div>
             </section>
 
-            {/* Leader */}
+            {/* Department Admin */}
             <section>
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">
-                    Department Leader
+                    Department Admin
                   </h3>
 
                   <p className="mt-1 text-xs text-gray-500">
-                    The leader must already be a member of this department.
+                    Select a department member with an email address.
                   </p>
                 </div>
 
                 <UserCircle2 className="h-5 w-5 text-[#154d78]" />
               </div>
 
-              {leaderCandidates.length === 0 ? (
+              {canManageAdmin && departmentAdminCandidates.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-200 px-4 py-4 text-sm text-gray-500">
-                  Add members to this department before assigning a leader.
+                  Add a member with an email address before appointing a Department Admin.
                 </div>
-              ) : (
+              ) : canManageAdmin ? (
                 <div className="space-y-3">
                   <Select
-                    value={selectedLeader}
-                    onChange={(event) =>
-                      setSelectedLeader(event.target.value)
-                    }
+                    value={selectedMemberAdminId}
+                    onChange={(event) => setSelectedMemberAdminId(event.target.value)}
                     options={[
-                      {
-                        value: "",
-                        label: "No leader assigned",
-                      },
-                      ...leaderCandidates.map((member) => ({
-                        value: getMemberName(member),
-                        label: getMemberName(member),
+                      { value: "", label: "Select a department member" },
+                      ...departmentAdminCandidates.map((member) => ({
+                        value: String(member.id),
+                        label: `${getMemberName(member)} (${member.email})`,
                       })),
                     ]}
                   />
-
-                  {selectedLeader !== (department.leader || "") && (
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        onClick={handleSaveLeader}
-                        disabled={isSavingLeader}
-                      >
-                        <Check className="h-4 w-4" />
-
-                        {isSavingLeader ? "Saving..." : "Save Leader"}
-                      </Button>
-                    </div>
-                  )}
+                  <Button
+                    type="button"
+                    disabled={!selectedMemberAdminId || isAppointingMember}
+                    onClick={async () => {
+                      setIsAppointingMember(true);
+                      try {
+                        await onAppointMember?.(department.id, Number(selectedMemberAdminId));
+                        setSelectedMemberAdminId("");
+                      } finally {
+                        setIsAppointingMember(false);
+                      }
+                    }}
+                  >
+                    {isAppointingMember
+                      ? "Creating account..."
+                      : department.departmentAdmin
+                        ? "Replace Department Admin"
+                        : "Appoint Department Admin"}
+                  </Button>
                 </div>
+              ) : (
+                <p className="rounded-xl border border-gray-200 px-4 py-4 text-sm text-gray-500">
+                  {department.departmentAdmin
+                    ? `${department.departmentAdmin.name} is the Department Admin.`
+                    : "No Department Admin appointed."}
+                </p>
               )}
             </section>
 
@@ -553,14 +518,16 @@ export default function DepartmentDetailsDrawer({
               Close
             </Button>
 
-            <Button
-              type="button"
-              variant="danger"
-              onClick={() => onDelete?.(department)}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete Department
-            </Button>
+            {canEditDepartment && (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => onDelete?.(department)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Department
+              </Button>
+            )}
           </div>
         </div>
       </Drawer>

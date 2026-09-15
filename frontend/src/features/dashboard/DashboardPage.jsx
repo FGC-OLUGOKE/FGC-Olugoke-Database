@@ -61,7 +61,7 @@ export default function DashboardPage() {
     let isMounted = true;
     setIsLoading(true);
 
-    getDashboardData()
+    getDashboardData({ includeActivity: isSuperAdmin(user) })
       .then((data) => {
         if (!isMounted) return;
         setMembers(data.members);
@@ -241,7 +241,7 @@ export default function DashboardPage() {
         <NeedsAttentionSection alerts={needsAttention} />
       </div>
 
-      <RecentActivitySection activity={activity} />
+      {isSuperAdmin(user) && <RecentActivitySection activity={activity} />}
 
       {canCreateMember(user) && (
         <MemberForm

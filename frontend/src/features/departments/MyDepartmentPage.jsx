@@ -136,13 +136,6 @@ export default function MyDepartmentPage() {
         <MemberStatusSection members={departmentMembers} />
       </div>
 
-      <SectionCard title="Attendance Overview">
-        <AttendanceStats records={departmentAttendance} />
-        {departmentAttendance.length === 0 && (
-          <p className="mt-4 text-center text-sm text-gray-500">No attendance records are available for this department yet.</p>
-        )}
-      </SectionCard>
-
       <SectionCard
         title="Upcoming Birthdays"
         actionLabel="View birthdays"
@@ -172,24 +165,6 @@ export default function MyDepartmentPage() {
 
       <SectionCard title="Department Members">
         <MemberList members={departmentMembers} onView={() => navigate("/members")} />
-      </SectionCard>
-
-      <SectionCard title="Pending Requests">
-        {pendingRequests.length === 0 ? (
-          <p className="py-4 text-center text-sm text-gray-500">No pending requests for your account.</p>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {pendingRequests.map((request) => (
-              <div key={request.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-900">{request.memberName}</p>
-                  <p className="text-xs text-gray-500">{request.type === "delete" ? "Deletion request" : "Profile update request"}</p>
-                </div>
-                <Badge tone="info">Pending</Badge>
-              </div>
-            ))}
-          </div>
-        )}
       </SectionCard>
     </div>
   );

@@ -13,7 +13,7 @@ const TONES = {
   active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   neutral: "bg-gray-100 text-gray-600 ring-gray-500/10",
   inactive: "bg-[#9e263b]/10 text-[#9e263b] ring-[#9e263b]/10",
-  info: "bg-[#4a2969]/10 text-[#4a2969] ring-[#4a2969]/20",
+info: "bg-[#154d78]/12 text-[#154d78] ring-1 ring-[#154d78]/20",
 };
 
 export default function Badge({ children, tone = "neutral" }) {

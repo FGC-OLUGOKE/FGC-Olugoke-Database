@@ -89,11 +89,11 @@ export default function Navbar({
 
             <div className="min-w-0 leading-tight">
               <p className="truncate text-[15px] font-semibold text-white">
-                Foursquare Church
+                FGC Olugoke
               </p>
 
-              <p className="hidden truncate text-xs text-white/60 sm:block">
-                Member Management System
+              <p className="truncate text-xs text-white/60 sm:block">
+                Members Record
               </p>
             </div>
           </div>

@@ -31,16 +31,17 @@ import {
   isSuperAdmin,
 } from "../../lib/permissions";
 import { getScopedDepartments } from "../../lib/permissions";
+import { getCached } from "../../lib/apiClient";
 
 export default function DepartmentsPage() {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
-  const [departments, setDepartments] = useState([]);
-  const [members, setMembers] = useState([]);
+  const [departments, setDepartments] = useState(() => getCached("/departments/") || []);
+  const [members, setMembers] = useState(() => getCached("/members/") || []);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !getCached("/departments/"));
 
   const [search, setSearch] = useState("");
 
@@ -69,7 +70,7 @@ export default function DepartmentsPage() {
   useEffect(() => {
     let isMounted = true;
 
-    setIsLoading(true);
+    setIsLoading(!getCached("/departments/"));
 
     Promise.all([getDepartments(), getMembers()])
       .then(([departmentsData, membersData]) => {

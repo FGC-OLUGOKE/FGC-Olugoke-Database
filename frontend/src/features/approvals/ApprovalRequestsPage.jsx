@@ -38,6 +38,7 @@ import {
 } from "../auth/api";
 
 import { getRoleLabel, isCategoryAdmin, isPastorate, isSuperAdmin } from "../../lib/permissions";
+import { getCached } from "../../lib/apiClient";
 
 import CreateAdminAccountForm from "./CreateAdminAccountForm";
 import AdminDetailsDrawer from "./AdminDetailsDrawer";
@@ -67,10 +68,13 @@ export default function ApprovalRequestsPage() {
   const isAdminConsole = location.pathname === "/admin";
   const showRequests = !isAdminConsole;
 
-  const [requests, setRequests] = useState([]);
-  const [admins, setAdmins] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [requests, setRequests] = useState(() => getCached("/approval-requests/") || []);
+  const [admins, setAdmins] = useState(() => getCached("/users/") || []);
+  const [departments, setDepartments] = useState(() => getCached("/departments/") || []);
+  const [isLoading, setIsLoading] = useState(() => (
+    !getCached("/approval-requests/") ||
+    (isSuperAdmin(user) && (!getCached("/users/") || !getCached("/departments/")))
+  ));
 
   const [editingAccount, setEditingAccount] = useState(null);
   const [isAccountFormOpen, setIsAccountFormOpen] = useState(false);
@@ -96,6 +100,11 @@ export default function ApprovalRequestsPage() {
     }
 
     let isMounted = true;
+
+    setIsLoading(
+      !getCached("/approval-requests/") ||
+      (isSuperAdmin(user) && (!getCached("/users/") || !getCached("/departments/"))),
+    );
 
     Promise.all([
       getApprovalRequests(),
@@ -296,7 +305,11 @@ export default function ApprovalRequestsPage() {
   }
 
   if (isLoading) {
-    return <LoadingState label="Loading requests..." />;
+    return (
+      <LoadingState
+        label={isAdminConsole ? "Loading admin accounts..." : "Loading requests..."}
+      />
+    );
   }
 
   return (
@@ -497,6 +510,7 @@ export default function ApprovalRequestsPage() {
                         tone={
                           isSuperAdminRow ? "info" : "neutral"
                         }
+                        className="max-w-[10rem] truncate md:max-w-none"
                       >
                         {getRoleLabel(admin)}
                       </Badge>

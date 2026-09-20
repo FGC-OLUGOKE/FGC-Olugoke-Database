@@ -16,10 +16,10 @@ const TONES = {
 info: "bg-[#154d78]/12 text-[#154d78] ring-1 ring-[#154d78]/20",
 };
 
-export default function Badge({ children, tone = "neutral" }) {
+export default function Badge({ children, tone = "neutral", className = "" }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[tone]}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[tone]} ${className}`}
     >
       {children}
     </span>

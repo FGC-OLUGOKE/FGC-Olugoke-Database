@@ -199,6 +199,15 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             attrs["pastorate"] = None
         if role == AdminAccount.DEPARTMENT_ADMIN and not department:
             raise serializers.ValidationError({"departmentId": "A Departmental Admin must be assigned to a department."})
+        if role == AdminAccount.DEPARTMENT_ADMIN and department:
+            occupied = AdminAccount.objects.filter(
+                role=AdminAccount.DEPARTMENT_ADMIN,
+                department=department,
+            ).exclude(pk=self.instance.pk if self.instance else None)
+            if occupied.exists():
+                raise serializers.ValidationError(
+                    {"departmentId": "This department already has a Department Admin."}
+                )
         if role == AdminAccount.CATEGORY_ADMIN and not category:
             raise serializers.ValidationError({"category": "A Category Admin must be assigned to a category."})
         if role == AdminAccount.SUPER_ADMIN and (department or category):
@@ -265,13 +274,18 @@ class AdminAccountSerializer(serializers.ModelSerializer):
             fail_silently=False,
         )
         return account
+    @transaction.atomic
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {}); name = self.initial_data.get("name")
         if name is not None:
             parts = name.strip().split(maxsplit=1); instance.user.first_name = parts[0] if parts else ""; instance.user.last_name = parts[1] if len(parts) > 1 else ""
         if "email" in user_data: instance.user.email = instance.user.username = user_data["email"]
         if user_data.get("password"): instance.user.set_password(user_data["password"])
-        instance.user.save(); return super().update(instance, validated_data)
+        instance.user.save()
+        account = super().update(instance, validated_data)
+        if account.role != AdminAccount.PASTORATE:
+            account.departments.clear()
+        return account
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useParams } from "react-router-dom";
-import { ArrowRight, Cake, ClipboardCheck, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Cake, ClipboardCheck, Users } from "lucide-react";
 
 import SectionCard from "../../components/ui/SectionCard";
 import Button from "../../components/ui/Button";
@@ -18,6 +18,8 @@ import MemberList from "../members/components/MemberList";
 import MemberStatusSection from "../dashboard/components/MemberStatusSection";
 import MembershipByCategorySection from "../dashboard/components/MembershipByCategorySection";
 import AttendanceStats from "../attendance/component/AttendanceStats";
+import MemberDetailsDrawer from "../members/components/MemberDetailsDrawer";
+import { getCached } from "../../lib/apiClient";
 import { getNextBirthday } from "../../lib/birthdayUtils";
 import { getScopedDepartments, isDepartmentAdmin, isPastorate, isSuperAdmin } from "../../lib/permissions";
 
@@ -33,11 +35,20 @@ export default function MyDepartmentPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const { departmentId } = useParams();
-  const [department, setDepartment] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [attendance, setAttendance] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedDepartments = getCached("/departments/");
+  const initialDepartments = Array.isArray(cachedDepartments) ? cachedDepartments : [];
+  const [department, setDepartment] = useState(() => {
+    if (departmentId) {
+      return initialDepartments.find((item) => String(item.id) === departmentId) || null;
+    }
+    return initialDepartments.find((item) => item.name === user?.scope) || initialDepartments[0] || null;
+  });
+  const [members, setMembers] = useState(() => getCached("/members/") || []);
+  const [attendance, setAttendance] = useState(() => getCached("/attendance/") || []);
+  const [requests, setRequests] = useState(() => getCached("/approval-requests/") || []);
+  const [isLoading, setIsLoading] = useState(() => !cachedDepartments);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [isMemberDrawerOpen, setIsMemberDrawerOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -79,6 +90,7 @@ export default function MyDepartmentPage() {
     [attendance, department?.name],
   );
   const pendingRequests = requests.filter((request) => request.status === "pending");
+  const canReturnToDepartments = isPastorate(user) || isSuperAdmin(user);
   const upcomingBirthdays = useMemo(
     () =>
       departmentMembers
@@ -106,6 +118,16 @@ export default function MyDepartmentPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          {canReturnToDepartments && (
+            <Button
+              variant="secondary"
+              onClick={() => navigate("/departments")}
+              className="mb-3"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Departments
+            </Button>
+          )}
           <p className="text-sm font-medium text-[#154d78]">My Department</p>
           <h1 className="mt-1 text-2xl font-semibold text-gray-900">{department.name}</h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -164,8 +186,20 @@ export default function MyDepartmentPage() {
       </SectionCard>
 
       <SectionCard title="Department Members">
-        <MemberList members={departmentMembers} onView={() => navigate("/members")} />
+        <MemberList
+          members={departmentMembers}
+          onView={(member) => {
+            setSelectedMember(member);
+            setIsMemberDrawerOpen(true);
+          }}
+        />
       </SectionCard>
+
+      <MemberDetailsDrawer
+        member={selectedMember}
+        isOpen={isMemberDrawerOpen}
+        onClose={() => setIsMemberDrawerOpen(false)}
+      />
     </div>
   );
 }

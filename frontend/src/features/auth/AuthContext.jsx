@@ -1,6 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "./api";
+import { clearGetCache, prefetch } from "../../lib/apiClient";
+import { isSuperAdmin } from "../../lib/permissions";
+
 const AuthContext = createContext(null);
+
+const PREFETCH_PATHS = [
+  "/members/",
+  "/departments/",
+  "/attendance/",
+  "/approval-requests/",
+  "/membership-growth/",
+];
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null); 
   const [isLoading, setIsLoading] = useState(true);
@@ -9,6 +21,14 @@ export function AuthProvider({ children }) {
     try { 
       const current = await getCurrentUser(); 
       setUser(current);
+      if (current) {
+        const paths = isSuperAdmin(current)
+          ? [...PREFETCH_PATHS, "/activity-log/", "/users/"]
+          : PREFETCH_PATHS;
+        prefetch(paths).catch((error) => {
+          console.warn("Background data prefetch failed.", error);
+        });
+      }
     } catch { 
       setUser(null); 
     } finally { 
@@ -22,6 +42,12 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => { 
     const current = await loginRequest(email, password); 
     setUser(current); 
+    const paths = isSuperAdmin(current)
+      ? [...PREFETCH_PATHS, "/activity-log/", "/users/"]
+      : PREFETCH_PATHS;
+    prefetch(paths).catch((error) => {
+      console.warn("Background data prefetch failed.", error);
+    });
     return current;
   }, []);
 
@@ -32,7 +58,8 @@ export function AuthProvider({ children }) {
       // Logging out locally must still work if the token was already revoked
       // or the server cannot be reached.
     } finally {
-      setUser(null); 
+      clearGetCache();
+      setUser(null);
     }
   }, []);
 

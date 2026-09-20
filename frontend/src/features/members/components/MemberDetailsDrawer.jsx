@@ -34,6 +34,13 @@ export default function MemberDetailsDrawer({
 }) {
   if (!member) return null;
 
+  const hasActions =
+    onEdit ||
+    onDelete ||
+    onRemoveFromDepartment ||
+    onPromoteToAdmin ||
+    onDemoteToMember;
+
   const formattedDate = member.dateJoined
     ? new Date(member.dateJoined).toLocaleDateString("en-US", {
         month: "short",
@@ -118,63 +125,64 @@ export default function MemberDetailsDrawer({
           </Section>
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white px-5 py-4">
-          {onEdit && (
-            <Button
-              variant="secondary"
-              onClick={() => onEdit(member)}
-              className="flex-1"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit Member
-            </Button>
-          )}
+        {hasActions && (
+          <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white px-5 py-4">
+            {onEdit && (
+              <Button
+                variant="secondary"
+                onClick={() => onEdit(member)}
+                className="flex-1"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Member
+              </Button>
+            )}
 
-          {onDelete && (
-            <Button
-              variant="danger"
-              onClick={() => onDelete(member)}
-              className="flex-1"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete Member
-            </Button>
-          )}
+            {onDelete && (
+              <Button
+                variant="danger"
+                onClick={() => onDelete(member)}
+                className="flex-1"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete Member
+              </Button>
+            )}
 
-          {onRemoveFromDepartment && (
-            <Button
-              variant="danger"
-              onClick={() => onRemoveFromDepartment(member)}
-              className="flex-1"
-            >
-              <UserMinus className="h-3.5 w-3.5" />
-              Remove from Department
-            </Button>
-          )}
+            {onRemoveFromDepartment && (
+              <Button
+                variant="danger"
+                onClick={() => onRemoveFromDepartment(member)}
+                className="flex-1"
+              >
+                <UserMinus className="h-3.5 w-3.5" />
+                Remove from Department
+              </Button>
+            )}
 
-          {onPromoteToAdmin && (
-            <Button
-              variant="primary"
-              onClick={() => onPromoteToAdmin(member)}
-              className="flex-1"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              Make Admin
-            </Button>
-          )}
+            {onPromoteToAdmin && (
+              <Button
+                variant="primary"
+                onClick={() => onPromoteToAdmin(member)}
+                className="flex-1"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Make Admin
+              </Button>
+            )}
 
-          {onDemoteToMember && (
-            <Button
-              variant="warning"
-              onClick={() => onDemoteToMember(member)}
-              className="flex-1"
-            >
-              <ShieldOff className="h-3.5 w-3.5" />
-              Remove Admin
-            </Button>
-          )}
-        </div>
+            {onDemoteToMember && (
+              <Button
+                variant="warning"
+                onClick={() => onDemoteToMember(member)}
+                className="flex-1"
+              >
+                <ShieldOff className="h-3.5 w-3.5" />
+                Remove Admin
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </Drawer>
   );
@@ -202,4 +210,3 @@ function Field({ label, value }) {
     </div>
   );
 }
-

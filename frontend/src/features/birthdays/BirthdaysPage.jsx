@@ -17,6 +17,7 @@ import MemberDetailsDrawer from "../members/components/MemberDetailsDrawer";
 import MemberForm from "../members/components/MemberForm";
 import { useAuth } from "../auth/AuthContext";
 import { getScopedMembers, canEditMemberDirectly } from "../../lib/permissions";
+import { getCached } from "../../lib/apiClient";
 
 const PAGE_SIZE = 10;
 
@@ -89,8 +90,8 @@ function getChangedFields(original, updated) {
 export default function BirthdaysPage() {
   const toast = useToast();
   const { user } = useAuth();
-  const [members, setMembers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [members, setMembers] = useState(() => getCached("/members/") || []);
+  const [isLoading, setIsLoading] = useState(() => !getCached("/members/"));
 
   const [search, setSearch] = useState("");
   const [timePeriod, setTimePeriod] = useState("All Upcoming");
@@ -113,7 +114,7 @@ export default function BirthdaysPage() {
 
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
+    setIsLoading(!getCached("/members/"));
     getMembers()
       .then((data) => {
         if (isMounted) setMembers(data);

@@ -137,12 +137,23 @@ export default function CreateAdminAccountForm({
   const isCategoryRole = formData.roleLabel === "Category Admin";
   const isReadOnlyRole = formData.roleLabel === "Managing Departments";
   const isPastorateRole = formData.roleLabel === "Pastorate Admin";
+  const isDepartmentRole = formData.roleLabel === "Departmental Admin";
   const availableDepartments = departments.filter(
-    (department) =>
-      !department.pastorateAdmin ||
-      (account?.role === "pastorate" &&
+    (department) => {
+      const isCurrentPastorateDepartment =
+        account?.role === "pastorate" &&
         Array.isArray(account.departments) &&
-        account.departments.includes(department.name)),
+        account.departments.includes(department.name);
+      const isCurrentDepartment =
+        account?.role === "department_admin" &&
+        account?.id === department.departmentAdmin?.id;
+
+      if (isDepartmentRole) {
+        return !department.departmentAdmin || isCurrentDepartment;
+      }
+
+      return !department.pastorateAdmin || isCurrentPastorateDepartment;
+    },
   );
   const scopeOptions = isCategoryRole
     ? FORM_CATEGORIES

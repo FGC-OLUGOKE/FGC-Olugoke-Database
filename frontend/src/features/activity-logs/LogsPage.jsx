@@ -20,6 +20,7 @@ import DropdownMenu, {
 import Drawer from "../../components/ui/Drawer";
 import { useToast } from "../../components/ui/ToastProvider";
 import { getRecentActivity } from "../dashboard/api";
+import { getCached } from "../../lib/apiClient";
 
 const DATE_FILTERS = {
   all: "All time",
@@ -35,8 +36,8 @@ const DATE_FILTERS = {
 export default function LogsPage() {
   const toast = useToast();
 
-  const [activity, setActivity] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [activity, setActivity] = useState(() => getCached("/activity-log/") || []);
+  const [isLoading, setIsLoading] = useState(() => !getCached("/activity-log/"));
 
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
@@ -51,6 +52,7 @@ export default function LogsPage() {
   useEffect(() => {
     let isMounted = true;
 
+    setIsLoading(!getCached("/activity-log/"));
     getRecentActivity()
       .then((data) => {
         if (isMounted) {

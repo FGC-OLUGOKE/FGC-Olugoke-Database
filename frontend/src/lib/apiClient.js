@@ -4,19 +4,28 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 const TOKEN_KEY = "fgcAuthToken";
 const pendingRequests = new Map();
 const cachedGets = new Map();
-const GET_CACHE_TTL = 2000;
+const GET_CACHE_TTL = 5 * 60 * 1000;
 export function getToken() { return window.localStorage.getItem(TOKEN_KEY); }
 export function setToken(token) { window.localStorage.setItem(TOKEN_KEY, token); }
 export function clearToken() { window.localStorage.removeItem(TOKEN_KEY); }
+export function getCached(path) {
+  return cachedGets.get(path)?.data;
+}
+export function clearGetCache() {
+  cachedGets.clear();
+}
+export function prefetch(paths) {
+  return Promise.all(paths.map((path) => apiRequest(path)));
+}
 export async function apiRequest(path, options = {}) {
   const method = (options.method || "GET").toUpperCase();
   const requestKey = `${method}:${path}:${options.body || ""}`;
-  if (method === "GET") {
+  const canReadCache = method === "GET" && options.cache === true;
+  if (canReadCache) {
     const cached = cachedGets.get(path);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
-    if (pendingRequests.has(requestKey)) return pendingRequests.get(requestKey);
   }
-  if (method !== "GET" && pendingRequests.has(requestKey)) {
+  if (pendingRequests.has(requestKey)) {
     return pendingRequests.get(requestKey);
   }
 
@@ -50,7 +59,9 @@ export async function apiRequest(path, options = {}) {
     pendingRequests.delete(requestKey);
     if (method !== "GET") {
       for (const key of cachedGets.keys()) {
-        if (key.split("/")[1] === path.split("/")[1]) cachedGets.delete(key);
+        if (key === path || key.split("/")[1] === path.split("/")[1]) {
+          cachedGets.delete(key);
+        }
       }
     }
   }

@@ -35,7 +35,7 @@ export default function MemberCard({ member, onView }) {
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {member.departments.map((d) => (
-          <Badge key={d} tone="info">
+          <Badge key={d} tone="info" className="max-w-[10rem] truncate md:max-w-none">
             {d}
           </Badge>
         ))}

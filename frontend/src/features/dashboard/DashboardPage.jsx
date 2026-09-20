@@ -24,6 +24,7 @@ import {
   isCategoryAdmin,
   isDepartmentAdmin,
 } from "../../lib/permissions";
+import { getCached } from "../../lib/apiClient";
 
 /**
  * DashboardPage
@@ -48,18 +49,18 @@ import {
 export default function DashboardPage() {
   const toast = useToast();
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [members, setMembers] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [growth, setGrowth] = useState([]);
+  const [isLoading, setIsLoading] = useState(() => !getCached("/members/") || !getCached("/departments/") || !getCached("/membership-growth/"));
+  const [members, setMembers] = useState(() => getCached("/members/") || []);
+  const [departments, setDepartments] = useState(() => getCached("/departments/") || []);
+  const [growth, setGrowth] = useState(() => getCached("/membership-growth/") || []);
   // const [attendance, setAttendance] = useState([]);
   const [events, setEvents] = useState([]);
-  const [activity, setActivity] = useState([]);
+  const [activity, setActivity] = useState(() => getCached("/activity-log/") || []);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
+    setIsLoading(!getCached("/members/") || !getCached("/departments/") || !getCached("/membership-growth/"));
 
     getDashboardData({ includeActivity: isSuperAdmin(user) })
       .then((data) => {

@@ -49,13 +49,14 @@ import {
 
 import { submitApprovalRequest } from "../approvals/api";
 import { getDepartments } from "../departments/api";
+import { getCached } from "../../lib/apiClient";
 
 export default function MembersPage() {
   const toast = useToast();
   const { user } = useAuth();
 
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState(() => getCached("/members/") || []);
+  const [loading, setLoading] = useState(() => !getCached("/members/"));
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -97,7 +98,7 @@ export default function MembersPage() {
 
     async function loadData() {
       try {
-        setLoading(true);
+        setLoading(!getCached("/members/"));
 
         const [membersData, departmentsData] = await Promise.all([
           getMembers(),

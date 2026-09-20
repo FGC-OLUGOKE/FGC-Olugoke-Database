@@ -95,7 +95,9 @@ export default function BirthdayCard({ member, birthday, onView, onEdit }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {member.departments.map((d) => (
-          <Badge key={d} tone="info">{d}</Badge>
+          <Badge key={d} tone="info" className="max-w-[10rem] truncate md:max-w-none">
+            {d}
+          </Badge>
         ))}
         <Badge tone="neutral">{member.category}</Badge>
         <Badge tone={member.status === "Active" ? "active" : "inactive"}>{member.status}</Badge>

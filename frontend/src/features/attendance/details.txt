@@ -1,169 +1,148 @@
-### Sunday School Attendance — Variables & Functions Needed
+# Attendance Frontend - Backend Handoff
 
-* **Sunday School Classes**
+The attendance frontend currently uses localStorage through `attendance/api.js` so the UI works before the backend is connected. The backend developer should replace that storage implementation without changing the page/component contracts below.
 
-  * List of all available Sunday School classes.
-  * Default classes:
+## Pages and navigation
 
-    * CDC 1
-    * CDC 2
-    * CDC 3
-    * Next Gen
-    * Youth Class
-    * Adult Class
-    * Yoruba Class
-  * Custom classes created by admins.
-  * Every newly created class remains available for future attendance sessions.
+- `/attendance` records a new attendance session.
+- `/attendance/sessions` lists saved and draft sessions. It owns edit, submit, and lock actions.
+- `/attendance/history` is read-only. It filters and exports saved records.
+- `/attendance/history/:sessionId` displays one session's details and exports that session.
 
-* **Class Information**
+The shared attendance navigation links these pages.
 
-  * Class ID
-  * Class name
-  * Class description (optional)
-  * Class status — active/inactive
-  * Date created
-  * Assigned attendance recorders
+## Required backend operations
 
-* **Class Members**
+Replace the local functions in `frontend/src/features/attendance/api.js` with API requests:
 
-  * Members assigned to each Sunday School class.
-  * A member can belong to **only one Sunday School class at a time**.
-  * Member's church category does not determine their Sunday School class.
-  * Children remain under their children's church/class structure.
-  * CDC members can graduate:
+- `GET /attendance/sessions/`
+- `GET /attendance/sessions/{id}/`
+- `POST /attendance/sessions/`
+- `PATCH /attendance/sessions/{id}/`
+- `POST /attendance/sessions/{id}/submit/`
 
-    * CDC 1 → CDC 2
-    * CDC 2 → CDC 3
-  * Other classes do not automatically graduate into another class.
+The frontend currently expects these functions:
 
-* **Attendance Session**
+- `getAttendanceHistory()` -> array of sessions
+- `getAttendanceSession(id)` -> one session or null
+- `createAttendanceSession(payload)` -> created session
+- `updateAttendanceSession(id, changes)` -> updated session
+- `submitAttendanceSession(id)` -> submitted/locked session
 
-  * Session ID
-  * Attendance date
-  * Event/service name
-  * List of selected Sunday School classes
-  * Session status
-  * Date the session was created
-  * User who created the session
-  * Whether attendance has started
-  * Whether attendance has been completely submitted
+## Session object
 
-* **Creating a Session**
+Each session should contain:
 
-  * Select existing Sunday School classes to include.
-  * Create a new custom class while creating the session.
-  * Newly created custom classes become available for future sessions.
-  * A class that isn't selected does **not** appear in that session's attendance list.
-  * Assign one or more category admins to each selected class.
-  * A category admin can be assigned to multiple classes.
-  * The same class can be reassigned to another category admin when necessary.
-  * Example:
+```json
+{
+  "id": "attendance-123",
+  "type": "sunday-service",
+  "checkpoint": "pre-sermon",
+  "date": "2026-10-01",
+  "eventName": "Sunday Service - Pre-Sermon",
+  "status": "draft",
+  "attendance": {
+    "member-id-1": "present",
+    "member-id-2": "absent"
+  },
+  "unregisteredAttendees": [
+    { "id": "guest-1", "name": "Guest name", "status": "present" }
+  ],
+  "totals": {
+    "total": 42,
+    "present": 30,
+    "absent": 12
+  },
+  "createdAt": "2026-10-01T09:00:00Z",
+  "updatedAt": "2026-10-01T09:30:00Z",
+  "submittedAt": null,
+  "createdBy": "admin-id"
+}
+```
 
-    * Youth Admin → Youth Class + CDC 3
-    * Adult Admin → Adult Class
-    * Adult Admin can temporarily handle Youth Class if the Youth Admin isn't available.
+Allowed `type` values:
 
-* **Attendance Recorder**
+- `sunday-service`
+- `bible-study`
+- `prayer-meeting`
 
-  * Category admin sees only the Sunday School classes assigned to them.
-  * They can open a class to see its members.
-  * Each member appears with a checkbox.
-  * Checked = present.
-  * Unchecked = absent.
-  * They submit the attendance for that class.
-  * Once submitted, the class attendance is considered completed.
-  * Recorders should be able to see an overview of their assigned classes and submission status.
+Allowed Sunday `checkpoint` values:
 
-* **Admin Attendance Overview**
+- `pre-sermon`
+- `post-sermon`
 
-  * Show all classes included in the current session.
-  * Show assigned recorder for each class.
-  * Show number of members in each class.
-  * Show number present.
-  * Show number absent.
-  * Show submission status:
+Bible Study and Prayer Meeting should use `single` or `null` for checkpoint.
 
-    * Pending
-    * Submitted
-  * Show overall Sunday School attendance totals.
-  * Admin can view the attendance details after submission.
+Allowed status values:
 
-* **Session Rules**
+- `draft`: can be edited and submitted later
+- `saved`: recorded but not locked
+- `submitted`: final and locked
+- `locked`: final and locked; treat the same as submitted
 
-  * A session can contain any combination of existing classes.
-  * Different sessions can contain different classes.
-  * Classes can be reused in multiple sessions.
-  * Members are automatically pulled from their current assigned Sunday School class.
-  * Attendance should represent the members belonging to the class **at the time of the session**.
-  * Changing a member's class later should not alter an already-submitted historical attendance record.
+## Backend rules
 
-* **Editing**
+The backend must enforce these rules even if the frontend already validates them:
 
-  * Admin can modify a session while attendance is still pending.
-  * Admin can change assigned recorders before submission.
-  * Admin can add/remove classes before any class has submitted attendance.
-  * Once attendance has been submitted for a class, that class's submitted record should be protected from accidental changes.
+1. Reject future attendance dates unless an explicit permission allows them.
+2. Reject duplicate sessions for the same type, date, and checkpoint.
+3. When updating an existing session, exclude that same session from duplicate detection.
+4. Reject PATCH requests for `submitted` or `locked` sessions.
+5. Submit must atomically mark the session as submitted/locked.
+6. Preserve historical member attendance even if a member changes category or is deleted later.
+7. Store unregistered attendees only on the attendance session; do not create permanent member records.
+8. Scope visible members and sessions according to the authenticated user's role.
 
-* **Deleting**
+## Members
 
-  * A Sunday School attendance session can be deleted **only when no class has submitted attendance**.
-  * If even one class has submitted attendance, the session cannot be deleted.
-  * The UI should clearly explain why deletion is unavailable.
+The existing member endpoint is currently used by the frontend:
 
-* **Member Assignment**
+- `GET /members/`
 
-  * When creating/editing a member, there should be a Sunday School Class field.
-  * The field should contain all existing classes.
-  * Custom classes should also appear in the list.
-  * A member's Sunday School class is independent of their church category.
-  * Moving a member to another class should affect future sessions, not historical attendance.
+The response must include at least:
 
-* **Useful UI State Variables**
+```json
+{
+  "id": "member-id",
+  "firstName": "Amina",
+  "lastName": "Okello",
+  "category": "Adult"
+}
+```
 
-  * `activeTab`
-  * `selectedClasses`
-  * `classes`
-  * `customClassName`
-  * `sessionDate`
-  * `eventName`
-  * `classAssignments`
-  * `assignedRecorder`
-  * `sessionStatus`
-  * `attendanceRecords`
-  * `submittedClasses`
-  * `pendingClasses`
-  * `selectedClass`
-  * `isCreatingClass`
-  * `isCreatingSession`
-  * `isSaving`
-  * `isDeleting`
-  * `errors`
-  * `showDeleteConfirmation`
+The attendance frontend filters categories using: `Adult`, `Youth`, `Teenager`, and `Children`.
 
-* **Useful UI Functions**
+## History filters
 
-  * `fetchClasses()`
-  * `createClass()`
-  * `updateClass()`
-  * `selectClass()`
-  * `toggleClassSelection()`
-  * `createAttendanceSession()`
-  * `updateAttendanceSession()`
-  * `assignRecorder()`
-  * `removeRecorder()`
-  * `fetchClassMembers()`
-  * `toggleMemberAttendance()`
-  * `submitClassAttendance()`
-  * `fetchSessionOverview()`
-  * `fetchAttendanceHistory()`
-  * `deleteAttendanceSession()`
-  * `canDeleteSession()`
-  * `getAssignedClasses()`
-  * `getClassAttendanceSummary()`
-  * `getSessionStatus()`
+The history UI sends filters locally today. A future API implementation may support query parameters:
 
-* **Important distinction**
+- `type`
+- `checkpoint`
+- `month`
+- `from`
+- `to`
+- `ordering`
 
-  * **Church category:** Adult, Youth, Teenager, Children.
-  * **Sunday School class:** CDC 1, CDC 2, CDC 3, Next Gen, Youth Class, Adult Class, Yoruba Class, or custom classes.
-  * These are **separate systems**. A person's church category should not automatically determine their Sunday School class.
+Sunday checkpoint filtering must remain separate from church category filtering.
+
+## Export
+
+Excel, CSV, and print-to-PDF currently happen in the browser from the loaded session data. No backend export endpoint is required immediately. If server-side exports are later added, preserve the same columns:
+
+- Date
+- Attendance type
+- Sunday checkpoint
+- Status
+- Total
+- Present
+- Absent
+- Attendance rate
+
+## Permissions
+
+The backend remains the final authority. The frontend currently allows attendance access for Super Admin, Category Admin, and Pastorate roles. The backend must independently enforce:
+
+- who can create or edit drafts/saved sessions
+- who can submit and lock sessions
+- who can view church-wide versus scoped attendance
+- who can export attendance data

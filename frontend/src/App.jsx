@@ -14,6 +14,9 @@ import BirthdaysPage from "./features/birthdays/BirthdaysPage";
 import ReportsPage from "./features/reports/ReportsPage";
 import ApprovalRequestsPage from "./features/approvals/ApprovalRequestsPage";
 import AttendancePage from "./features/attendance/AttendancePage";
+import AttendanceHistoryPage from "./features/attendance/AttendanceHistoryPage";
+import AttendanceSessionsPage from "./features/attendance/AttendanceSessionsPage";
+import AttendanceHistoryDetailPage from "./features/attendance/AttendanceHistoryDetailPage";
 import LogsPage from "./features/activity-logs/LogsPage.jsx";
 import ProfilePage from "./features/profile/ProfilePage";
 import MyDepartmentPage from "./features/departments/MyDepartmentPage";
@@ -98,6 +101,39 @@ export default function App() {
               element={
                 isSuperAdmin(user) || isCategoryAdmin(user) || isPastorate(user) ? (
                   <AttendancePage />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+
+            <Route
+              path="attendance/history"
+              element={
+                isSuperAdmin(user) || isCategoryAdmin(user) || isPastorate(user) ? (
+                  <AttendanceHistoryPage />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+
+            <Route
+              path="attendance/sessions"
+              element={
+                isSuperAdmin(user) || isCategoryAdmin(user) || isPastorate(user) ? (
+                  <AttendanceSessionsPage />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+
+            <Route
+              path="attendance/history/:sessionId"
+              element={
+                isSuperAdmin(user) || isCategoryAdmin(user) || isPastorate(user) ? (
+                  <AttendanceHistoryDetailPage />
                 ) : (
                   <Navigate to="/dashboard" replace />
                 )

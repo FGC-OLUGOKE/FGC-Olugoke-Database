@@ -1,313 +1,293 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { useAuth } from "../auth/AuthContext";
-
-import { CalendarDays, ClipboardCheck } from "lucide-react";
-
-import SectionCard from "../../components/ui/SectionCard";
-import Button from "../../components/ui/Button";
-import EmptyState from "../../components/ui/EmptyState";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import LoadingState from "../../components/ui/LoadingState";
-import FloatingActionButton from "../../components/ui/FloatingActionButton";
 import { useToast } from "../../components/ui/ToastProvider";
-
+import { getCached } from "../../lib/apiClient";
+import { getScopedMembers } from "../../lib/permissions";
+import { useAuth } from "../auth/AuthContext";
+import { getMembers } from "../members/api";
 import {
+  createAttendanceSession,
   getAttendanceHistory,
-  recordAttendance,
+  updateAttendanceSession,
 } from "./api";
-
-import {
-  isCategoryAdmin,
-  isSuperAdmin,
-} from "../../lib/permissions";
-
-import AttendanceStats from "./component/AttendanceStats";
-import AttendanceHistory from "./component/AttendanceHistory";
-import AttendanceForm from "./component/AttendanceForm";
+import AttendanceLanding from "./component/AttendanceLanding";
+import AttendanceSessionView from "./component/AttendanceSessionView";
+import { ATTENDANCE_TYPES, FALLBACK_MEMBERS } from "./attendanceConstants";
+import { labelForType, memberName, today } from "./attendanceUtils";
 
 export default function AttendancePage() {
   const toast = useToast();
   const { user } = useAuth();
-
-  const [records, setRecords] = useState([]);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [members, setMembers] = useState(() => getCached("/members/") || FALLBACK_MEMBERS);
+  const [selectedType, setSelectedType] = useState(null);
+  const [checkpoint, setCheckpoint] = useState("pre-sermon");
+  const [date, setDate] = useState(today);
+  const [attendance, setAttendance] = useState({});
+  const [unregistered, setUnregistered] = useState([]);
+  const [newAttendee, setNewAttendee] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isRecordDrawerOpen, setIsRecordDrawerOpen] =
-    useState(false);
-  const [error, setError] = useState("");
+  const [savedSessions, setSavedSessions] = useState([]);
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [sessionStatus, setSessionStatus] = useState("draft");
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const editId = searchParams.get("edit");
+  const editSession = savedSessions.find((item) => String(item.id) === String(editId));
+  const editBlocked = Boolean(
+    editId &&
+      savedSessions.length &&
+      (!editSession || editSession.status === "submitted" || editSession.status === "locked"),
+  );
+  const pageError = editBlocked ? "This attendance session is submitted or unavailable and cannot be edited." : "";
 
-  /*
-   * --------------------------------------------------
-   * PERMISSIONS
-   * --------------------------------------------------
-   *
-   * Only Super Admin can CREATE an attendance session.
-   *
-   * Category admins are scoped to their own category.
-   * They can view attendance related to their category,
-   * but they cannot create a church attendance session.
-   */
-  const canRecord = isSuperAdmin(user);
-
-  const isScopedRecorder = isCategoryAdmin(user);
-
-  const scopedCategoryKey = useMemo(() => {
-    const fieldByCategory = {
-      Adult: "adults",
-      Youth: "youth",
-      Teenager: "teenagers",
-      Children: "children",
-    };
-
-    return fieldByCategory[user?.scope] || null;
-  }, [user]);
-
-  /*
-   * --------------------------------------------------
-   * LOAD ATTENDANCE HISTORY
-   * --------------------------------------------------
-   */
   useEffect(() => {
     let mounted = true;
 
-    setIsLoading(true);
-    setError("");
-
-    getAttendanceHistory()
-      .then((data) => {
-        if (mounted) {
-          setRecords(
-            Array.isArray(data) ? data : [],
-          );
-        }
+    Promise.all([getMembers().catch(() => null), getAttendanceHistory()])
+      .then(([memberData, attendanceSessions]) => {
+        if (!mounted) return;
+        if (Array.isArray(memberData) && memberData.length) setMembers(memberData);
+        if (Array.isArray(attendanceSessions)) setSavedSessions(attendanceSessions);
       })
       .catch(() => {
-        if (mounted) {
-          setError(
-            "Couldn't load attendance records. Try refreshing.",
-          );
-        }
+        if (mounted) toast.error("Attendance history could not be loaded. Local records are still available.");
       })
-      .finally(() => {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      });
+      .finally(() => mounted && setIsLoading(false));
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [toast]);
 
-  /*
-   * --------------------------------------------------
-   * SAVE ATTENDANCE
-   * --------------------------------------------------
-   *
-   * This is only reachable by Super Admin because
-   * category admins cannot open AttendanceForm.
-   */
-  async function handleSaveAttendance(payload) {
-    if (isSaving) return;
-    setIsSaving(true);
-    setError("");
+  useEffect(() => {
+    if (!editId || !savedSessions.length) return;
 
-    try {
-      const saved = await recordAttendance(payload);
+    const session = editSession;
+    if (!session || session.status === "submitted" || session.status === "locked") {
+      return;
+    }
 
-      setRecords((previous) => {
-        return [...previous, saved].sort(
-          (a, b) =>
-            new Date(a.date) - new Date(b.date),
-        );
+    const frame = requestAnimationFrame(() => {
+      setSelectedType(session.type);
+      setCheckpoint(session.checkpoint || "single");
+      setDate(session.date || today());
+      setAttendance(session.attendance || {});
+      setUnregistered(session.unregisteredAttendees || []);
+      setEditingSessionId(session.id);
+      setSessionStatus(session.status || "saved");
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [editId, editSession, savedSessions]);
+
+  const scopedMembers = useMemo(() => getScopedMembers(user, members), [members, user]);
+
+  const visibleMembers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return scopedMembers
+      .filter((member) => !categoryFilter || member.category === categoryFilter)
+      .filter((member) => memberName(member).toLowerCase().includes(query))
+      .sort((a, b) => {
+        if (sortBy === "status") {
+          return (attendance[b.id] || "absent").localeCompare(attendance[a.id] || "absent");
+        }
+        return memberName(a).localeCompare(memberName(b));
       });
+  }, [attendance, categoryFilter, scopedMembers, search, sortBy]);
 
-      setIsRecordDrawerOpen(false);
+  const totals = useMemo(() => {
+    const presentMembers = Object.values(attendance).filter(
+      (status) => status === "present",
+    ).length;
+    return {
+      total: scopedMembers.length + unregistered.length,
+      present: presentMembers + unregistered.length,
+      absent: scopedMembers.length - presentMembers,
+    };
+  }, [attendance, scopedMembers.length, unregistered.length]);
 
-      toast.success(
-        "Attendance recorded successfully.",
-      );
-    } catch (err) {
-      console.error(err);
+  function openType(typeId) {
+    setSelectedType(typeId);
+    setCheckpoint(typeId === "sunday-service" ? "pre-sermon" : "single");
+    setDate(today());
+    setAttendance({});
+    setUnregistered([]);
+    setSearch("");
+    setCategoryFilter("");
+    setEditingSessionId(null);
+    setSessionStatus("draft");
+  }
 
-      toast.error(
-        "Couldn't save attendance. Try again.",
-      );
+  function setMemberStatus(memberId, status) {
+    setAttendance((current) => {
+      const next = { ...current };
+      next[memberId] = status;
+      return next;
+    });
+  }
 
-      throw err;
+  function addUnregistered() {
+    const name = newAttendee.trim();
+    if (!name) return;
+    setUnregistered((current) => [...current, { id: `unregistered-${Date.now()}`, name, status: "present" }]);
+    setNewAttendee("");
+  }
+
+  function requestSaveAttendance() {
+    if (!selectedType || isSaving) return;
+    const selectedDate = new Date(`${date}T00:00:00`);
+    const todayDate = new Date(`${today()}T00:00:00`);
+
+    if (selectedDate > todayDate) {
+      toast.error("Attendance cannot be recorded for a future date.");
+      return;
+    }
+
+    const duplicate = savedSessions.find(
+      (session) =>
+        String(session.id) !== String(editingSessionId || editId) &&
+        session.type === selectedType &&
+        (session.checkpoint || "single") === checkpoint &&
+        session.date === date,
+    );
+
+    if (duplicate) {
+      toast.error("Attendance for this type, date, and checkpoint already exists.");
+      return;
+    }
+
+    setIsConfirmOpen(true);
+  }
+
+  async function saveAttendance() {
+    if (!selectedType || isSaving) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        type: selectedType,
+        checkpoint,
+        date,
+        eventName: labelForType(selectedType, checkpoint),
+        attendance,
+        unregisteredAttendees: unregistered,
+        totals,
+        status: "saved",
+      };
+      const saved = editingSessionId
+        ? await updateAttendanceSession(editingSessionId, payload)
+        : await createAttendanceSession(payload);
+
+      setSavedSessions((current) => {
+        const withoutCurrent = current.filter((item) => String(item.id) !== String(saved.id));
+        return [saved, ...withoutCurrent];
+      });
+      setIsConfirmOpen(false);
+      toast.success("Attendance recorded successfully.");
+      navigate("/attendance/sessions");
+    } catch {
+      toast.error("Attendance could not be saved. Try again.");
     } finally {
       setIsSaving(false);
     }
   }
 
-  /*
-   * --------------------------------------------------
-   * SORT RECORDS
-   * --------------------------------------------------
-   */
-  const sortedRecords = useMemo(
-    () =>
-      [...records].sort(
-        (a, b) =>
-          new Date(b.date) - new Date(a.date),
-      ),
-    [records],
-  );
+  async function saveDraft() {
+    if (!selectedType || isSaving) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        type: selectedType,
+        checkpoint,
+        date,
+        eventName: labelForType(selectedType, checkpoint),
+        attendance,
+        unregisteredAttendees: unregistered,
+        totals,
+        status: "draft",
+      };
+      const saved = editingSessionId
+        ? await updateAttendanceSession(editingSessionId, payload)
+        : await createAttendanceSession(payload);
+      setSavedSessions((current) => [saved, ...current.filter((item) => String(item.id) !== String(saved.id))]);
+      toast.success("Attendance draft saved.");
+      navigate("/attendance/sessions");
+    } catch {
+      toast.error("Attendance draft could not be saved.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
-  /*
-   * --------------------------------------------------
-   * LOADING
-   * --------------------------------------------------
-   */
-  if (isLoading) {
+  if (isLoading) return <LoadingState label="Loading attendance..." />;
+
+  if (!selectedType) {
     return (
-      <LoadingState label="Loading attendance..." />
+      <>
+        <AttendanceLanding
+          attendanceTypes={ATTENDANCE_TYPES}
+          onSelectType={openType}
+        />
+        {pageError && <Feedback>{pageError}</Feedback>}
+      </>
     );
   }
 
+  const type = ATTENDANCE_TYPES.find((item) => item.id === selectedType);
+
   return (
-    <div className="space-y-6">
-      {/* --------------------------------------------
-          PAGE HEADER
-      --------------------------------------------- */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <ClipboardCheck
-              className="h-5 w-5 text-[#154d78]"
-              strokeWidth={2}
-            />
-
-            <h1 className="text-2xl font-semibold text-gray-900">
-              Attendance
-            </h1>
-          </div>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Record and review weekly church service
-            attendance by category.
-          </p>
-        </div>
-
-        {/* ------------------------------------------
-            ONLY SUPER ADMIN CAN CREATE SESSION
-        ------------------------------------------- */}
-       <div className="hidden md:inline-block">
-         {canRecord && (
-          <Button
-            type="button"
-            className="hidden md:inline-flex sm:w-auto"
-            onClick={() => {
-              setError("");
-              setIsRecordDrawerOpen(true);
-            }}
-          >
-            <ClipboardCheck className="h-4 w-4" />
-            Record Attendance
-          </Button>
-          )}
-       </div>
-      </div>
-
-      {canRecord && (
-        <FloatingActionButton
-          label="Record Attendance"
-          storageKey="attendance-create"
-          onClick={() => {
-            setError("");
-            setIsRecordDrawerOpen(true);
-          }}
-        />
-      )}
-
-      {/* --------------------------------------------
-          ERROR
-      --------------------------------------------- */}
-      {error && (
-        <div className="rounded-lg border border-[#9e263b]/20 bg-[#9e263b]/5 px-4 py-3 text-sm text-[#9e263b]">
-          {error}
-        </div>
-      )}
-
-      {/* --------------------------------------------
-          ATTENDANCE STATISTICS
-      --------------------------------------------- */}
-      <AttendanceStats
-        records={records}
-        categoryKey={
-          isScopedRecorder
-            ? scopedCategoryKey
-            : null
-        }
-        categoryLabel={
-          isScopedRecorder
-            ? user?.scope
-            : null
-        }
+    <>
+      <AttendanceSessionView
+        type={type}
+        checkpoint={checkpoint}
+        date={date}
+        onDateChange={setDate}
+        onBack={() => setSelectedType(null)}
+        onCheckpointChange={setCheckpoint}
+        totals={totals}
+        visibleMembers={visibleMembers}
+        attendance={attendance}
+        search={search}
+        onSearchChange={setSearch}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        categoryFilter={categoryFilter}
+        onCategoryFilterChange={setCategoryFilter}
+        onStatusChange={setMemberStatus}
+        newAttendee={newAttendee}
+        onNewAttendeeChange={setNewAttendee}
+        onAddUnregistered={addUnregistered}
+        unregistered={unregistered}
+        onRemoveUnregistered={(id) => setUnregistered((current) => current.filter((attendee) => attendee.id !== id))}
+        onSave={requestSaveAttendance}
+        onSaveDraft={saveDraft}
+        isSaving={isSaving}
+        sessionStatus={sessionStatus}
+        isEditing={Boolean(editingSessionId)}
       />
-
-      {/* --------------------------------------------
-          CATEGORY ADMIN INFORMATION
-      --------------------------------------------- */}
-      {isScopedRecorder && (
-        <SectionCard
-          title={`${user.scope} Attendance`}
-        >
-          <div className="rounded-lg border border-[#154d78]/15 bg-[#154d78]/5 px-4 py-3 text-sm text-gray-600">
-            <p className="font-medium text-gray-900">
-              Category-scoped attendance view
-            </p>
-
-            <p className="mt-1">
-              Attendance figures shown here are
-              limited to your assigned category.
-              You cannot create or configure an
-              attendance session.
-            </p>
-          </div>
-        </SectionCard>
-      )}
-
-      {/* --------------------------------------------
-          ATTENDANCE HISTORY
-      --------------------------------------------- */}
-      <SectionCard title="Attendance History">
-        {sortedRecords.length === 0 ? (
-          <EmptyState
-            icon={CalendarDays}
-            title="No attendance records"
-            description="Attendance records will appear here after the first service attendance is recorded."
-          />
-        ) : (
-          <AttendanceHistory
-            records={sortedRecords}
-            categoryKey={
-              isScopedRecorder
-                ? scopedCategoryKey
-                : null
-            }
-          />
-        )}
-      </SectionCard>
-
-      {/* --------------------------------------------
-          RECORD ATTENDANCE DRAWER
-          
-          IMPORTANT:
-          Category admins cannot even mount/open
-          this form.
-      --------------------------------------------- */}
-      {isSuperAdmin(user) && (
-        <AttendanceForm
-          isOpen={isRecordDrawerOpen}
-          onClose={() =>
-            setIsRecordDrawerOpen(false)
-          }
-          onSave={handleSaveAttendance}
-          user={user}
-          isSaving={isSaving}
-        />
-      )}
-    </div>
+      {pageError && <Feedback>{pageError}</Feedback>}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        title={editingSessionId ? "Save attendance changes?" : "Save attendance session?"}
+        description={`This will save ${totals.present} present and ${totals.absent} absent for ${labelForType(selectedType, checkpoint)} on ${date}.`}
+        confirmLabel="Save session"
+        confirmVariant="primary"
+        loadingLabel="Saving..."
+        isLoading={isSaving}
+        onConfirm={saveAttendance}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
+    </>
   );
+}
+
+function Feedback({ children }) {
+  return <div className="mt-4 rounded-lg border border-[#9e263b]/20 bg-[#9e263b]/5 px-4 py-3 text-sm text-[#9e263b]">{children}</div>;
 }

@@ -1,5 +1,8 @@
 from pathlib import Path
 import os
+from urllib.parse import quote
+
+import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -63,49 +66,18 @@ TEMPLATES = [
 ]
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# Database configuration - supports both SQLite (local) and Supabase (production)
-database_url = os.getenv("DATABASE_URL", "").strip()
-db_host = os.getenv("DB_HOST", "").strip()
-
-if (database_url and not database_url.startswith("#")) or (db_host and not db_host.startswith("#")):
-    # Use individual DB_* variables if available, otherwise parse DATABASE_URL
-    if db_host and not db_host.startswith("#"):
-        DATABASES = {
-            "default": {
-                "ENGINE": "django.db.backends.postgresql",
-                "NAME": os.getenv("DB_NAME", "postgres").strip(),
-                "USER": os.getenv("DB_USER", "postgres").strip(),
-                "PASSWORD": os.getenv("DB_PASSWORD", "").strip(),
-                "HOST": db_host,
-                "PORT": int(os.getenv("DB_PORT", "5432")),
-                "OPTIONS": {
-                    "sslmode": "require",
-                },
-            }
-        }
-    elif database_url and not database_url.startswith("#"):
-        import urllib.parse
-        parsed = urllib.parse.urlparse(database_url)
-        DATABASES = {
-            "default": {
-                "ENGINE": "django.db.backends.postgresql",
-                "NAME": parsed.path.lstrip('/') or "postgres",
-                "USER": parsed.username,
-                "PASSWORD": parsed.password,
-                "HOST": parsed.hostname,
-                "PORT": parsed.port or 5432,
-                "OPTIONS": {
-                    "sslmode": "require",
-                },
-            }
-        }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+# Database configuration
+supabase_password = quote(os.getenv("DB_PASSWORD", "").strip(), safe="")
+DATABASES = {
+    "default": dj_database_url.config(
+        default=(
+            "postgresql://postgres:"
+            f"{supabase_password}@db.uvtysyugvxxhdcsenvne.supabase.co:5432/postgres"
+        ),
+        conn_max_age=600,
+        ssl_require=True,
+    )
+}
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")

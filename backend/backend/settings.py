@@ -74,7 +74,10 @@ DATABASES = {
             "postgresql://postgres:"
             f"{supabase_password}@db.uvtysyugvxxhdcsenvne.supabase.co:5432/postgres"
         ),
-        conn_max_age=600,
+        # The Supabase session pooler has a small per-pool connection limit.
+        # Closing connections after each request prevents Django workers from
+        # exhausting that pool and turning login/database reads into 500s.
+        conn_max_age=int(os.getenv("DB_CONN_MAX_AGE", "0")),
         ssl_require=True,
     )
 }
